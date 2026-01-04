@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@theme {
+  --color-primary: #3B82F6;
+  --color-primary-hover: #2563EB;
+  --color-bg-page: #F9FAFB;
+  --color-card-bg: #FFFFFF;
+  --color-text-main: #111827;
+  --color-text-muted: #6B7280;
+  --color-border-light: #E5E7EB;
+  --font-family-sans: 'Inter', sans-serif;
+}
+
+:root {
+  --primary: var(--color-primary);
+  --primary-hover: var(--color-primary-hover);
+  --bg-page: var(--color-bg-page);
+  --card-bg: var(--color-card-bg);
+  --text-main: var(--color-text-main);
+  --text-muted: var(--color-text-muted);
+  --border-light: var(--color-border-light);
+}
+
+body {
+  font-family: var(--font-family-sans);
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .minimal-card {
+    @apply bg-white rounded-xl border border-gray-100 shadow-sm p-8;
+  }
+
+  @media (min-width: 640px) {
+    .minimal-card {
+      @apply p-10;
+    }
+  }
+
+  .minimal-input {
+    @apply w-full px-4 py-3 rounded-lg border border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all duration-200 outline-none;
+  }
+
+  .minimal-btn {
+    @apply w-full py-3 px-4 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600 focus:ring-4 focus:ring-blue-200 transition-all duration-200 shadow-sm hover:shadow-md;
+  }
+
+  .minimal-label {
+    @apply block text-sm font-medium text-gray-700 mb-1.5;
+  }
+}
