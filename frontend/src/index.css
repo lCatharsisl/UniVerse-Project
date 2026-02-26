@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;900&display=swap");
+
+:root {
+  --uv-primary: #4f46e5; /* Indigo */
+  --uv-accent: #f59e0b;  /* Orange */
+  --uv-black: #111827;
+  --uv-gray: #6b7280;
+  --uv-border: #f3f4f6;
+  --uv-glass: rgba(255, 255, 255, 0.7);
+}
+
+@theme {
+  --color-primary: var(--uv-primary);
+  --color-accent: var(--uv-accent);
+  --color-uv-black: var(--uv-black);
+  --color-uv-gray: var(--uv-gray);
+  --color-uv-border: var(--uv-border);
+  --font-family-sans: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+html {
+  font-size: 14px;
+}
+
+body {
+  @apply bg-white text-uv-black antialiased;
+  font-family: var(--font-family-sans);
+}
+
+/* MARGINAL UI ELEMENTS */
+
+.uv-card {
+  @apply bg-white border border-uv-border shadow-sm transition-all;
+  border-top-left-radius: 2rem;
+  border-bottom-right-radius: 2rem;
+  border-top-right-radius: 0.5rem;
+  border-bottom-left-radius: 0.5rem;
+}
+
+.uv-card-hover {
+  @apply hover:shadow-md hover:border-primary/20 cursor-pointer;
+}
+
+.premium-blur {
+  backdrop-filter: blur(16px);
+  background-color: var(--uv-glass);
+}
+
+.sidebar-link {
+  @apply flex items-center gap-3 px-5 py-3 rounded-tr-3xl rounded-bl-3xl text-lg transition-all hover:bg-primary/5 hover:text-primary w-fit cursor-pointer font-medium;
+}
+
+.active-link {
+  @apply bg-primary text-white font-bold shadow-lg shadow-primary/20;
+}
+
+.uv-button {
+  @apply bg-primary text-white font-black py-3 px-8 rounded-tl-2xl rounded-br-2xl text-lg transition-all hover:brightness-110 shadow-lg shadow-primary/20 active:scale-95;
+}
+
+.modal-backdrop {
+  @apply fixed inset-0 bg-uv-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4;
+}
+
+.modal-content {
+  @apply bg-white rounded-tl-[3rem] rounded-br-[3rem] rounded-tr-xl rounded-bl-xl w-full max-w-xl p-6 shadow-2xl relative overflow-hidden;
+}
+
+/* CUSTOM SCROLLBAR */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d1d5db;
+}
+
+/* SPACE MODE OVERRIDES */
+.space-dimension {
+  --uv-black: #ffffff !important;
+  --uv-gray: #9ca3af !important;
+  --uv-border: rgba(255, 255, 255, 0.1) !important;
+  --uv-glass: rgba(10, 10, 26, 0.8) !important;
+}
+
+.space-dimension body {
+  background-color: #050510 !important;
+  color: #e1e1e6 !important;
+}
+
+.space-dimension .text-uv-black {
+  color: #ffffff !important;
+}
+
+.space-dimension .text-uv-gray {
+  color: #9ca3af !important;
+}
+
+.space-dimension .bg-white {
+  background-color: #0a0a1a !important;
+}
+
+.space-dimension .uv-card {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.05) !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(12px);
+}
+
+.space-dimension .uv-card-hover:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.space-dimension .premium-blur {
+  background-color: rgba(10, 10, 26, 0.7) !important;
+  backdrop-filter: blur(20px) !important;
+}
+
+.space-dimension .sidebar-link:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.space-dimension ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.space-dimension ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.space-dimension input, 
+.space-dimension textarea {
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.03) !important;
+}
+
+.space-dimension input::placeholder,
+.space-dimension textarea::placeholder {
+  color: rgba(255, 255, 255, 0.3) !important;
+}
+
+@layer components {
+  .minimal-card {
+    @apply bg-white rounded-2xl border border-gray-100 shadow-sm p-4;
+  }
+}
