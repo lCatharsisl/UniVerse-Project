@@ -1,7 +1,7 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { AppError } from '../shared/core/errors';
+import { AppError } from './errorHandler.js';
 
 const uploadDir = path.join(process.cwd(), 'uploads');
 
@@ -11,22 +11,22 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 const storage = multer.diskStorage({
-    destination: function (_req, _file, cb) {
+    destination: function (req, file, cb) {
         cb(null, 'uploads/');
     },
-    filename: function (_req, file, cb) {
+    filename: function (req, file, cb) {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
         cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
     },
 });
 
-const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
 
     if (allowedTypes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new AppError('Only image files are allowed!', 400));
+        cb(new AppError(400, 'Only image files are allowed!'));
     }
 };
 
