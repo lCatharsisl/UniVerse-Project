@@ -45,7 +45,7 @@ const RightSidebar: React.FC = () => {
         <div className="grid grid-cols-2 gap-3">
             {/* Free Rooms Widget */}
             <div 
-                onClick={() => navigate('/explore')}
+                onClick={() => navigate('/free-rooms')}
                 className="uv-card p-4 hover:border-primary/30 uv-card-hover group"
             >
                 <div className="w-10 h-10 bg-indigo-50 text-primary rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">

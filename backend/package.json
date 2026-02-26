@@ -4,7 +4,7 @@
   "description": "UniVerse REST API Backend",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "NODE_TLS_REJECT_UNAUTHORIZED=0 tsx watch src/server.ts",
+    "dev": "cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "type-check": "tsc --noEmit"
@@ -37,6 +37,7 @@
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.6",
     "@types/uuid": "^9.0.7",
+    "cross-env": "^10.1.0",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   }
