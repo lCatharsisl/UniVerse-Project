@@ -1,25 +1,32 @@
-import { Pool, PoolClient } from 'pg';
-import env from './env.js';
+import { Pool, PoolClient, QueryResultRow } from 'pg';
+import env from './env';
 
 let pool: Pool | null = null;
 
 export function getPool(): Pool {
   if (!pool) {
-    const config = env.DATABASE_URL
-      ? { connectionString: env.DATABASE_URL }
-      : {
-          host: env.DB_HOST,
-          port: env.DB_PORT,
-          database: env.DB_NAME,
-          user: env.DB_USER,
-          password: env.DB_PASSWORD,
-        };
+    // Parse config - either from DATABASE_URL or individual vars
+    let config: any;
+    if (env.DATABASE_URL) {
+      config = {
+        connectionString: env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },
+      };
+    } else {
+      config = {
+        host: env.DB_HOST,
+        port: env.DB_PORT,
+        database: env.DB_NAME,
+        user: env.DB_USER,
+        password: env.DB_PASSWORD,
+      };
+    }
 
     pool = new Pool({
       ...config,
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 5000,
     });
 
     pool.on('error', (err) => {
@@ -30,16 +37,17 @@ export function getPool(): Pool {
   return pool;
 }
 
-export async function query<T = unknown>(
+export async function query<T extends QueryResultRow = any>(
   text: string,
   params?: unknown[]
 ): Promise<T[]> {
   const pool = getPool();
+  if (!pool) throw new Error('Database pool not initialized');
   const result = await pool.query<T>(text, params);
   return result.rows;
 }
 
-export async function queryOne<T = unknown>(
+export async function queryOne<T extends QueryResultRow = any>(
   text: string,
   params?: unknown[]
 ): Promise<T | null> {

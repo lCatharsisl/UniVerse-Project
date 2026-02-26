@@ -1,4 +1,4 @@
-import { AppError } from '../middleware/errorHandler.js';
+import { AppError } from '../shared/core/errors';
 
 /**
  * Resource not found error (404)

@@ -2,12 +2,10 @@ import express, { Express } from 'express';
 import cors from 'cors';
 import path from 'path';
 import swaggerUi from 'swagger-ui-express';
-import env from './config/env.js';
-import { errorHandler } from './middleware/errorHandler.js';
-import { swaggerSpec } from './config/swagger.js';
-import authRoutes from './routes/auth.js';
-import roomsRoutes from './routes/rooms.js';
-import lostFoundRoutes from './routes/lostFound.js';
+import env from './config/env';
+import { errorHandler } from './middleware/errorHandler';
+import { swaggerSpec } from './config/swagger';
+import { mainRouter } from './shared/presentation/router';
 
 const app: Express = express();
 
@@ -26,14 +24,12 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 }));
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Routes
-app.use('/auth', authRoutes);
-app.use('/rooms', roomsRoutes);
-app.use('/', lostFoundRoutes);
+// Modular Routes
+app.use('/api', mainRouter);
 
 // Error handler (must be last)
 app.use(errorHandler);
@@ -48,14 +44,14 @@ app.listen(PORT, () => {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully...');
-  const { closePool } = await import('./config/db.js');
+  const { closePool } = await import('./config/db');
   await closePool();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   console.log('SIGINT received, shutting down gracefully...');
-  const { closePool } = await import('./config/db.js');
+  const { closePool } = await import('./config/db');
   await closePool();
   process.exit(0);
 });
