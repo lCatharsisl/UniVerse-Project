@@ -1,4 +1,4 @@
-import { Component, type ReactNode, type ErrorInfo } from 'react';
+import React, { Component, ReactNode, ErrorInfo } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -34,7 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="error-content">
             <h1>⚠️ Something went wrong</h1>
             <p>{this.state.error?.message || 'An unexpected error occurred'}</p>
-            {import.meta.env.DEV && this.state.error?.stack && (
+            {process.env.NODE_ENV === 'development' && this.state.error?.stack && (
               <details className="error-details">
                 <summary>Error details</summary>
                 <pre>{this.state.error.stack}</pre>
