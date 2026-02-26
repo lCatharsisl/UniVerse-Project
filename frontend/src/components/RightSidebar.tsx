@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiSearch, FiClock, FiBook, FiCoffee, FiInfo, FiArrowRight } from 'react-icons/fi';
+import { FiSearch, FiClock, FiBook, FiCoffee, FiInfo, FiArrowRight, FiCalendar } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 
@@ -55,6 +55,18 @@ const RightSidebar: React.FC = () => {
                 <p className="text-sm font-bold text-uv-black">Free Rooms</p>
             </div>
 
+            {/* Academic Calendar Widget */}
+            <div 
+                onClick={() => navigate('/academic-calendar')}
+                className="uv-card p-4 hover:border-primary/30 uv-card-hover group"
+            >
+                <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <FiCalendar size={20} />
+                </div>
+                <p className="text-xs font-black uppercase tracking-widest text-uv-gray mb-1">Academic</p>
+                <p className="text-sm font-bold text-uv-black">Academic Calendar</p>
+            </div>
+
             {/* Library Widget */}
             <div className="uv-card p-4 hover:border-primary/30 uv-card-hover group">
                 <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
@@ -66,9 +78,12 @@ const RightSidebar: React.FC = () => {
         </div>
 
         {/* Food Widget */}
-        <div className="uv-card p-5 border-l-4 border-l-accent bg-accent/5">
+        <div 
+            onClick={() => navigate('/food-menu')}
+            className="uv-card p-5 border-l-4 border-l-accent bg-accent/5 hover:border-primary/30 uv-card-hover cursor-pointer group"
+        >
             <div className="flex justify-between items-start mb-2">
-                <div className="w-10 h-10 bg-white text-accent rounded-xl flex items-center justify-center shadow-sm">
+                <div className="w-10 h-10 bg-white text-accent rounded-xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
                     <FiCoffee size={20} />
                 </div>
                 <span className="bg-white/50 backdrop-blur px-2 py-1 rounded-lg text-[10px] font-black uppercase text-accent border border-accent/10">Today's Menu</span>
