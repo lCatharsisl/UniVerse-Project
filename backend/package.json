@@ -4,7 +4,11 @@
   "description": "UniVerse REST API Backend",
   "main": "dist/server.js",
   "scripts": {
+<<<<<<< Updated upstream
     "dev": "tsx watch src/server.ts",
+=======
+    "dev": "cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 tsx watch src/server.ts",
+>>>>>>> Stashed changes
     "build": "tsc",
     "start": "node dist/server.js",
     "type-check": "tsc --noEmit"
@@ -32,6 +36,11 @@
     "@types/pg": "^8.10.9",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.6",
+<<<<<<< Updated upstream
+=======
+    "@types/uuid": "^9.0.7",
+    "cross-env": "^10.1.0",
+>>>>>>> Stashed changes
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   }
