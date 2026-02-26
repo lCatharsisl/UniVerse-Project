@@ -39,7 +39,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             title={isSpace ? "Switch to Ground Mode" : "Switch to Space Mode"}
         >
             {isSpace ? <FiGlobe size={22} /> : <FiCloud size={22} />}
-            <span className="absolute left-16 bg-uv-black text-white text-[10px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            <span className={`absolute left-16 text-[10px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap ${isSpace ? 'bg-white text-uv-black' : 'bg-uv-black text-white'}`}>
                 {isSpace ? 'RESTORE GRAVITY' : 'IGNITE ENGINES'}
             </span>
         </button>
@@ -48,10 +48,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {/* Floating Pulse Toggle */}
       <button 
         onClick={() => setShowPulse(!showPulse)}
-        className="fixed bottom-6 right-6 z-[80] w-14 h-14 bg-uv-black text-white rounded-2xl flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all group border border-white/10"
+        className={`fixed bottom-6 right-6 z-[80] w-14 h-14 rounded-2xl flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all group border border-white/10 ${isSpace ? 'bg-primary text-white' : 'bg-uv-black text-white'}`}
       >
-        <div className={`w-2 h-2 rounded-full mr-1 transition-all ${showPulse ? 'bg-green-500 animate-pulse' : 'bg-uv-gray'}`} />
-        <span className="text-[10px] font-black uppercase tracking-widest hidden group-hover:block ml-1">
+        <div className={`w-2 h-2 rounded-full mr-1 transition-all ${showPulse ? 'bg-green-500 animate-pulse' : isSpace ? 'bg-white/70' : 'bg-uv-gray'}`} />
+        <span className="text-[10px] font-black uppercase tracking-widest hidden group-hover:block ml-1 text-white">
             {showPulse ? 'MUTE_PULSE' : 'SYNC_PULSE'}
         </span>
       </button>
