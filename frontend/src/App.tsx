@@ -4,8 +4,16 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import LostFoundFeed from './pages/LostFoundFeed';
+import SocialFeed from './pages/SocialFeed';
 import CreateItem from './pages/CreateItem';
 import ItemDetail from './pages/ItemDetail';
+import Profile from './pages/Profile';
+import CampusMap from './pages/CampusMap';
+import AcademicCalendar from './pages/AcademicCalendar';
+import FoodMenu from './pages/FoodMenu';
+import FreeRooms from './pages/FreeRooms';
+import MainLayout from './components/MainLayout';
+import { ThemeProvider } from './context/ThemeContext';
 
 const PrivateRoute = ({ children }: { children: React.ReactElement }) => {
   const { user, isLoading } = useAuth();
@@ -27,9 +35,19 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/" element={<Navigate to="/feed" replace />} />
-      <Route path="/feed" element={<PrivateRoute><LostFoundFeed /></PrivateRoute>} />
-      <Route path="/create-item" element={<PrivateRoute><CreateItem /></PrivateRoute>} />
-      <Route path="/item/:type/:id" element={<PrivateRoute><ItemDetail /></PrivateRoute>} />
+      
+      {/* Protected Routes with MainLayout */}
+      <Route path="/feed" element={<PrivateRoute><MainLayout><SocialFeed /></MainLayout></PrivateRoute>} />
+      <Route path="/lost-found" element={<PrivateRoute><MainLayout><LostFoundFeed /></MainLayout></PrivateRoute>} />
+      <Route path="/create-item" element={<PrivateRoute><MainLayout><CreateItem /></MainLayout></PrivateRoute>} />
+      <Route path="/edit-item/:type/:id" element={<PrivateRoute><MainLayout><CreateItem /></MainLayout></PrivateRoute>} />
+      <Route path="/item/:type/:id" element={<PrivateRoute><MainLayout><ItemDetail /></MainLayout></PrivateRoute>} />
+      <Route path="/profile" element={<PrivateRoute><MainLayout><Profile /></MainLayout></PrivateRoute>} />
+      <Route path="/profile/:id" element={<PrivateRoute><MainLayout><Profile /></MainLayout></PrivateRoute>} />
+      <Route path="/campus-map" element={<PrivateRoute><MainLayout><CampusMap /></MainLayout></PrivateRoute>} />
+      <Route path="/academic-calendar" element={<PrivateRoute><MainLayout><AcademicCalendar /></MainLayout></PrivateRoute>} />
+      <Route path="/food-menu" element={<PrivateRoute><MainLayout><FoodMenu /></MainLayout></PrivateRoute>} />
+      <Route path="/free-rooms" element={<PrivateRoute><MainLayout><FreeRooms /></MainLayout></PrivateRoute>} />
     </Routes>
   );
 }
@@ -37,9 +55,11 @@ function AppRoutes() {
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </ThemeProvider>
     </Router>
   );
 }

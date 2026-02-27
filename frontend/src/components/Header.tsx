@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FiHome, FiLogOut, FiUser, FiPlusCircle } from 'react-icons/fi';
+import { FiHome, FiLogOut, FiPlusCircle } from 'react-icons/fi';
 
 const Header = () => {
     const { user, logout } = useAuth();
@@ -35,16 +35,16 @@ const Header = () => {
                                 <FiHome size={16} />
                                 <span className="hidden sm:inline">Feed</span>
                             </Link>
-
+                            
                             <Link
-                                to="/create-item"
-                                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/create-item')
+                                to="/lost-found"
+                                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${(isActive('/lost-found') || isActive('/create-item') || location.pathname.startsWith('/item/'))
                                         ? 'bg-blue-50 text-blue-700'
                                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                     }`}
                             >
                                 <FiPlusCircle size={16} />
-                                <span className="hidden sm:inline">Post Item</span>
+                                <span className="hidden sm:inline">Lost & Found</span>
                             </Link>
                         </nav>
                     )}
@@ -52,12 +52,12 @@ const Header = () => {
                     {/* User Menu */}
                     {user && (
                         <div className="flex items-center gap-4">
-                            <div className="hidden md:flex items-center gap-2 text-sm text-gray-700">
-                                <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500">
-                                    <FiUser size={14} />
+                            <Link to="/profile" className="hidden md:flex items-center gap-2 text-sm text-gray-700 hover:bg-gray-50 p-1.5 pr-3 rounded-full transition-colors border border-transparent hover:border-gray-200">
+                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
+                                    {user.email[0].toUpperCase()}
                                 </div>
                                 <span className="font-medium">{user.email.split('@')[0]}</span>
-                            </div>
+                            </Link>
                             <button
                                 onClick={logout}
                                 className="text-gray-400 hover:text-red-600 transition-colors"
