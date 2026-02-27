@@ -247,6 +247,7 @@ const Profile = () => {
                                 <label className="absolute inset-0 bg-black/40 rounded-tl-[2rem] rounded-br-[2rem] flex items-center justify-center text-white cursor-pointer opacity-0 group-hover/avatar:opacity-100 transition-opacity">
                                     <FiCamera size={24} />
                                     <input type="file" accept="image/*" className="hidden" onChange={handleAvatarFileChange} />
+                                    <input type="file" className="hidden" />
                                 </label>
                             )}
                         </div>

@@ -142,6 +142,8 @@ const FreeRooms: React.FC = () => {
               onChange={(e) => setSelectedDay(e.target.value as DayKey | '')}
               className={`w-full px-4 py-3 text-sm font-bold outline-none rounded-xl focus:ring-2 focus:ring-primary/30 ${
                 isSpace ? 'bg-[#050510] text-white border border-white/20' : 'bg-white text-uv-black border border-uv-border'
+              className={`w-full uv-card px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-primary/30 ${
+                isSpace ? 'bg-white/5 text-white border-white/10' : 'bg-white text-uv-black border-uv-border'
               }`}
             >
               <option value="">Select</option>
@@ -166,6 +168,8 @@ const FreeRooms: React.FC = () => {
               }}
               className={`w-full px-4 py-3 text-sm font-bold outline-none rounded-xl focus:ring-2 focus:ring-primary/30 ${
                 isSpace ? 'bg-[#050510] text-white border border-white/20' : 'bg-white text-uv-black border border-uv-border'
+              className={`w-full uv-card px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-primary/30 ${
+                isSpace ? 'bg-white/5 text-white border-white/10' : 'bg-white text-uv-black border-uv-border'
               }`}
             >
               <option value="">All campus</option>
@@ -187,6 +191,8 @@ const FreeRooms: React.FC = () => {
               onChange={(e) => setSelectedRoom(e.target.value)}
               className={`w-full px-4 py-3 text-sm font-bold outline-none rounded-xl focus:ring-2 focus:ring-primary/30 ${
                 isSpace ? 'bg-[#050510] text-white border border-white/20' : 'bg-white text-uv-black border border-uv-border'
+              className={`w-full uv-card px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-primary/30 ${
+                isSpace ? 'bg-white/5 text-white border-white/10' : 'bg-white text-uv-black border-uv-border'
               }`}
             >
               <option value="">All</option>
@@ -208,6 +214,8 @@ const FreeRooms: React.FC = () => {
               onChange={(e) => setSelectedSlot(e.target.value)}
               className={`w-full px-4 py-3 text-sm font-bold outline-none rounded-xl focus:ring-2 focus:ring-primary/30 ${
                 isSpace ? 'bg-[#050510] text-white border border-white/20' : 'bg-white text-uv-black border border-uv-border'
+              className={`w-full uv-card px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-primary/30 ${
+                isSpace ? 'bg-white/5 text-white border-white/10' : 'bg-white text-uv-black border-uv-border'
               }`}
             >
               <option value="">All day</option>
