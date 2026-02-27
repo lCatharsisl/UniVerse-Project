@@ -24,7 +24,6 @@
     "pg": "^8.11.3",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0",
-    "universe-root": "file:..",
     "uuid": "^9.0.1",
     "winston": "^3.11.0",
     "zod": "^3.22.4"
