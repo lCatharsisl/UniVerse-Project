@@ -42,6 +42,35 @@ const Profile = () => {
     const [openMenu, setOpenMenu] = useState<number | null>(null);
     const [openProfileMenu, setOpenProfileMenu] = useState(false);
 
+    const handleAvatarFileChange = async (e: any) => {
+        const file = e.target?.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('avatar', file);
+
+        try {
+            const response = await api.post('/auth/profile/avatar', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            const newAvatarUrl = response.data.avatarUrl;
+
+            setEditForm((prev) => ({
+                ...prev,
+                avatarUrl: newAvatarUrl,
+            }));
+
+            setProfile((prev: any) => prev ? { ...prev, avatarUrl: newAvatarUrl } : prev);
+            checkAuth();
+        } catch (error) {
+            console.error('Failed to upload avatar', error);
+            alert('Failed to upload avatar. Please try again.');
+        }
+    };
+
     useEffect(() => {
         fetchProfileData();
     }, [targetUserId]);
@@ -217,6 +246,7 @@ const Profile = () => {
                             {isOwnProfile && isEditing && (
                                 <label className="absolute inset-0 bg-black/40 rounded-tl-[2rem] rounded-br-[2rem] flex items-center justify-center text-white cursor-pointer opacity-0 group-hover/avatar:opacity-100 transition-opacity">
                                     <FiCamera size={24} />
+                                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarFileChange} />
                                     <input type="file" className="hidden" />
                                 </label>
                             )}
