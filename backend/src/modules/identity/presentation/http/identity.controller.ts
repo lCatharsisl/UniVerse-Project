@@ -61,4 +61,25 @@ export class IdentityController {
       return res.status(error.status || 500).json({ error: error.message });
     }
   }
+
+  static async uploadAvatar(req: AuthenticatedRequest, res: Response) {
+    try {
+      const file = (req as any).file;
+
+      if (!file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      const avatarUrl = `/uploads/${file.filename}`;
+      const result = await UpdateProfileHandler.execute(req.userId!, { avatarUrl });
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      return res.json({ avatarUrl });
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
 }
