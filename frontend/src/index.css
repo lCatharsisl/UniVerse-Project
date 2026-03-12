@@ -75,6 +75,10 @@ body {
   @apply bg-primary text-white font-bold shadow-lg shadow-primary/20;
 }
 
+.active-link-reported {
+  @apply bg-red-500 text-white font-bold shadow-lg shadow-red-500/20;
+}
+
 .uv-button {
   @apply bg-primary text-white font-black py-2 px-5 rounded-tl-xl rounded-br-xl text-xs transition-all hover:brightness-110 shadow-[0_4px_12px_rgba(79,70,229,0.2)] active:scale-95;
 }

@@ -105,7 +105,8 @@ export class IdentityService {
 
   static async getCurrentUser(userId: number) {
     const user = await queryOne<any>(
-      `SELECT user_id, email, role, is_email_verified, profile_image_url
+      `SELECT user_id, email, role, is_email_verified, profile_image_url,
+              COALESCE(warning_tier, 0) AS warning_tier, COALESCE(is_banned, false) AS is_banned
        FROM users WHERE user_id = $1 AND is_active = true`,
       [userId]
     );
@@ -145,6 +146,8 @@ export class IdentityService {
       role: user.role,
       isEmailVerified: user.is_email_verified,
       profileImageUrl: user.profile_image_url || undefined,
+      warningTier: user.warning_tier ?? 0,
+      isBanned: user.is_banned ?? false,
       profile,
     };
   }
@@ -225,7 +228,9 @@ export class IdentityService {
 
   static async getPublicProfile(userId: number) {
     const user = await queryOne<any>(
-      `SELECT user_id, email, role, created_at FROM users WHERE user_id = $1 AND is_active = true`,
+      `SELECT user_id, email, role, created_at,
+              COALESCE(warning_tier, 0) AS warning_tier, COALESCE(is_banned, false) AS is_banned
+       FROM users WHERE user_id = $1 AND is_active = true`,
       [userId]
     );
 
@@ -262,7 +267,9 @@ export class IdentityService {
       title: profile?.staff_title,
       departmentName: profile?.department_name,
       facultyName: profile?.faculty_name,
-      createdAt: user.created_at
+      createdAt: user.created_at,
+      warningTier: user.warning_tier ?? 0,
+      isBanned: user.is_banned ?? false,
     };
   }
 }

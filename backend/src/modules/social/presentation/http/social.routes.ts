@@ -5,6 +5,16 @@ import { upload } from '../../../../middleware/upload';
 
 const router = Router();
 
+// Health check (no auth) - open /api/social/health to verify proxy + backend
+router.get('/health', (_req, res) => res.json({ ok: true, service: 'social' }));
+
+// Report routes first (exact path match to avoid 404)
+router.post('/posts/:id/report', authenticateSession, SocialController.reportPost);
+router.delete('/posts/:id/report', authenticateSession, SocialController.removeReportPost);
+router.post('/users/:id/report', authenticateSession, SocialController.reportUser);
+router.delete('/users/:id/report', authenticateSession, SocialController.removeReportUser);
+router.get('/users/:id/my-report', authenticateSession, SocialController.getMyUserReport);
+
 // Existing comments routes
 router.post('/comments', authenticateSession, SocialController.addComment);
 router.get('/comments/:itemType/:itemId', authenticateSession, SocialController.getComments);
@@ -29,5 +39,16 @@ router.post('/users/:id/follow', authenticateSession, SocialController.toggleFol
 router.get('/users/:id/stats', authenticateSession, SocialController.getFollowStats);
 router.get('/users/:id/followers', authenticateSession, SocialController.getFollowers);
 router.get('/users/:id/following', authenticateSession, SocialController.getFollowing);
+
+// Reported content & reporters (academic only)
+router.get('/reported/posts', authenticateSession, SocialController.getReportedPosts);
+router.get('/reported/users', authenticateSession, SocialController.getReportedUsers);
+router.get('/posts/:id/reporters', authenticateSession, SocialController.getPostReporters);
+router.get('/users/:id/reporters', authenticateSession, SocialController.getUserReporters);
+router.get('/posts/:id/report-count', authenticateSession, SocialController.getPostReportCount);
+
+// Warnings (academic only)
+router.post('/users/:id/warning', authenticateSession, SocialController.addWarning);
+router.patch('/users/:id/warning', authenticateSession, SocialController.updateUserWarning);
 
 export { router as socialRouter };

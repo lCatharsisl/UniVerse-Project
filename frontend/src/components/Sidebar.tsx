@@ -10,9 +10,10 @@ import {
   FiMap, 
   FiUser, 
   FiPlus,
-  FiLogOut
+  FiLogOut,
+  FiAlertTriangle
 } from 'react-icons/fi';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, isAcademic } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
 interface SidebarProps {
@@ -38,15 +39,17 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const menuItems = [
+  const baseMenuItems = [
     { icon: <FiHome />, label: 'Hub', path: '/feed' },
     { icon: <FiBox />, label: 'Lost & Found', path: '/lost-found' },
     { icon: <FiSearch />, label: 'Discover', path: '/explore' },
     { icon: <FiBell />, label: 'Alerts', path: '/notifications' },
     { icon: <FiMessageSquare />, label: 'Chats', path: '/messages' },
     { icon: <FiMap />, label: 'Campus Map', path: '/campus-map' },
+    ...(isAcademic(user?.role || '') ? [{ icon: <FiAlertTriangle />, label: 'Reported', path: '/reported', red: true }] : []),
     { icon: <FiUser />, label: 'My Space', path: '/profile' },
   ];
+  const menuItems = baseMenuItems as { icon: React.ReactNode; label: string; path: string; red?: boolean }[];
 
   return (
     <div className="flex flex-col h-screen h-svh sticky top-0 p-4">
@@ -70,7 +73,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
           <NavLink
             key={item.label}
             to={item.path}
-            className={({ isActive }) => `sidebar-link ${isActive ? 'active-link' : isSpace ? 'text-[#e1e1e6]/70 hover:text-white' : 'text-uv-gray'}`}
+            className={({ isActive }) => {
+              const active = isActive && (item as any).red ? 'active-link-reported' : isActive ? 'active-link' : '';
+              const inactiveStyle = (item as any).red
+                ? 'text-red-500 hover:text-red-400'
+                : isSpace ? 'text-[#e1e1e6]/70 hover:text-white' : 'text-uv-gray';
+              return `sidebar-link ${active ? active : inactiveStyle}`;
+            }}
           >
             <span className="text-2xl">{item.icon}</span>
             <span className="hidden xl:inline font-bold">{item.label}</span>

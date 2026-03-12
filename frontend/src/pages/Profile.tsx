@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, isAcademic } from '../context/AuthContext';
 import { 
   FiHeart, FiRepeat, FiMessageCircle, FiArrowLeft, FiCalendar,
   FiMapPin, FiLink, FiEdit, FiCamera, FiUserPlus, FiUserCheck,
@@ -117,9 +117,44 @@ const Profile = () => {
   const [coverPreview, setCoverPreview] = useState<string>('');
   const [followModal, setFollowModal] = useState<'followers' | 'following' | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [warningPanel, setWarningPanel] = useState(false);
+  const [warningManageOpen, setWarningManageOpen] = useState(false);
+  const [reportUserOpen, setReportUserOpen] = useState(false);
+  const [reportSuccessMessage, setReportSuccessMessage] = useState<string | null>(null);
+  const [userReportStatus, setUserReportStatus] = useState<{ has_reported: boolean; my_report_type: string | null }>({ has_reported: false, my_report_type: null });
+
+  const isStaff = currentUser && isAcademic(currentUser.role);
+
+  useEffect(() => {
+    if (!reportSuccessMessage) return;
+    const t = setTimeout(() => setReportSuccessMessage(null), 3000);
+    return () => clearTimeout(t);
+  }, [reportSuccessMessage]);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const warningManageRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const closeProfileMenu = () => {
+      setOpenProfileMenu(false);
+      setReportUserOpen(false);
+      setWarningPanel(false);
+    };
+    const handleClickOutside = (e: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        closeProfileMenu();
+      }
+      if (warningManageRef.current && !warningManageRef.current.contains(e.target as Node)) {
+        setWarningManageOpen(false);
+      }
+    };
+    if (openProfileMenu || warningManageOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [openProfileMenu, warningManageOpen]);
 
   useEffect(() => { fetchProfileData(); }, [targetUserId]);
   useEffect(() => {
@@ -131,13 +166,19 @@ const Profile = () => {
     if (!targetUserId) { setLoading(false); return; }
     setLoading(true);
     try {
-      const [profileRes, statsRes] = await Promise.all([
+      const requests: Promise<any>[] = [
         api.get(`/auth/profile/${targetUserId}`),
         api.get(`/social/users/${targetUserId}/stats`)
-      ]);
+      ];
+      if (!isOwnProfile) requests.push(api.get(`/social/users/${targetUserId}/my-report`));
+      const results = await Promise.all(requests);
+      const profileRes = results[0];
+      const statsRes = results[1];
       setProfile(profileRes.data);
       setStats(statsRes.data);
       setIsFollowing(statsRes.data.isFollowing || false);
+      if (isOwnProfile) setUserReportStatus({ has_reported: false, my_report_type: null });
+      else if (results[2]) setUserReportStatus(results[2].data);
       if (isOwnProfile) {
         setEditForm({
           name: profileRes.data.name || '',
@@ -230,6 +271,60 @@ const Profile = () => {
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 
+  const REPORT_TYPES = ['spam', 'harassment', 'inappropriate', 'other'] as const;
+  const handleReportUser = async (reportType: string) => {
+    try {
+      await api.post(`/social/users/${targetUserId}/report`, { reportType });
+      setReportUserOpen(false);
+      setOpenProfileMenu(false);
+      setReportSuccessMessage('Report submitted successfully.');
+      setUserReportStatus({ has_reported: true, my_report_type: reportType });
+    } catch (err) {
+      alert('Failed to submit report');
+    }
+  };
+
+  const handleRemoveReportUser = async () => {
+    try {
+      await api.delete(`/social/users/${targetUserId}/report`);
+      setReportUserOpen(false);
+      setOpenProfileMenu(false);
+      setReportSuccessMessage('Report removed.');
+      setUserReportStatus({ has_reported: false, my_report_type: null });
+    } catch (err: any) {
+      alert((err?.response?.data?.error as string) || 'Failed to remove report');
+    }
+  };
+
+  const handleGiveWarning = async (tier: 1 | 2 | 3 | 4) => {
+    if (tier === 4 && !window.confirm('Are you sure you want to ban this user?')) return;
+    try {
+      await api.post(`/social/users/${targetUserId}/warning`, { tier });
+      setWarningPanel(false);
+      setOpenProfileMenu(false);
+      fetchProfileData();
+    } catch (err) {
+      alert('Failed to apply warning');
+    }
+  };
+
+  const handleWarningAction = async (action: string, tier?: number) => {
+    const confirmMsg = action === 'remove_warning' ? 'Are you sure you want to remove the warning?' :
+      action === 'ban' ? 'Are you sure you want to ban this user?' :
+      action === 'unban' ? 'Are you sure you want to remove the ban?' : null;
+    if (confirmMsg && !window.confirm(confirmMsg)) return;
+    try {
+      if (action === 'remove_warning') await api.patch(`/social/users/${targetUserId}/warning`, { action: 'remove_warning' });
+      else if (action === 'set_tier' && tier !== undefined) await api.patch(`/social/users/${targetUserId}/warning`, { action: 'set_tier', tier });
+      else if (action === 'ban') await api.patch(`/social/users/${targetUserId}/warning`, { action: 'ban' });
+      else if (action === 'unban') await api.patch(`/social/users/${targetUserId}/warning`, { action: 'unban' });
+      setWarningManageOpen(false);
+      fetchProfileData();
+    } catch (err) {
+      alert('Failed to update');
+    }
+  };
+
   const handleDeletePost = async (postId: number) => {
     if (!window.confirm('Bu gönderiyi silmek istediğine emin misin?')) return;
     try {
@@ -258,6 +353,13 @@ const Profile = () => {
 
   return (
     <div className={`flex flex-col min-h-screen ${isSpace ? 'bg-[#050510]' : 'bg-white'}`}>
+
+      {/* Report success toast */}
+      {reportSuccessMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-4 py-2 rounded-xl bg-green-600 text-white text-sm font-bold shadow-lg">
+          {reportSuccessMessage}
+        </div>
+      )}
 
       {/* ── Cover Photo ─────────────────────────────────── */}
       <div className="relative h-36 md:h-56 w-full bg-uv-black overflow-hidden group/cover">
@@ -350,9 +452,33 @@ const Profile = () => {
 
           {/* Info */}
           <div className="flex-1 min-w-0">
-            <h1 className={`text-xl md:text-3xl font-black tracking-tighter leading-tight ${isSpace ? 'text-white' : 'text-uv-black'}`}>
-              {profile.name} {profile.surname}
-            </h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className={`text-xl md:text-3xl font-black tracking-tighter leading-tight ${isSpace ? 'text-white' : 'text-uv-black'}`}>
+                {profile.name} {profile.surname}
+              </h1>
+              {(profile.warningTier > 0 || profile.isBanned) && (
+                <div className="relative" ref={warningManageRef}>
+                  <button
+                    onClick={() => isStaff && setWarningManageOpen(!warningManageOpen)}
+                    className={`w-5 h-5 rounded-full border-2 shrink-0 ${profile.isBanned ? 'bg-red-500 border-red-600' : profile.warningTier === 3 ? 'bg-red-400 border-red-500' : profile.warningTier === 2 ? 'bg-orange-400 border-orange-500' : 'bg-yellow-400 border-yellow-500'}`}
+                    title={profile.isBanned ? 'Banned' : `Tier ${profile.warningTier} warning`}
+                  />
+                  {isStaff && warningManageOpen && (
+                    <div className="absolute left-0 top-full mt-1 w-52 py-2 bg-[#0d0d1a] border border-red-500/30 rounded-xl shadow-xl z-30">
+                      <button onClick={() => handleWarningAction('remove_warning')} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">Remove warning</button>
+                      <button onClick={() => handleWarningAction('set_tier', 1)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">Set to Tier 1</button>
+                      <button onClick={() => handleWarningAction('set_tier', 2)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">Set to Tier 2</button>
+                      <button onClick={() => handleWarningAction('set_tier', 3)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">Set to Tier 3</button>
+                      {profile.isBanned ? (
+                        <button onClick={() => handleWarningAction('unban')} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">Remove ban</button>
+                      ) : (
+                        <button onClick={() => handleGiveWarning(4)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-500/20">Ban</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <p className="text-primary font-bold text-[9px] md:text-xs tracking-widest uppercase mt-0.5">
               {profile.role}{profile.title && ` · ${profile.title}`}{profile.departmentName && ` · ${profile.departmentName}`}
             </p>
@@ -405,7 +531,7 @@ const Profile = () => {
               </button>
             )}
 
-            <div className="relative">
+            <div className="relative" ref={profileMenuRef}>
               <button
                 onClick={() => setOpenProfileMenu(!openProfileMenu)}
                 className={`p-2 border rounded-xl transition-colors ${isSpace ? 'border-white/20 text-white hover:bg-white/10' : 'border-uv-border hover:bg-gray-50'}`}
@@ -418,14 +544,62 @@ const Profile = () => {
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
-                    className="absolute right-0 mt-2 w-48 bg-white border border-uv-border rounded-xl shadow-xl z-20 py-2"
+                    className={`absolute right-0 mt-2 w-48 py-2 rounded-xl shadow-xl z-20 ${isSpace ? 'bg-[#0d0d1a] border border-white/10' : 'bg-white border border-uv-border'}`}
                   >
                     <button
                       onClick={() => { navigator.clipboard.writeText(window.location.href); setOpenProfileMenu(false); }}
-                      className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-uv-black hover:bg-gray-50 flex items-center gap-2"
+                      className={`w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 ${isSpace ? 'text-white hover:bg-white/10' : 'text-uv-black hover:bg-gray-50'}`}
                     >
-                      <FiLink size={13} /> Profil Linki Kopyala
+                      <FiLink size={13} /> Copy profile link
                     </button>
+                    {!isOwnProfile && (
+                      isStaff ? (
+                        <>
+                          <button onClick={() => setWarningPanel(!warningPanel)} className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 flex items-center gap-2">
+                            Give warning
+                          </button>
+                          {warningPanel && (
+                            <div className="border-t border-red-500/20 pt-2 mt-1">
+                              <p className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-red-400">Warning type</p>
+                              {[1, 2, 3, 4].map((t) => (
+                                <button key={t} onClick={() => handleGiveWarning(t as 1 | 2 | 3 | 4)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">
+                                  {t === 4 ? 'Ban' : `Tier ${t}`}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => setReportUserOpen(!reportUserOpen)} className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 flex items-center gap-2">
+                            Report user
+                            {userReportStatus.has_reported && <span className="text-[9px] normal-case font-bold text-red-400">(Reported)</span>}
+                          </button>
+                          {reportUserOpen && (
+                            <div className="border-t border-red-500/20 pt-2 mt-1">
+                              {userReportStatus.has_reported ? (
+                                <>
+                                  <p className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-red-400">You reported as</p>
+                                  <p className="px-3 py-1 text-xs font-bold capitalize text-red-400">{userReportStatus.my_report_type || 'other'}</p>
+                                  <button onClick={handleRemoveReportUser} className="w-full text-left px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/20">
+                                    Remove report
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-red-400">Report type</p>
+                                  {REPORT_TYPES.map((type) => (
+                                    <button key={type} onClick={() => handleReportUser(type)} className="w-full text-left px-3 py-2 text-xs font-bold capitalize text-red-400 hover:bg-red-500/20 hover:text-red-300">
+                                      {type}
+                                    </button>
+                                  ))}
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>

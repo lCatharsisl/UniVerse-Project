@@ -1,5 +1,6 @@
 import { query, queryOne } from '../../../config/db';
 import { AppError } from '../../../shared/core/errors';
+import { isAcademic } from './moderation.service';
 
 export class SocialService {
   static async addComment(userId: number, itemId: number, itemType: string, content: string) {
@@ -29,12 +30,13 @@ export class SocialService {
     return result;
   }
 
-  static async deletePost(postId: number, userId: number) {
+  static async deletePost(postId: number, userId: number, userRole?: string) {
     const post = await queryOne<{ user_id: number }>('SELECT user_id FROM posts WHERE post_id = $1', [postId]);
     if (!post) throw AppError.notFound('Post not found');
-    if (post.user_id !== userId) throw AppError.forbidden('You can only delete your own posts');
+    if (post.user_id !== userId && !isAcademic(userRole || '')) throw AppError.forbidden('You can only delete your own posts');
 
     await query('DELETE FROM posts WHERE post_id = $1', [postId]);
+    await query('DELETE FROM post_reports WHERE post_id = $1', [postId]);
   }
 
   static async toggleLike(postId: number, userId: number) {
