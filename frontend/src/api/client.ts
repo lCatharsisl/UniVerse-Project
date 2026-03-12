@@ -2,9 +2,6 @@ import axios from 'axios';
 
 const api = axios.create({
     baseURL: '/api', // Proxied by Vite to localhost:3000
-    headers: {
-        'Content-Type': 'application/json',
-    },
 });
 
 // Request interceptor to add auth token
@@ -26,9 +23,12 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            localStorage.removeItem('sessionToken');
-            // Optional: Redirect to login or trigger global event
-            window.location.href = '/login';
+            // Login/register sayfasındaysak yönlendirme yapma — hata mesajı gösterilsin
+            const isAuthPage = window.location.pathname === '/login' || window.location.pathname === '/register';
+            if (!isAuthPage) {
+                localStorage.removeItem('sessionToken');
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }

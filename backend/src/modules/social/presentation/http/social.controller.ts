@@ -145,13 +145,37 @@ export class SocialController {
     }
   }
 
-  static async getFollowStats(req: Request, res: Response) {
+  static async getFollowStats(req: AuthenticatedRequest, res: Response) {
+    const currentUserId = req.userId!;
     const { id } = req.params;
     try {
-      const stats = await SocialService.getFollowStats(parseInt(id));
-      return res.json(stats);
+      const [stats, isFollowing] = await Promise.all([
+        SocialService.getFollowStats(parseInt(id)),
+        SocialService.isFollowing(currentUserId, parseInt(id))
+      ]);
+      return res.json({ ...stats, isFollowing });
     } catch (error: any) {
       return res.status(500).json({ error: 'Failed to fetch follow stats' });
+    }
+  }
+
+  static async getFollowers(req: Request, res: Response) {
+    const { id } = req.params;
+    try {
+      const list = await SocialService.getFollowers(parseInt(id));
+      return res.json(list);
+    } catch (error: any) {
+      return res.status(500).json({ error: 'Failed to fetch followers' });
+    }
+  }
+
+  static async getFollowing(req: Request, res: Response) {
+    const { id } = req.params;
+    try {
+      const list = await SocialService.getFollowing(parseInt(id));
+      return res.json(list);
+    } catch (error: any) {
+      return res.status(500).json({ error: 'Failed to fetch following' });
     }
   }
 }
