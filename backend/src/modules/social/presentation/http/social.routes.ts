@@ -27,5 +27,7 @@ router.get('/posts/:id/comments', authenticateSession, SocialController.getPostC
 router.get('/users/:id/activities/:type', authenticateSession, SocialController.getUserActivities);
 router.post('/users/:id/follow', authenticateSession, SocialController.toggleFollow);
 router.get('/users/:id/stats', authenticateSession, SocialController.getFollowStats);
+router.get('/users/:id/followers', authenticateSession, SocialController.getFollowers);
+router.get('/users/:id/following', authenticateSession, SocialController.getFollowing);
 
 export { router as socialRouter };

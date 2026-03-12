@@ -170,9 +170,18 @@ export class IdentityService {
               student_surname = COALESCE($2, student_surname), 
               phone_number = COALESCE($3, phone_number),
               avatar_url = COALESCE($4, avatar_url),
-              cover_url = COALESCE($5, cover_url)
-             WHERE user_id = $6`,
-            [data.name || null, data.surname || null, data.phoneNumber || null, data.avatarUrl || null, data.coverUrl || null, userId]
+              cover_url = COALESCE($5, cover_url),
+              description = COALESCE($6, description)
+             WHERE user_id = $7`,
+            [
+              data.name || null, 
+              data.surname || null, 
+              data.phoneNumber || null, 
+              data.avatarUrl || null, 
+              data.coverUrl || null, 
+              data.description || null,
+              userId
+            ]
           );
         } else if (role === 'staff') {
           await client.query(
@@ -181,9 +190,18 @@ export class IdentityService {
               staff_surname = COALESCE($2, staff_surname), 
               phone_number = COALESCE($3, phone_number),
               avatar_url = COALESCE($4, avatar_url),
-              cover_url = COALESCE($5, cover_url)
-             WHERE user_id = $6`,
-            [data.name || null, data.surname || null, data.phoneNumber || null, data.avatarUrl || null, data.coverUrl || null, userId]
+              cover_url = COALESCE($5, cover_url),
+              description = COALESCE($6, description)
+             WHERE user_id = $7`,
+            [
+              data.name || null, 
+              data.surname || null, 
+              data.phoneNumber || null, 
+              data.avatarUrl || null, 
+              data.coverUrl || null, 
+              data.description || null,
+              userId
+            ]
           );
         } else if (role === 'community') {
           await client.query(

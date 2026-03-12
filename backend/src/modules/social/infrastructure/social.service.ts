@@ -252,4 +252,40 @@ export class SocialService {
     const existing = await queryOne('SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2', [followerId, followingId]);
     return !!existing;
   }
+
+  static async getFollowers(userId: number) {
+    const rows = await query<any>(
+      `SELECT u.user_id, u.email,
+        COALESCE(st.student_name, sf.staff_name, c.community_name) AS name,
+        COALESCE(st.student_surname, sf.staff_surname, '') AS surname,
+        COALESCE(st.avatar_url, sf.avatar_url, c.avatar_url) AS avatar_url
+       FROM follows f
+       JOIN users u ON u.user_id = f.follower_id
+       LEFT JOIN students st ON st.user_id = u.user_id
+       LEFT JOIN staff sf ON sf.user_id = u.user_id
+       LEFT JOIN communities c ON c.user_id = u.user_id
+       WHERE f.following_id = $1
+       ORDER BY f.created_at DESC`,
+      [userId]
+    );
+    return rows;
+  }
+
+  static async getFollowing(userId: number) {
+    const rows = await query<any>(
+      `SELECT u.user_id, u.email,
+        COALESCE(st.student_name, sf.staff_name, c.community_name) AS name,
+        COALESCE(st.student_surname, sf.staff_surname, '') AS surname,
+        COALESCE(st.avatar_url, sf.avatar_url, c.avatar_url) AS avatar_url
+       FROM follows f
+       JOIN users u ON u.user_id = f.following_id
+       LEFT JOIN students st ON st.user_id = u.user_id
+       LEFT JOIN staff sf ON sf.user_id = u.user_id
+       LEFT JOIN communities c ON c.user_id = u.user_id
+       WHERE f.follower_id = $1
+       ORDER BY f.created_at DESC`,
+      [userId]
+    );
+    return rows;
+  }
 }
