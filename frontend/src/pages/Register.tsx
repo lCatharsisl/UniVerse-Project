@@ -75,8 +75,8 @@ const Register = () => {
         }
     };
 
-    const inputClasses = `w-full px-5 py-4 rounded-tl-2xl rounded-br-2xl outline-none font-bold transition-all focus:ring-2 focus:ring-primary/20 ${isSpace ? 'bg-[#111827]/80 text-white placeholder:text-gray-600 focus:bg-[#111827] border border-white/10' : 'bg-gray-50 text-uv-black placeholder:text-uv-gray/40 border border-transparent focus:bg-white'}`;
-    const selectClasses = `w-full px-5 py-4 rounded-tl-2xl rounded-br-2xl appearance-none outline-none font-bold transition-all cursor-pointer pr-10 disabled:opacity-50 focus:ring-2 focus:ring-primary/20 ${isSpace ? 'bg-[#111827]/80 text-white border border-white/10 focus:bg-[#111827]' : 'bg-gray-50 text-uv-black border border-transparent focus:bg-white'}`;
+    const inputClasses = `w-full px-5 py-3 md:py-4 rounded-tl-xl rounded-br-xl outline-none font-bold transition-all focus:ring-2 focus:ring-primary/20 ${isSpace ? 'bg-[#111827]/80 text-white placeholder:text-gray-600 focus:bg-[#111827] border border-white/10' : 'bg-gray-50 text-uv-black placeholder:text-uv-gray/40 border border-transparent focus:bg-white'}`;
+    const selectClasses = `w-full px-5 py-3 md:py-4 rounded-tl-xl rounded-br-xl appearance-none outline-none font-bold transition-all cursor-pointer pr-10 disabled:opacity-50 focus:ring-2 focus:ring-primary/20 ${isSpace ? 'bg-[#111827]/80 text-white border border-white/10 focus:bg-[#111827]' : 'bg-gray-50 text-uv-black border border-transparent focus:bg-white'}`;
 
     return (
         <div className={`min-h-screen flex flex-col md:flex-row overflow-hidden transition-colors duration-700 ${isSpace ? 'bg-[#050510]' : 'bg-white'}`}>
@@ -186,14 +186,14 @@ const Register = () => {
             </div>
 
             {/* Right Side - Form */}
-            <div className={`flex-1 flex flex-col justify-center px-8 md:px-24 py-16 relative overflow-y-auto transition-colors duration-700 ${isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}`}>
+            <div className={`flex-1 flex flex-col justify-center px-6 md:px-24 py-2 md:py-16 relative overflow-y-auto transition-colors duration-700 ${isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}`}>
                 <div className="max-w-[460px] w-full mx-auto">
-                    <div className="md:hidden w-16 h-16 flex items-center justify-center mb-12 transform hover:scale-105 transition-transform overflow-hidden relative bg-[#050510] rounded-2xl">
-                        <img src="/logo.svg" alt="UniVerse Logo" className="w-8 h-8 object-contain z-10" />
+                    <div className="md:hidden flex items-center justify-center -mb-2 mx-auto">
+                        <img src="/logo.svg" alt="UniVerse Logo" className="w-28 h-28 object-contain animate-bounce-hop drop-shadow-[0_0_25px_rgba(79,70,229,0.5)]" />
                     </div>
                     
-                    <h1 className={`text-5xl md:text-6xl font-black mb-4 tracking-tighter leading-none ${isSpace ? 'text-white' : 'text-uv-black'}`}>New Node.</h1>
-                    <p className={`font-bold text-lg mb-12 tracking-tight ${isSpace ? 'text-gray-400' : 'text-uv-gray'}`}>Expand the UniVerse. Select your campus role to begin.</p>
+                    <h1 className={`text-3xl md:text-6xl font-black mb-1 tracking-tighter leading-none text-center md:text-left ${isSpace ? 'text-white' : 'text-uv-black'}`}>New Node.</h1>
+                    <p className={`font-bold text-[10px] md:text-lg mb-4 md:mb-12 tracking-tight text-center md:text-left ${isSpace ? 'text-gray-400' : 'text-uv-gray'}`}>Expand the UniVerse. Select your campus role to begin.</p>
 
                     {success ? (
                         <div className="p-10 uv-card border-green-500/20 bg-green-50 text-green-700 text-center font-black animate-bounce rounded-tl-[3rem] rounded-br-[3rem]">
@@ -201,7 +201,7 @@ const Register = () => {
                            NODE GENERATED SUCCESSFULLY.<br/>REDIRECTING TO LINK...
                         </div>
                     ) : (
-                        <form onSubmit={handleSubmit} className="space-y-6">
+                        <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
                             {error && (
                                 <div className="p-5 bg-red-50 text-red-600 rounded-tl-2xl rounded-br-2xl text-sm font-bold border-l-4 border-red-500 shadow-sm">
                                     [SYSTEM ERROR] {error}
@@ -209,13 +209,13 @@ const Register = () => {
                             )}
 
                             {/* Role Select - Marginal Design */}
-                            <div className={`flex p-1.5 rounded-tl-2xl rounded-br-2xl gap-1 border ${isSpace ? 'bg-[#111827]/80 border-white/5' : 'bg-gray-50 border-transparent'}`}>
+                            <div className={`flex p-1 rounded-tl-xl rounded-br-xl gap-1 border ${isSpace ? 'bg-[#111827]/80 border-white/5' : 'bg-gray-50 border-transparent'}`}>
                                 {['student', 'staff', 'community'].map((r) => (
                                     <button
                                         type="button"
                                         key={r}
                                         onClick={() => setRole(r as any)}
-                                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-tl-xl rounded-br-xl transition-all ${role === r ? (isSpace ? 'bg-primary text-white shadow-lg' : 'bg-white text-primary shadow-lg shadow-black/5') : (isSpace ? 'text-gray-500 hover:text-white' : 'text-uv-gray hover:text-uv-black')}`}
+                                        className={`flex-1 py-1.5 text-[8px] font-black uppercase tracking-widest rounded-tl-lg rounded-br-lg transition-all ${role === r ? (isSpace ? 'bg-primary text-white shadow-lg' : 'bg-white text-primary shadow-lg shadow-black/5') : (isSpace ? 'text-gray-500 hover:text-white' : 'text-uv-gray hover:text-uv-black')}`}
                                     >
                                         {r}
                                     </button>
@@ -223,17 +223,17 @@ const Register = () => {
                             </div>
 
                             <div className="space-y-4">
-                                <div className="grid grid-cols-1 gap-4">
+                                <div className="grid grid-cols-1 gap-2">
                                     <input
                                         name="email" type="email" placeholder="Campus Email"
                                         value={formData.email} onChange={handleChange}
-                                        className={inputClasses}
+                                        className={`${inputClasses} py-3 text-sm`}
                                         required
                                     />
                                     <input
                                         name="password" type="password" placeholder="Passkey (Min 8 chars)"
                                         value={formData.password} onChange={handleChange}
-                                        className={inputClasses}
+                                        className={`${inputClasses} py-3 text-sm`}
                                         required minLength={8}
                                     />
                                 </div>
@@ -342,17 +342,17 @@ const Register = () => {
 
                             <button
                                 type="submit" disabled={loading}
-                                className="w-full bg-accent text-white font-black py-5 rounded-tl-[2rem] rounded-br-[2rem] shadow-xl shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 mt-8 flex items-center justify-center gap-2 border border-accent/50 group relative overflow-hidden"
+                                className="w-full bg-accent text-white font-black py-3 md:py-5 rounded-tl-[1.5rem] rounded-br-[1.5rem] shadow-xl shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 mt-4 md:mt-8 flex items-center justify-center gap-2 border border-accent/50 group relative overflow-hidden"
                             >
                                 <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                                <span className="relative z-10 flex items-center gap-2">
+                                <span className="relative z-10 flex items-center gap-2 text-sm">
                                     {loading ? 'REGISTRY IN PROGRESS...' : <><FiUserPlus /> GENERATE NODE</>}
                                 </span>
                             </button>
                         </form>
                     )}
 
-                    <div className={`mt-12 pt-10 border-t flex items-center justify-center ${isSpace ? 'border-white/10' : 'border-gray-100'}`}>
+                    <div className={`mt-6 pt-4 md:mt-12 md:pt-10 border-t flex items-center justify-center ${isSpace ? 'border-white/10' : 'border-gray-100'}`}>
                         <Link to="/login" className={`text-xs font-black uppercase tracking-widest hover:text-primary transition-colors flex items-center gap-2 ${isSpace ? 'text-gray-500' : 'text-uv-gray'}`}>
                             Return to access terminal <FiArrowRight />
                         </Link>
