@@ -13,6 +13,7 @@ import {
   FiLogOut
 } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 interface SidebarProps {
   onPostClick: () => void;
@@ -20,6 +21,8 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
   const { user, logout } = useAuth();
+  const { dimension } = useTheme();
+  const isSpace = dimension === 'space';
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -56,7 +59,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
           <img src="/logo.svg" alt="UniVerse Logo" className="w-full h-full object-contain" />
         </div>
         <div className="hidden xl:block">
-          <h1 className="text-2xl font-black tracking-tighter text-uv-black leading-none mb-1">UniVerse</h1>
+          <h1 className={`text-2xl font-black tracking-tighter leading-none mb-1 ${isSpace ? 'text-white' : 'text-uv-black'}`}>UniVerse</h1>
           <p className="text-[11px] font-bold text-primary uppercase tracking-widest leading-none">Your Campus Digital</p>
         </div>
       </div>
@@ -67,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
           <NavLink
             key={item.label}
             to={item.path}
-            className={({ isActive }) => `sidebar-link ${isActive ? 'active-link' : 'text-uv-gray'}`}
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active-link' : isSpace ? 'text-[#e1e1e6]/70 hover:text-white' : 'text-uv-gray'}`}
           >
             <span className="text-2xl">{item.icon}</span>
             <span className="hidden xl:inline font-bold">{item.label}</span>
@@ -88,16 +91,20 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
       <div className="mt-auto relative" ref={menuRef}>
         <div 
           onClick={() => setShowUserMenu(!showUserMenu)}
-          className={`flex items-center gap-3 p-3 rounded-tl-2xl rounded-br-2xl border transition-all cursor-pointer group overflow-hidden ${showUserMenu ? 'bg-gray-100 border-uv-border shadow-sm' : 'hover:bg-gray-50 border-transparent hover:border-uv-border'}`}
+          className={`flex items-center gap-3 p-3 rounded-tl-2xl rounded-br-2xl border transition-all cursor-pointer group overflow-hidden ${
+            showUserMenu
+              ? isSpace ? 'bg-white/10 border-white/20 shadow-sm' : 'bg-gray-100 border-uv-border shadow-sm'
+              : isSpace ? 'hover:bg-white/10 border-transparent hover:border-white/20' : 'hover:bg-gray-50 border-transparent hover:border-uv-border'
+          }`}
         >
-          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-bold shrink-0 border border-primary/20">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shrink-0 border ${isSpace ? 'bg-primary/20 text-primary border-primary/30' : 'bg-primary/10 text-primary border-primary/20'}`}>
             {user?.email[0].toUpperCase()}
           </div>
           <div className="hidden xl:flex flex-col flex-1 min-w-0">
-            <span className="font-black text-sm text-uv-black truncate leading-tight">
+            <span className={`font-black text-sm truncate leading-tight ${isSpace ? 'text-white' : 'text-uv-black'}`}>
                 {user?.profile?.student_name || user?.profile?.staff_name || user?.email.split('@')[0]}
             </span>
-            <span className="text-uv-gray text-[10px] font-bold uppercase tracking-tight">
+            <span className={`text-[10px] font-bold uppercase tracking-tight ${isSpace ? 'text-[#e1e1e6]/80' : 'text-uv-gray'}`}>
                 {user?.role}
             </span>
           </div>
@@ -111,18 +118,18 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
-              className="absolute bottom-full left-0 mb-4 w-56 bg-white rounded-2xl shadow-2xl border border-uv-border p-2 z-50 overflow-hidden"
+              className={`absolute bottom-full left-0 mb-4 w-56 rounded-2xl shadow-2xl border p-2 z-50 overflow-hidden ${isSpace ? 'bg-[#0a0a1a] border-white/20' : 'bg-white border-uv-border'}`}
             >
-                <div className="p-3 border-b border-gray-50 mb-1">
-                    <p className="text-[10px] font-black text-uv-gray uppercase tracking-widest mb-1">Account</p>
-                    <p className="text-xs font-bold text-uv-black truncate">{user?.email}</p>
+                <div className={`p-3 border-b mb-1 ${isSpace ? 'border-white/10' : 'border-gray-50'}`}>
+                    <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isSpace ? 'text-[#e1e1e6]/60' : 'text-uv-gray'}`}>Account</p>
+                    <p className={`text-xs font-bold truncate ${isSpace ? 'text-white' : 'text-uv-black'}`}>{user?.email}</p>
                 </div>
                 <button 
                     onClick={() => {
                       setShowUserMenu(false);
                       logout();
                     }}
-                    className="w-full text-left p-3 hover:bg-red-50 rounded-xl font-bold text-red-600 text-sm flex items-center gap-2 transition-colors"
+                    className={`w-full text-left p-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-colors ${isSpace ? 'hover:bg-white/10 text-red-400' : 'hover:bg-red-50 text-red-600'}`}
                 >
                     <FiLogOut />
                     Log out
