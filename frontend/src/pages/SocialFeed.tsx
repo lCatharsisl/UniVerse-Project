@@ -54,7 +54,19 @@ const SocialFeed = () => {
     const [reportSuccessMessage, setReportSuccessMessage] = useState<string | null>(null);
     const reportDropdownRef = useRef<HTMLDivElement>(null);
     const warningDropdownRef = useRef<HTMLDivElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
     const { dimension } = useTheme();
+
+    useEffect(() => {
+        if (openMenu === null) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setOpenMenu(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside, true);
+        return () => document.removeEventListener('mousedown', handleClickOutside, true);
+    }, [openMenu]);
 
     useEffect(() => {
         if (!reportSuccessMessage) return;
@@ -70,8 +82,8 @@ const SocialFeed = () => {
                 setReportDropdown(null);
             }
         };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        document.addEventListener('mousedown', handleClickOutside, true);
+        return () => document.removeEventListener('mousedown', handleClickOutside, true);
     }, [reportDropdown]);
     useEffect(() => {
         if (warningDropdown === null) return;
@@ -80,8 +92,8 @@ const SocialFeed = () => {
                 setWarningDropdown(null);
             }
         };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        document.addEventListener('mousedown', handleClickOutside, true);
+        return () => document.removeEventListener('mousedown', handleClickOutside, true);
     }, [warningDropdown]);
     const isSpace = dimension === 'space';
 
@@ -369,9 +381,9 @@ const SocialFeed = () => {
                 ) : posts.length === 0 ? (
                     <div className="p-12 md:p-20 text-center text-uv-gray font-black uppercase tracking-widest text-[9px] md:text-xs opacity-50">Pulse is flat. Start the heartbeat.</div>
                 ) : (
-                    posts.map((post) => (
+                    posts.map((post, rowIndex) => (
                         <div
-                            key={post.post_id}
+                            key={`${post.post_id}-${rowIndex}`}
                             className={`p-3 md:p-5 rounded-2xl border transition-all group relative mb-3 ${isSpace ? 'bg-white/5 border-white/10 hover:bg-white/[0.07]' : 'bg-gray-50/80 border-uv-border/50 hover:bg-gray-100/80'}`}
                         >
                              {/* Repost Indicator */}
@@ -401,15 +413,15 @@ const SocialFeed = () => {
                                             <span className={isSpace ? 'text-white/40' : 'text-uv-gray'}>·</span>
                                             <span className={`text-[8px] md:text-[10px] font-bold uppercase whitespace-nowrap ${isSpace ? 'text-white/50' : 'text-uv-gray'}`}>{formatDate(post.created_at)}</span>
                                         </div>
-                                        <div className="relative shrink-0">
+                                        <div className="relative shrink-0" ref={openMenu === rowIndex ? menuRef : undefined}>
                                             <button 
-                                                onClick={() => setOpenMenu(openMenu === post.post_id ? null : post.post_id)}
+                                                onClick={(e) => { e.stopPropagation(); setOpenMenu(openMenu === rowIndex ? null : rowIndex); }}
                                                 className="text-uv-gray p-0.5 hover:bg-gray-50 rounded-lg transition-colors"
                                             >
                                                 <FiMoreHorizontal size={14} />
                                             </button>
                                             
-                                            {openMenu === post.post_id && (
+                                            {openMenu === rowIndex && (
                                                 <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl z-20 py-2 border ${isSpace ? 'bg-[#0d0d1a] border-white/10' : 'bg-white border-uv-border'}`}>
                                                     <button 
                                                         onClick={() => handleCopyLink(post.post_id)}
@@ -458,7 +470,7 @@ const SocialFeed = () => {
                                         </div>
                                         <div
                                             className="relative ml-auto flex items-center gap-1"
-                                            ref={isStaff ? (warningDropdown === post.post_id ? warningDropdownRef : undefined) : (reportDropdown === post.post_id ? reportDropdownRef : undefined)}
+                                            ref={isStaff ? (warningDropdown === rowIndex ? warningDropdownRef : undefined) : (reportDropdown === rowIndex ? reportDropdownRef : undefined)}
                                         >
                                             {isStaff ? (
                                                 <>
@@ -466,13 +478,13 @@ const SocialFeed = () => {
                                                         <span className="text-[9px] font-black text-red-500 mr-0.5">{post.reports_count}</span>
                                                     )}
                                                     <button
-                                                        onClick={() => setWarningDropdown(warningDropdown === post.post_id ? null : post.post_id)}
+                                                        onClick={(e) => { e.stopPropagation(); setWarningDropdown(warningDropdown === rowIndex ? null : rowIndex); }}
                                                         className="p-1 text-amber-500 hover:text-amber-400 transition-colors"
                                                         title="Give warning"
                                                     >
                                                         <FiAlertTriangle size={15} />
                                                     </button>
-                                                    {warningDropdown === post.post_id && (
+                                                    {warningDropdown === rowIndex && (
                                                         <div className={`absolute right-0 bottom-full mb-1 w-40 py-2 rounded-xl shadow-xl z-20 border ${isSpace ? 'bg-[#0a0a14] border-amber-500/40' : 'bg-[#1a1a1a] border-amber-500/30'}`}>
                                                             <p className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-white/80">Give warning</p>
                                                             {[1, 2, 3].map((t) => (
@@ -489,7 +501,7 @@ const SocialFeed = () => {
                                             ) : (
                                                 <>
                                                     <button
-                                                        onClick={() => setReportDropdown(reportDropdown === post.post_id ? null : post.post_id)}
+                                                        onClick={(e) => { e.stopPropagation(); setReportDropdown(reportDropdown === rowIndex ? null : rowIndex); }}
                                                         className="p-1 text-red-500 hover:text-red-600 transition-colors"
                                                         title={post.has_reported ? 'Reported' : 'Report'}
                                                     >
@@ -498,7 +510,7 @@ const SocialFeed = () => {
                                                     {post.has_reported && (
                                                         <span className="text-[9px] font-black text-red-500 ml-0.5">Reported</span>
                                                     )}
-                                                    {reportDropdown === post.post_id && (
+                                                    {reportDropdown === rowIndex && (
                                                         <div className={`absolute right-0 bottom-full mb-1 w-44 py-2 rounded-xl shadow-xl z-20 border ${isSpace ? 'bg-[#0a0a14] border-red-500/40' : 'bg-[#1a1a1a] border-red-500/30'}`}>
                                                             {post.has_reported ? (
                                                                 <>

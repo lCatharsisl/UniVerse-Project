@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth, isAcademic } from '../context/AuthContext';
 import { 
   FiHeart, FiRepeat, FiMessageCircle, FiArrowLeft, FiCalendar,
-  FiMapPin, FiLink, FiEdit, FiCamera, FiUserPlus, FiUserCheck,
+  FiMapPin, FiLink, FiEdit, FiUserPlus, FiUserCheck,
   FiGrid, FiMoreVertical, FiMoreHorizontal, FiTrash2, FiX, FiUsers
 } from 'react-icons/fi';
 import api from '../api/client';
@@ -90,7 +90,7 @@ const FollowListModal = ({
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
 const Profile = () => {
-  const { user: currentUser, checkAuth } = useAuth();
+  const { user: currentUser } = useAuth();
   const navigate = useNavigate();
   const { id: profileId } = useParams<{ id?: string }>();
   const { dimension } = useTheme();
@@ -103,20 +103,12 @@ const Profile = () => {
   const [stats, setStats] = useState({ followers: 0, following: 0, isFollowing: false });
   const [isFollowing, setIsFollowing] = useState(false);
   const [activeTab, setActiveTab] = useState<'posts' | 'reposts' | 'likes' | 'my-items'>('posts');
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', surname: '', description: '', password: '' });
   const [activities, setActivities] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [updateResult, setUpdateResult] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const [openProfileMenu, setOpenProfileMenu] = useState(false);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string>('');
-  const [coverPreview, setCoverPreview] = useState<string>('');
   const [followModal, setFollowModal] = useState<'followers' | 'following' | null>(null);
-  const [savingProfile, setSavingProfile] = useState(false);
   const [warningPanel, setWarningPanel] = useState(false);
   const [warningManageOpen, setWarningManageOpen] = useState(false);
   const [reportUserOpen, setReportUserOpen] = useState(false);
@@ -131,8 +123,6 @@ const Profile = () => {
     return () => clearTimeout(t);
   }, [reportSuccessMessage]);
 
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const coverInputRef = useRef<HTMLInputElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const warningManageRef = useRef<HTMLDivElement>(null);
 
@@ -179,14 +169,6 @@ const Profile = () => {
       setIsFollowing(statsRes.data.isFollowing || false);
       if (isOwnProfile) setUserReportStatus({ has_reported: false, my_report_type: null });
       else if (results[2]) setUserReportStatus(results[2].data);
-      if (isOwnProfile) {
-        setEditForm({
-          name: profileRes.data.name || '',
-          surname: profileRes.data.surname || '',
-          description: profileRes.data.description || '',
-          password: ''
-        });
-      }
     } catch (err) {
       console.error('Failed to fetch profile', err);
     } finally {
@@ -223,49 +205,6 @@ const Profile = () => {
       setIsFollowing(followed);
       setStats(prev => ({ ...prev, followers: prev.followers + (followed ? 1 : -1) }));
     } catch (err) { alert('Failed to update follow status'); }
-  };
-
-  const handleSaveProfile = async () => {
-    setSavingProfile(true);
-    setUpdateResult(null);
-    try {
-      const formData = new FormData();
-      formData.append('name', editForm.name);
-      formData.append('surname', editForm.surname);
-      formData.append('description', editForm.description);
-      if (editForm.password) formData.append('password', editForm.password);
-      if (avatarFile) formData.append('avatar', avatarFile);
-      if (coverFile) formData.append('cover', coverFile);
-
-      // Do NOT manually set Content-Type — axios detects FormData and sets it
-      // automatically WITH the boundary parameter. Without boundary, multer cannot parse files.
-      await api.patch('/auth/profile', formData);
-
-      setUpdateResult({ type: 'success', msg: 'Profil güncellendi! ✨' });
-      setIsEditing(false);
-      setAvatarFile(null);
-      setCoverFile(null);
-      setAvatarPreview('');
-      setCoverPreview('');
-      fetchProfileData();
-      checkAuth();
-      // Clear alerts after some time
-      setTimeout(() => setUpdateResult(null), 3000);
-    } catch (err) {
-      setUpdateResult({ type: 'error', msg: 'Güncelleme başarısız.' });
-    } finally {
-      setSavingProfile(false);
-    }
-  };
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) { setAvatarFile(file); setAvatarPreview(URL.createObjectURL(file)); }
-  };
-
-  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) { setCoverFile(file); setCoverPreview(URL.createObjectURL(file)); }
   };
 
   const formatDate = (dateString: string) =>
@@ -348,8 +287,8 @@ const Profile = () => {
     </div>
   );
 
-  const coverSrc = coverPreview || profile.coverUrl || '';
-  const avatarSrc = avatarPreview || profile.avatarUrl || '';
+  const coverSrc = profile.coverUrl || '';
+  const avatarSrc = profile.avatarUrl || '';
 
   return (
     <div className={`flex flex-col min-h-screen ${isSpace ? 'bg-[#050510]' : 'bg-white'}`}>
@@ -362,38 +301,11 @@ const Profile = () => {
       )}
 
       {/* ── Cover Photo ─────────────────────────────────── */}
-      <div className="relative h-36 md:h-56 w-full bg-uv-black overflow-hidden group/cover">
+      <div className="relative h-36 md:h-56 w-full bg-uv-black overflow-hidden">
         {coverSrc ? (
-          <img src={coverSrc} className={`w-full h-full object-cover transition-opacity duration-300 ${savingProfile && coverFile ? 'opacity-50' : 'opacity-100'}`} alt="Cover" />
+          <img src={coverSrc.startsWith('http') ? coverSrc : `http://localhost:3000${coverSrc}`} className="w-full h-full object-cover" alt="Cover" />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/60 to-accent opacity-70" />
-        )}
-
-        {/* Loading Overlay for Cover */}
-        {savingProfile && coverFile && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-10">
-            <div className="animate-spin w-8 h-8 border-3 border-white border-t-transparent rounded-full" />
-          </div>
-        )}
-
-        {/* Cover upload overlay — always clickable when own profile */}
-        {isOwnProfile && (
-          <>
-            <label
-              className={`absolute inset-0 flex flex-col items-center justify-center text-white cursor-pointer transition-all gap-2
-                ${isEditing ? 'opacity-100 bg-black/30' : 'opacity-0 group-hover/cover:opacity-100 bg-black/20'}`}
-            >
-              <FiCamera size={28} />
-              <span className="text-xs font-black uppercase tracking-widest">Kapak Fotoğrafı Değiştir</span>
-              <input
-                ref={coverInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleCoverChange}
-              />
-            </label>
-          </>
         )}
 
         {/* Back button */}
@@ -404,13 +316,13 @@ const Profile = () => {
           <FiArrowLeft size={18} />
         </button>
 
-        {/* Edit mode indicator on cover */}
-        {isOwnProfile && !isEditing && (
+        {/* Profili düzenle — only for own profile */}
+        {isOwnProfile && (
           <button
-            onClick={() => setIsEditing(true)}
+            onClick={() => navigate('/profile/edit')}
             className="absolute top-3 right-3 md:top-4 md:right-4 flex items-center gap-1.5 px-3 py-1.5 bg-black/30 backdrop-blur-md rounded-xl text-white text-[10px] font-black uppercase hover:bg-black/50 transition-colors z-20"
           >
-            <FiEdit size={12} /> Düzenle
+            <FiEdit size={12} /> Profili düzenle
           </button>
         )}
       </div>
@@ -420,34 +332,13 @@ const Profile = () => {
         <div className={`rounded-2xl p-4 md:p-6 shadow-xl border flex flex-col sm:flex-row gap-4 md:gap-6 items-start ${isSpace ? 'bg-[#0d0d1a] border-white/10' : 'bg-white border-gray-100'}`}>
 
           {/* Avatar */}
-          <div className="relative group/avatar shrink-0">
-            <div className={`w-20 h-20 md:w-28 md:h-28 rounded-2xl overflow-hidden border-4 border-white shadow-xl bg-primary/10 flex items-center justify-center text-3xl font-black text-primary transition-opacity ${savingProfile && avatarFile ? 'opacity-50' : ''}`}>
+          <div className="relative shrink-0">
+            <div className="w-20 h-20 md:w-28 md:h-28 rounded-2xl overflow-hidden border-4 border-white shadow-xl bg-primary/10 flex items-center justify-center text-3xl font-black text-primary">
               {avatarSrc
-                ? <img src={avatarSrc} className="w-full h-full object-cover" alt="Avatar" />
+                ? <img src={avatarSrc.startsWith('http') ? avatarSrc : `http://localhost:3000${avatarSrc}`} className="w-full h-full object-cover" alt="Avatar" />
                 : <span>{profile.name?.[0]?.toUpperCase() || '?'}</span>
               }
             </div>
-
-            {/* Loading Overlay for Avatar */}
-            {savingProfile && avatarFile && (
-              <div className="absolute inset-0 flex items-center justify-center z-10">
-                <div className="animate-spin w-6 h-6 border-3 border-primary border-t-transparent rounded-full" />
-              </div>
-            )}
-
-            {isOwnProfile && (
-              <label className="absolute inset-0 rounded-2xl bg-black/50 flex flex-col items-center justify-center text-white cursor-pointer opacity-0 group-hover/avatar:opacity-100 transition-opacity gap-1">
-                <FiCamera size={20} />
-                <span className="text-[8px] font-black uppercase">Fotoğraf</span>
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarChange}
-                />
-              </label>
-            )}
           </div>
 
           {/* Info */}
@@ -504,25 +395,7 @@ const Profile = () => {
 
           {/* Action Buttons */}
           <div className="flex gap-2 w-full sm:w-auto sm:items-start sm:flex-col md:flex-row mt-auto sm:mt-0">
-            {isOwnProfile ? (
-              isEditing ? (
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <button
-                    onClick={() => { setIsEditing(false); setAvatarPreview(''); setCoverPreview(''); setAvatarFile(null); setCoverFile(null); }}
-                    className={`flex-1 sm:flex-none px-4 py-2 border rounded-xl font-bold text-xs ${isSpace ? 'border-white/20 text-white' : 'border-uv-border text-uv-black'}`}
-                  >
-                    İptal
-                  </button>
-                  <button
-                    onClick={handleSaveProfile}
-                    disabled={savingProfile}
-                    className="flex-1 sm:flex-none uv-button !py-2 !px-5 text-xs disabled:opacity-60"
-                  >
-                    {savingProfile ? 'Kaydediliyor...' : 'Kaydet'}
-                  </button>
-                </div>
-              ) : null
-            ) : (
+            {!isOwnProfile && (
               <button
                 onClick={handleToggleFollow}
                 className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl font-black text-xs transition-all ${isFollowing ? 'bg-gray-100 text-uv-black hover:bg-red-50 hover:text-red-500' : 'bg-primary text-white shadow-lg shadow-primary/25 hover:brightness-110'}`}
@@ -552,6 +425,22 @@ const Profile = () => {
                     >
                       <FiLink size={13} /> Copy profile link
                     </button>
+                    {isOwnProfile && (
+                      <>
+                        <button
+                          onClick={() => { navigate('/profile/edit'); setOpenProfileMenu(false); }}
+                          className={`w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 ${isSpace ? 'text-white hover:bg-white/10' : 'text-uv-black hover:bg-gray-50'}`}
+                        >
+                          <FiEdit size={13} /> Profili düzenle
+                        </button>
+                        <button
+                          onClick={() => { navigate('/profile/change-password'); setOpenProfileMenu(false); }}
+                          className={`w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 ${isSpace ? 'text-white hover:bg-white/10' : 'text-uv-black hover:bg-gray-50'}`}
+                        >
+                          Şifre değiştir
+                        </button>
+                      </>
+                    )}
                     {!isOwnProfile && (
                       isStaff ? (
                         <>
@@ -608,68 +497,17 @@ const Profile = () => {
         </div>
       </div>
 
-      {/* ── Edit Form ──────────────────────────────────── */}
-      <AnimatePresence>
-        {isEditing && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="px-3 md:px-6 mt-4">
-              <div className={`rounded-2xl p-4 md:p-6 border space-y-3 ${isSpace ? 'bg-[#0d0d1a] border-white/10' : 'bg-gray-50 border-gray-100'}`}>
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    value={editForm.name}
-                    onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                    placeholder="İsim"
-                    className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/30 text-sm"
-                  />
-                  <input
-                    value={editForm.surname}
-                    onChange={e => setEditForm({ ...editForm, surname: e.target.value })}
-                    placeholder="Soyisim"
-                    className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/30 text-sm"
-                  />
-                </div>
-                <textarea
-                  value={editForm.description}
-                  onChange={e => setEditForm({ ...editForm, description: e.target.value })}
-                  placeholder="Biyografi..."
-                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/30 min-h-[80px] resize-none text-sm"
-                />
-                <input
-                  type="password"
-                  value={editForm.password}
-                  onChange={e => setEditForm({ ...editForm, password: e.target.value })}
-                  placeholder="Yeni şifre (boş bırakırsan değişmez)"
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/30 text-sm"
-                />
-                {updateResult && (
-                  <p className={`text-[10px] font-bold uppercase tracking-widest ${updateResult.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
-                    {updateResult.msg}
-                  </p>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* ── Bio ─────────────────────────────────────────── */}
-      {!isEditing && (
-        <div className="px-4 md:px-6 mt-5 max-w-3xl">
-          <p className={`text-sm md:text-base font-medium leading-relaxed ${isSpace ? 'text-white/80' : 'text-uv-black'}`}>
-            {profile.description || 'No transmission recorded. This user is a ghost in the UniVerse.'}
-          </p>
-          <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-uv-gray text-[9px] md:text-xs font-bold uppercase tracking-widest">
-            <div className="flex items-center gap-1.5"><FiMapPin size={10} className="text-primary" /> Campus Node A</div>
-            <div className="flex items-center gap-1.5"><FiLink size={10} className="text-primary" /> node.link</div>
-            <div className="flex items-center gap-1.5"><FiCalendar size={10} className="text-primary" /> Connected {formatDate(profile.createdAt || new Date().toISOString())}</div>
-          </div>
+      <div className="px-4 md:px-6 mt-5 max-w-3xl">
+        <p className={`text-sm md:text-base font-medium leading-relaxed ${isSpace ? 'text-white/80' : 'text-uv-black'}`}>
+          {profile.description || 'No transmission recorded. This user is a ghost in the UniVerse.'}
+        </p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-uv-gray text-[9px] md:text-xs font-bold uppercase tracking-widest">
+          <div className="flex items-center gap-1.5"><FiMapPin size={10} className="text-primary" /> Campus Node A</div>
+          <div className="flex items-center gap-1.5"><FiLink size={10} className="text-primary" /> node.link</div>
+          <div className="flex items-center gap-1.5"><FiCalendar size={10} className="text-primary" /> Connected {formatDate(profile.createdAt || new Date().toISOString())}</div>
         </div>
-      )}
+      </div>
 
       {/* ── Tabs ─────────────────────────────────────────── */}
       <div className="mt-6 px-3 md:px-6 overflow-x-auto scrollbar-hide">
@@ -771,33 +609,6 @@ const Profile = () => {
           </div>
         )}
       </div>
-
-      {/* ── Floating Save Button (Visible when files picked but not in edit mode) ── */}
-      <AnimatePresence>
-        {(avatarFile || coverFile) && !isEditing && (
-          <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[150] w-full max-w-xs px-4"
-          >
-            <button
-              onClick={handleSaveProfile}
-              disabled={savingProfile}
-              className="w-full bg-primary text-white shadow-2xl shadow-primary/40 rounded-2xl py-4 flex items-center justify-center gap-3 hover:brightness-110 active:scale-95 transition-all"
-            >
-              {savingProfile ? (
-                <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
-              ) : (
-                <FiCamera size={18} />
-              )}
-              <span className="font-black text-sm uppercase tracking-widest">
-                {savingProfile ? 'YÜKLENİYOR...' : 'FOTOĞRAFI KAYDET'}
-              </span>
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ── Follow List Modal ─────────────────────────────── */}
       <AnimatePresence>
