@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiSearch, FiClock, FiBook, FiCoffee, FiInfo, FiArrowRight, FiCalendar } from 'react-icons/fi';
+import { FiSearch, FiClock, FiBook, FiCoffee, FiInfo, FiArrowRight, FiCalendar, FiPercent } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 
@@ -74,6 +74,18 @@ const RightSidebar: React.FC = () => {
                 </div>
                 <p className="text-xs font-black uppercase tracking-widest text-uv-gray mb-1">Resources</p>
                 <p className="text-sm font-bold text-uv-black">Library Hub</p>
+            </div>
+
+            {/* Grade Calculator Widget */}
+            <div
+                onClick={() => navigate('/grade-calculator')}
+                className="uv-card p-4 hover:border-primary/30 uv-card-hover group cursor-pointer"
+            >
+                <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <FiPercent size={20} />
+                </div>
+                <p className="text-xs font-black uppercase tracking-widest text-uv-gray mb-1">Tools</p>
+                <p className="text-sm font-bold text-uv-black">Grade Calculator</p>
             </div>
         </div>
 
