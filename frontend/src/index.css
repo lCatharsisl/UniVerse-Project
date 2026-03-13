@@ -4,7 +4,7 @@
 
 :root {
   --uv-primary: #4f46e5; /* Indigo */
-  --uv-accent: #f59e0b;  /* Orange */
+  --uv-accent: #f59e0b; /* Orange */
   --uv-black: #111827;
   --uv-gray: #6b7280;
   --uv-border: #f3f4f6;
@@ -17,11 +17,17 @@
   --color-uv-black: var(--uv-black);
   --color-uv-gray: var(--uv-gray);
   --color-uv-border: var(--uv-border);
-  --font-family-sans: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family-sans: "Outfit", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 html {
-  font-size: 14px;
+  font-size: 13px;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 15px;
+  }
 }
 
 body {
@@ -33,10 +39,17 @@ body {
 
 .uv-card {
   @apply bg-white border border-uv-border shadow-sm transition-all;
-  border-top-left-radius: 2rem;
-  border-bottom-right-radius: 2rem;
+  border-top-left-radius: 1.5rem;
+  border-bottom-right-radius: 1.5rem;
   border-top-right-radius: 0.5rem;
   border-bottom-left-radius: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .uv-card {
+    border-top-left-radius: 2.5rem;
+    border-bottom-right-radius: 2.5rem;
+  }
 }
 
 .uv-card-hover {
@@ -49,15 +62,31 @@ body {
 }
 
 .sidebar-link {
-  @apply flex items-center gap-3 px-5 py-3 rounded-tr-3xl rounded-bl-3xl text-lg transition-all hover:bg-primary/5 hover:text-primary w-fit cursor-pointer font-medium;
+  @apply flex items-center gap-3 px-4 py-2.5 rounded-tr-2xl rounded-bl-2xl text-base transition-all hover:bg-primary/5 hover:text-primary w-fit cursor-pointer font-medium;
+}
+
+@media (min-width: 768px) {
+  .sidebar-link {
+    @apply px-5 py-3 text-lg rounded-tr-3xl rounded-bl-3xl;
+  }
 }
 
 .active-link {
   @apply bg-primary text-white font-bold shadow-lg shadow-primary/20;
 }
 
+.active-link-reported {
+  @apply bg-red-500 text-white font-bold shadow-lg shadow-red-500/20;
+}
+
 .uv-button {
-  @apply bg-primary text-white font-black py-3 px-8 rounded-tl-2xl rounded-br-2xl text-lg transition-all hover:brightness-110 shadow-lg shadow-primary/20 active:scale-95;
+  @apply bg-primary text-white font-black py-2 px-5 rounded-tl-xl rounded-br-xl text-xs transition-all hover:brightness-110 shadow-[0_4px_12px_rgba(79,70,229,0.2)] active:scale-95;
+}
+
+@media (min-width: 768px) {
+  .uv-button {
+    @apply py-3 px-8 rounded-tl-2xl rounded-br-2xl text-lg;
+  }
 }
 
 .modal-backdrop {
@@ -137,7 +166,7 @@ body {
   background: rgba(255, 255, 255, 0.2) !important;
 }
 
-.space-dimension input, 
+.space-dimension input,
 .space-dimension textarea {
   color: #ffffff !important;
   background-color: rgba(255, 255, 255, 0.03) !important;

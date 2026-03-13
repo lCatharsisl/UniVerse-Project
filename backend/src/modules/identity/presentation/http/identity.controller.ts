@@ -47,7 +47,19 @@ export class IdentityController {
   }
 
   static async updateProfile(req: AuthenticatedRequest, res: Response) {
-    const result = await UpdateProfileHandler.execute(req.userId!, req.body);
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    const updateData = { ...req.body };
+
+    if (files) {
+      if (files['avatar'] && files['avatar'][0]) {
+        updateData.avatarUrl = `/uploads/${files['avatar'][0].filename}`;
+      }
+      if (files['cover'] && files['cover'][0]) {
+        updateData.coverUrl = `/uploads/${files['cover'][0].filename}`;
+      }
+    }
+
+    const result = await UpdateProfileHandler.execute(req.userId!, updateData);
     if (!result.success) return res.status(400).json({ error: result.error });
     return res.json({ message: 'Profile updated successfully' });
   }
@@ -59,27 +71,6 @@ export class IdentityController {
       return res.json(profile);
     } catch (error: any) {
       return res.status(error.status || 500).json({ error: error.message });
-    }
-  }
-
-  static async uploadAvatar(req: AuthenticatedRequest, res: Response) {
-    try {
-      const file = (req as any).file;
-
-      if (!file) {
-        return res.status(400).json({ error: 'No file uploaded' });
-      }
-
-      const avatarUrl = `/uploads/${file.filename}`;
-      const result = await UpdateProfileHandler.execute(req.userId!, { avatarUrl });
-
-      if (!result.success) {
-        return res.status(400).json({ error: result.error });
-      }
-
-      return res.json({ avatarUrl });
-    } catch (error: any) {
-      return res.status(500).json({ error: error.message });
     }
   }
 }

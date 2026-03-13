@@ -6,6 +6,12 @@ interface User {
     email: string;
     role: 'student' | 'staff' | 'admin' | 'community';
     profile?: any;
+    warningTier?: number;
+    isBanned?: boolean;
+}
+
+export function isAcademic(role: string): boolean {
+    return role === 'staff' || role === 'admin';
 }
 
 interface AuthContextType {

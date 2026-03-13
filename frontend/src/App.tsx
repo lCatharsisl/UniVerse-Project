@@ -8,10 +8,14 @@ import SocialFeed from './pages/SocialFeed';
 import CreateItem from './pages/CreateItem';
 import ItemDetail from './pages/ItemDetail';
 import Profile from './pages/Profile';
+import EditProfile from './pages/EditProfile';
+import ChangePassword from './pages/ChangePassword';
 import CampusMap from './pages/CampusMap';
 import AcademicCalendar from './pages/AcademicCalendar';
 import FoodMenu from './pages/FoodMenu';
 import FreeRooms from './pages/FreeRooms';
+import GradeCalculator from './pages/GradeCalculator';
+import Reported from './pages/Reported';
 import MainLayout from './components/MainLayout';
 import { ThemeProvider } from './context/ThemeContext';
 
@@ -43,11 +47,15 @@ function AppRoutes() {
       <Route path="/edit-item/:type/:id" element={<PrivateRoute><MainLayout><CreateItem /></MainLayout></PrivateRoute>} />
       <Route path="/item/:type/:id" element={<PrivateRoute><MainLayout><ItemDetail /></MainLayout></PrivateRoute>} />
       <Route path="/profile" element={<PrivateRoute><MainLayout><Profile /></MainLayout></PrivateRoute>} />
+      <Route path="/profile/edit" element={<PrivateRoute><MainLayout><EditProfile /></MainLayout></PrivateRoute>} />
+      <Route path="/profile/change-password" element={<PrivateRoute><MainLayout><ChangePassword /></MainLayout></PrivateRoute>} />
       <Route path="/profile/:id" element={<PrivateRoute><MainLayout><Profile /></MainLayout></PrivateRoute>} />
       <Route path="/campus-map" element={<PrivateRoute><MainLayout><CampusMap /></MainLayout></PrivateRoute>} />
+      <Route path="/reported" element={<PrivateRoute><MainLayout><Reported /></MainLayout></PrivateRoute>} />
       <Route path="/academic-calendar" element={<PrivateRoute><MainLayout><AcademicCalendar /></MainLayout></PrivateRoute>} />
       <Route path="/food-menu" element={<PrivateRoute><MainLayout><FoodMenu /></MainLayout></PrivateRoute>} />
       <Route path="/free-rooms" element={<PrivateRoute><MainLayout><FreeRooms /></MainLayout></PrivateRoute>} />
+      <Route path="/grade-calculator" element={<PrivateRoute><MainLayout><GradeCalculator /></MainLayout></PrivateRoute>} />
     </Routes>
   );
 }

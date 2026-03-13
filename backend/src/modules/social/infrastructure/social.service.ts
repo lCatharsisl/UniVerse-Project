@@ -1,5 +1,6 @@
 import { query, queryOne } from '../../../config/db';
 import { AppError } from '../../../shared/core/errors';
+import { isAcademic } from './moderation.service';
 
 export class SocialService {
   static async addComment(userId: number, itemId: number, itemType: string, content: string) {
@@ -29,12 +30,13 @@ export class SocialService {
     return result;
   }
 
-  static async deletePost(postId: number, userId: number) {
+  static async deletePost(postId: number, userId: number, userRole?: string) {
     const post = await queryOne<{ user_id: number }>('SELECT user_id FROM posts WHERE post_id = $1', [postId]);
     if (!post) throw AppError.notFound('Post not found');
-    if (post.user_id !== userId) throw AppError.forbidden('You can only delete your own posts');
+    if (post.user_id !== userId && !isAcademic(userRole || '')) throw AppError.forbidden('You can only delete your own posts');
 
     await query('DELETE FROM posts WHERE post_id = $1', [postId]);
+    await query('DELETE FROM post_reports WHERE post_id = $1', [postId]);
   }
 
   static async toggleLike(postId: number, userId: number) {
@@ -251,5 +253,41 @@ export class SocialService {
   static async isFollowing(followerId: number, followingId: number) {
     const existing = await queryOne('SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2', [followerId, followingId]);
     return !!existing;
+  }
+
+  static async getFollowers(userId: number) {
+    const rows = await query<any>(
+      `SELECT u.user_id, u.email,
+        COALESCE(st.student_name, sf.staff_name, c.community_name) AS name,
+        COALESCE(st.student_surname, sf.staff_surname, '') AS surname,
+        COALESCE(st.avatar_url, sf.avatar_url, c.avatar_url) AS avatar_url
+       FROM follows f
+       JOIN users u ON u.user_id = f.follower_id
+       LEFT JOIN students st ON st.user_id = u.user_id
+       LEFT JOIN staff sf ON sf.user_id = u.user_id
+       LEFT JOIN communities c ON c.user_id = u.user_id
+       WHERE f.following_id = $1
+       ORDER BY f.created_at DESC`,
+      [userId]
+    );
+    return rows;
+  }
+
+  static async getFollowing(userId: number) {
+    const rows = await query<any>(
+      `SELECT u.user_id, u.email,
+        COALESCE(st.student_name, sf.staff_name, c.community_name) AS name,
+        COALESCE(st.student_surname, sf.staff_surname, '') AS surname,
+        COALESCE(st.avatar_url, sf.avatar_url, c.avatar_url) AS avatar_url
+       FROM follows f
+       JOIN users u ON u.user_id = f.following_id
+       LEFT JOIN students st ON st.user_id = u.user_id
+       LEFT JOIN staff sf ON sf.user_id = u.user_id
+       LEFT JOIN communities c ON c.user_id = u.user_id
+       WHERE f.follower_id = $1
+       ORDER BY f.created_at DESC`,
+      [userId]
+    );
+    return rows;
   }
 }

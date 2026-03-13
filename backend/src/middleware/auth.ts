@@ -5,9 +5,10 @@ export interface AuthenticatedRequest extends Request {
   userId?: number;
   userRole?: string;
   sessionId?: number;
+  isBanned?: boolean;
 }
 
-interface SessionRow {
+export interface SessionRow {
   user_id: number;
   session_id: number;
   role: string;
@@ -28,7 +29,7 @@ export async function authenticateSession(
 
     const sessionToken = authHeader.substring(7);
 
-    const session = await queryOne<SessionRow>(
+    let session = await queryOne<SessionRow>(
       `SELECT us.user_id, us.session_id, u.role
        FROM user_sessions us
        JOIN users u ON u.user_id = us.user_id
@@ -46,6 +47,16 @@ export async function authenticateSession(
     req.userId = session.user_id;
     req.userRole = session.role;
     req.sessionId = session.session_id;
+
+    try {
+      const banRow = await queryOne<{ is_banned: boolean }>(
+        'SELECT COALESCE(is_banned, false) AS is_banned FROM users WHERE user_id = $1',
+        [session.user_id]
+      );
+      (req as AuthenticatedRequest).isBanned = banRow?.is_banned ?? false;
+    } catch {
+      (req as AuthenticatedRequest).isBanned = false;
+    }
 
     next();
   } catch (error) {
