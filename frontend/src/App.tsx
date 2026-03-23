@@ -8,6 +8,7 @@ import SocialFeed from './pages/SocialFeed';
 import CreateItem from './pages/CreateItem';
 import ItemDetail from './pages/ItemDetail';
 import Profile from './pages/Profile';
+import Settings from './pages/Settings';
 import EditProfile from './pages/EditProfile';
 import ChangePassword from './pages/ChangePassword';
 import CampusMap from './pages/CampusMap';
@@ -47,6 +48,8 @@ function AppRoutes() {
       <Route path="/edit-item/:type/:id" element={<PrivateRoute><MainLayout><CreateItem /></MainLayout></PrivateRoute>} />
       <Route path="/item/:type/:id" element={<PrivateRoute><MainLayout><ItemDetail /></MainLayout></PrivateRoute>} />
       <Route path="/profile" element={<PrivateRoute><MainLayout><Profile /></MainLayout></PrivateRoute>} />
+      <Route path="/profile/edit" element={<PrivateRoute><MainLayout><Settings /></MainLayout></PrivateRoute>} />
+      <Route path="/settings" element={<PrivateRoute><MainLayout><Settings /></MainLayout></PrivateRoute>} />
       <Route path="/profile/edit" element={<PrivateRoute><MainLayout><EditProfile /></MainLayout></PrivateRoute>} />
       <Route path="/profile/change-password" element={<PrivateRoute><MainLayout><ChangePassword /></MainLayout></PrivateRoute>} />
       <Route path="/profile/:id" element={<PrivateRoute><MainLayout><Profile /></MainLayout></PrivateRoute>} />

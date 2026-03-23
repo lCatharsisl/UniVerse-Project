@@ -36,9 +36,26 @@ app.use(errorHandler);
 
 const PORT = env.PORT;
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📊 Environment: ${env.NODE_ENV}`);
+  try {
+    const { fetchAndParseMenu } = await import('./modules/campus-info/infrastructure/menu.service');
+    await fetchAndParseMenu();
+    console.log('📋 Menu cache refreshed on startup');
+  } catch (e) {
+    console.warn('Menu initial refresh failed (will retry via cron):', (e as Error).message);
+  }
+  const cron = await import('node-cron');
+  cron.default.schedule('0 6 * * *', async () => {
+    try {
+      const { fetchAndParseMenu } = await import('./modules/campus-info/infrastructure/menu.service');
+      await fetchAndParseMenu();
+      console.log('📋 Menu cache refreshed (daily cron)');
+    } catch (e) {
+      console.warn('Menu cron refresh failed:', (e as Error).message);
+    }
+  }, { timezone: 'Europe/Istanbul' });
 });
 
 // Graceful shutdown
