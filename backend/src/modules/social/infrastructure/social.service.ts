@@ -1,5 +1,6 @@
 import { query, queryOne } from '../../../config/db';
 import { AppError } from '../../../shared/core/errors';
+import { isAcademic } from './moderation.service';
 
 export class SocialService {
   static async addComment(userId: number, itemId: number, itemType: string, content: string) {
@@ -29,12 +30,13 @@ export class SocialService {
     return result;
   }
 
-  static async deletePost(postId: number, userId: number) {
+  static async deletePost(postId: number, userId: number, userRole?: string) {
     const post = await queryOne<{ user_id: number }>('SELECT user_id FROM posts WHERE post_id = $1', [postId]);
     if (!post) throw AppError.notFound('Post not found');
-    if (post.user_id !== userId) throw AppError.forbidden('You can only delete your own posts');
+    if (post.user_id !== userId && !isAcademic(userRole || '')) throw AppError.forbidden('You can only delete your own posts');
 
     await query('DELETE FROM posts WHERE post_id = $1', [postId]);
+    await query('DELETE FROM post_reports WHERE post_id = $1', [postId]);
   }
 
   static async toggleLike(postId: number, userId: number) {
@@ -64,6 +66,11 @@ export class SocialService {
     let sql = '';
     let countSql = '';
     let countParams: any[] = [];
+
+    // Fetch muted words first
+    const userSettings = await queryOne<{muted_words: string[]}>('SELECT muted_words FROM users WHERE user_id = $1', [currentUserId]);
+    const mutedWords = userSettings?.muted_words || [];
+    const mutedRegex = mutedWords.length > 0 ? mutedWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') : null;
 
     if (type === 'feed') {
       // Timeline consists of original posts AND reposts
@@ -110,9 +117,12 @@ export class SocialService {
           LEFT JOIN admins ra ON ra.user_id = ru.user_id
           LEFT JOIN communities rc ON rc.user_id = ru.user_id
         ) combined
+        ${mutedRegex ? `WHERE content !~* $4` : ''}
         ORDER BY sorted_at DESC
         LIMIT $2 OFFSET $3
       `;
+      if (mutedRegex) params.push(mutedRegex);
+
       // Count for feed
       countSql = `
         SELECT (SELECT COUNT(*) FROM posts) + (SELECT COUNT(*) FROM post_reposts) as total
@@ -135,6 +145,11 @@ export class SocialService {
         whereClause = `WHERE pr2.user_id = $${targetUserIdIdx}`;
       }
 
+      if (mutedRegex) {
+        params.push(mutedRegex);
+        whereClause += ` AND p.content !~* $5`;
+      }
+
       sql = `
         SELECT 
           p.*,
@@ -155,8 +170,9 @@ export class SocialService {
         LIMIT $2 OFFSET $3
       `;
 
-      countSql = `SELECT COUNT(*) as total ${fromClause} ${whereClause.replace('$4', '$1')}`;
+      countSql = `SELECT COUNT(*) as total ${fromClause} ${whereClause.replace('$4', '$1').replace('$5', '$2')}`;
       countParams = [targetUserId];
+      if (mutedRegex) countParams.push(mutedRegex);
     }
 
     // Common Interaction subqueries

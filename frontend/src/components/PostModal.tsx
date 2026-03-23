@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { FiX, FiImage, FiZap, FiWifi, FiSend } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +10,7 @@ interface PostModalProps {
 }
 
 const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -32,7 +34,7 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
       onClose();
       window.location.reload(); 
     } catch (error) {
-      alert('Transmission failed. Check node status.');
+      alert(t('postModal.transmissionFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -50,7 +52,7 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
         {/* Modular Header */}
         <div className="absolute top-0 left-0 bg-primary/10 px-6 py-2 rounded-br-2xl flex items-center gap-2 border-b border-r border-primary/10">
             <FiWifi className="text-primary animate-pulse" />
-            <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Live Connection</span>
+            <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{t('postModal.liveConnection')}</span>
         </div>
 
         <div className="flex justify-end mb-2 md:mb-6">
@@ -67,7 +69,7 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
             <textarea
               autoFocus
               className="w-full text-base md:text-2xl font-black border-none outline-none resize-none placeholder-primary/20 min-h-[120px] md:min-h-[160px] bg-transparent tracking-tight text-uv-black"
-              placeholder="What's the frequency?"
+              placeholder={t('postModal.placeholder')}
               value={content}
               onChange={(e) => setContent(e.target.value)}
             />
@@ -109,7 +111,7 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
                 onClick={handlePost}
                 className="uv-button !py-2 !px-6 md:!py-4 md:!px-10 flex items-center gap-2 md:gap-3 text-[10px] md:text-sm"
               >
-                {submitting ? 'Transmitting...' : <><FiSend size={16} /> BROADCAST</>}
+                {submitting ? t('postModal.transmitting') : <><FiSend size={16} /> {t('postModal.broadcast')}</>}
               </button>
             </div>
           </div>

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
-import { FiHeart, FiRepeat, FiMessageCircle, FiImage, FiTrash2, FiMoreHorizontal, FiSend, FiNavigation, FiX, FiUser } from 'react-icons/fi';
+import { FiHeart, FiRepeat, FiMessageCircle, FiImage, FiTrash2, FiMoreHorizontal, FiSend, FiNavigation, FiX, FiUser, FiAlertTriangle } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+import { isAcademic } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../context/ThemeContext';
@@ -26,6 +27,9 @@ interface Post {
     reposter_email?: string;
     reposter_id?: number;
     avatar_url?: string;
+    reports_count?: number;
+    has_reported?: boolean;
+    my_report_type?: string | null;
     // UI state
     showComments?: boolean;
     comments?: any[];
@@ -45,7 +49,52 @@ const SocialFeed = () => {
     const [likeModal, setLikeModal] = useState<{ isOpen: boolean; postId: number | null; users: any[] }>({ isOpen: false, postId: null, users: [] });
     const [loadingLikes, setLoadingLikes] = useState(false);
     const [commentSheet, setCommentSheet] = useState<{ isOpen: boolean; post: Post | null }>({ isOpen: false, post: null });
+    const [reportDropdown, setReportDropdown] = useState<number | null>(null);
+    const [warningDropdown, setWarningDropdown] = useState<number | null>(null);
+    const [reportSuccessMessage, setReportSuccessMessage] = useState<string | null>(null);
+    const reportDropdownRef = useRef<HTMLDivElement>(null);
+    const warningDropdownRef = useRef<HTMLDivElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
     const { dimension } = useTheme();
+
+    useEffect(() => {
+        if (openMenu === null) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setOpenMenu(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside, true);
+        return () => document.removeEventListener('mousedown', handleClickOutside, true);
+    }, [openMenu]);
+
+    useEffect(() => {
+        if (!reportSuccessMessage) return;
+        const t = setTimeout(() => setReportSuccessMessage(null), 3000);
+        return () => clearTimeout(t);
+    }, [reportSuccessMessage]);
+    const isStaff = user && isAcademic(user.role);
+
+    useEffect(() => {
+        if (reportDropdown === null) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (reportDropdownRef.current && !reportDropdownRef.current.contains(e.target as Node)) {
+                setReportDropdown(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside, true);
+        return () => document.removeEventListener('mousedown', handleClickOutside, true);
+    }, [reportDropdown]);
+    useEffect(() => {
+        if (warningDropdown === null) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (warningDropdownRef.current && !warningDropdownRef.current.contains(e.target as Node)) {
+                setWarningDropdown(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside, true);
+        return () => document.removeEventListener('mousedown', handleClickOutside, true);
+    }, [warningDropdown]);
     const isSpace = dimension === 'space';
 
     useEffect(() => {
@@ -194,6 +243,48 @@ const SocialFeed = () => {
         }
     };
 
+    const REPORT_TYPES = ['spam', 'harassment', 'inappropriate', 'other'] as const;
+    const handleReportPost = async (postId: number, reportType: string) => {
+        try {
+            await api.post(`/social/posts/${postId}/report`, { reportType });
+            setReportDropdown(null);
+            setReportSuccessMessage('Report submitted successfully.');
+            setPosts(prev => prev.map(p => p.post_id === postId ? { ...p, has_reported: true, my_report_type: reportType } : p));
+        } catch (err: any) {
+            const status = err?.response?.status;
+            let msg =
+                (err?.response?.data?.error as string) ||
+                err?.message ||
+                (status === 401 ? 'Please log in again.' : 'Failed to submit report.');
+            if (status === 404) {
+                msg = 'Report endpoint not found (404). Make sure the backend is running on port 3000 and the dev server proxy is active.';
+            }
+            alert(msg);
+        }
+    };
+
+    const handleRemoveReport = async (postId: number) => {
+        try {
+            await api.delete(`/social/posts/${postId}/report`);
+            setReportDropdown(null);
+            setReportSuccessMessage('Report removed.');
+            setPosts(prev => prev.map(p => p.post_id === postId ? { ...p, has_reported: false, my_report_type: null } : p));
+        } catch (err: any) {
+            const msg = (err?.response?.data?.error as string) || err?.message || 'Failed to remove report.';
+            alert(msg);
+        }
+    };
+
+    const handleGiveWarning = async (userId: number, tier: 1 | 2 | 3 | 4) => {
+        try {
+            await api.post(`/social/users/${userId}/warning`, { tier });
+            setWarningDropdown(null);
+            setReportSuccessMessage(tier === 4 ? 'User banned.' : `Warning (Tier ${tier}) applied.`);
+        } catch (err: any) {
+            alert((err?.response?.data?.error as string) || 'Failed to apply warning');
+        }
+    };
+
     const handleShowLikes = async (postId: number) => {
         setLikeModal({ isOpen: true, postId, users: [] });
         setLoadingLikes(true);
@@ -207,8 +298,23 @@ const SocialFeed = () => {
         }
     };
 
+    if (user?.isBanned) {
+        return (
+            <div className="flex flex-col min-h-screen items-center justify-center p-6">
+                <p className="text-center font-black uppercase tracking-widest text-uv-gray mb-2">Social access restricted</p>
+                <p className="text-sm text-center text-uv-gray">Your account cannot access the feed, posts, or social features. You can still use campus map, calendar, and other non-social pages.</p>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col min-h-screen">
+            {/* Report success toast */}
+            {reportSuccessMessage && (
+                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-4 py-2 rounded-xl bg-green-600 text-white text-sm font-bold shadow-lg">
+                    {reportSuccessMessage}
+                </div>
+            )}
             {/* Unique Header */}
             <div className="sticky top-0 premium-blur border-b border-uv-border z-20 px-3 md:px-6 py-1.5 md:py-4 flex items-center justify-between gap-2">
                 <div className="min-w-0">
@@ -266,7 +372,7 @@ const SocialFeed = () => {
             </div>
 
             {/* Feed Stream */}
-            <div className="pb-24">
+            <div className="pb-24 px-1">
                 {loading ? (
                     <div className="p-12 md:p-20 text-center flex flex-col items-center gap-4">
                         <div className="w-8 h-8 md:w-12 md:h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -275,8 +381,11 @@ const SocialFeed = () => {
                 ) : posts.length === 0 ? (
                     <div className="p-12 md:p-20 text-center text-uv-gray font-black uppercase tracking-widest text-[9px] md:text-xs opacity-50">Pulse is flat. Start the heartbeat.</div>
                 ) : (
-                    posts.map((post) => (
-                        <div key={post.post_id} className="p-3 md:p-6 border-b border-uv-border/30 hover:bg-gray-50/50 transition-all group relative overflow-hidden">
+                    posts.map((post, rowIndex) => (
+                        <div
+                            key={`${post.post_id}-${rowIndex}`}
+                            className={`p-3 md:p-5 rounded-2xl border transition-all group relative mb-3 ${isSpace ? 'bg-white/5 border-white/10 hover:bg-white/[0.07]' : 'bg-gray-50/80 border-uv-border/50 hover:bg-gray-100/80'}`}
+                        >
                              {/* Repost Indicator */}
                              {post.reposter_id && (
                                 <div className="mb-1 flex items-center gap-1.5 text-[7px] md:text-[10px] font-black text-green-600 uppercase tracking-widest pl-9 md:pl-16">
@@ -287,43 +396,43 @@ const SocialFeed = () => {
                             <div className="flex gap-2 md:gap-4">
                                 <div 
                                     onClick={() => navigate(`/profile/${post.user_id}`)}
-                                    className="w-8 h-8 md:w-12 md:h-12 bg-primary/5 rounded-tl-lg rounded-br-lg md:rounded-tl-xl md:rounded-br-xl flex items-center justify-center font-black text-primary border border-primary/10 overflow-hidden cursor-pointer text-xs md:text-base shrink-0"
+                                    className="w-8 h-8 md:w-12 md:h-12 rounded-xl flex items-center justify-center font-black text-primary border border-primary/20 overflow-hidden cursor-pointer text-xs md:text-base shrink-0 bg-primary/10"
                                 >
-                                    {post.avatar_url ? <img src={post.avatar_url} className="w-full h-full object-cover" /> : post.email[0].toUpperCase()}
+                                    {post.avatar_url ? <img src={post.avatar_url} className="w-full h-full object-cover" alt="" /> : post.email[0].toUpperCase()}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between mb-0.5 md:mb-2 text-xs md:text-base">
-                                        <div className="flex items-center gap-1 md:gap-2 min-w-0">
+                                    <div className="flex items-center justify-between gap-2 mb-0.5 md:mb-1 text-xs md:text-base">
+                                        <div className="flex items-center gap-1.5 md:gap-2 min-w-0 flex-wrap">
                                             <span 
                                                 onClick={() => navigate(`/profile/${post.user_id}`)}
-                                                className="font-black text-uv-black hover:text-primary transition-colors cursor-pointer truncate"
+                                                className={`font-black hover:text-primary transition-colors cursor-pointer truncate ${isSpace ? 'text-white' : 'text-uv-black'}`}
                                             >
                                                 {post.first_name} {post.last_name}
                                             </span>
-                                            <span className="text-[8px] md:text-[10px] font-black uppercase text-uv-gray tracking-tighter truncate opacity-70">@{post.email.split('@')[0]}</span>
-                                            <span className="text-uv-gray text-[10px]">·</span>
-                                            <span className="text-uv-gray text-[8px] md:text-[10px] font-bold uppercase whitespace-nowrap">{formatDate(post.created_at)}</span>
+                                            <span className={`text-[8px] md:text-[10px] font-bold uppercase tracking-tighter truncate ${isSpace ? 'text-white/60' : 'text-uv-gray'}`}>@{post.email.split('@')[0]}</span>
+                                            <span className={isSpace ? 'text-white/40' : 'text-uv-gray'}>·</span>
+                                            <span className={`text-[8px] md:text-[10px] font-bold uppercase whitespace-nowrap ${isSpace ? 'text-white/50' : 'text-uv-gray'}`}>{formatDate(post.created_at)}</span>
                                         </div>
-                                        <div className="relative shrink-0">
+                                        <div className="relative shrink-0" ref={openMenu === rowIndex ? menuRef : undefined}>
                                             <button 
-                                                onClick={() => setOpenMenu(openMenu === post.post_id ? null : post.post_id)}
+                                                onClick={(e) => { e.stopPropagation(); setOpenMenu(openMenu === rowIndex ? null : rowIndex); }}
                                                 className="text-uv-gray p-0.5 hover:bg-gray-50 rounded-lg transition-colors"
                                             >
                                                 <FiMoreHorizontal size={14} />
                                             </button>
                                             
-                                            {openMenu === post.post_id && (
-                                                <div className="absolute right-0 mt-2 w-48 bg-white border border-uv-border rounded-xl shadow-xl z-20 py-2 premium-blur">
+                                            {openMenu === rowIndex && (
+                                                <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl z-20 py-2 border ${isSpace ? 'bg-[#0d0d1a] border-white/10' : 'bg-white border-uv-border'}`}>
                                                     <button 
                                                         onClick={() => handleCopyLink(post.post_id)}
-                                                        className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-uv-black hover:bg-gray-50 flex items-center gap-2"
+                                                        className={`w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 ${isSpace ? 'text-white hover:bg-white/10' : 'text-uv-black hover:bg-gray-50'}`}
                                                     >
                                                         <FiSend size={14} /> Copy Link
                                                     </button>
                                                     {(post.user_id === user?.userId || post.reposter_id === user?.userId) && (
                                                         <button 
                                                             onClick={() => handleDeletePost(post.post_id)}
-                                                            className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-red-500 hover:bg-red-50 flex items-center gap-2"
+                                                            className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 flex items-center gap-2"
                                                         >
                                                             <FiTrash2 size={14} /> Delete
                                                         </button>
@@ -333,16 +442,16 @@ const SocialFeed = () => {
                                         </div>
                                     </div>
  
-                                    <p className="text-uv-black font-medium leading-relaxed mb-2 md:mb-4 text-xs md:text-[15px]">{post.content}</p>
+                                    <p className={`font-medium leading-relaxed mb-3 text-xs md:text-[15px] break-words ${isSpace ? 'text-white' : 'text-uv-black'}`}>{post.content}</p>
  
                                     {post.image_url && (
-                                        <div className="rounded-2xl border border-uv-border overflow-hidden mb-3 sm:mb-4 shadow-sm">
-                                            <img src={`http://localhost:3000${post.image_url}`} loading="lazy" className="max-h-48 md:max-h-[512px] w-full object-cover" />
+                                        <div className="rounded-xl border overflow-hidden mb-3 sm:mb-4 shadow-sm border-uv-border/50">
+                                            <img src={`http://localhost:3000${post.image_url}`} loading="lazy" className="max-h-48 md:max-h-[512px] w-full object-cover" alt="" />
                                         </div>
                                     )}
  
                                     {/* Action Deck */}
-                                    <div className="flex items-center gap-6 md:gap-8 text-uv-gray">
+                                    <div className={`flex items-center gap-6 md:gap-8 ${isSpace ? 'text-white/70' : 'text-uv-gray'}`}>
                                         <button onClick={() => toggleComments(post.post_id)} className={`flex items-center gap-1 md:gap-1.5 transition-all ${post.showComments ? 'text-primary' : 'hover:text-primary'}`}>
                                             <FiMessageCircle size={15} className={post.showComments ? 'fill-primary/10' : ''} />
                                             <span className="text-[9px] md:text-[11px] font-black">{post.comments_count}</span>
@@ -358,6 +467,73 @@ const SocialFeed = () => {
                                             <button onClick={() => handleShowLikes(post.post_id)} className="text-[9px] md:text-[11px] font-black hover:underline">
                                                 {post.likes_count}
                                             </button>
+                                        </div>
+                                        <div
+                                            className="relative ml-auto flex items-center gap-1"
+                                            ref={isStaff ? (warningDropdown === rowIndex ? warningDropdownRef : undefined) : (reportDropdown === rowIndex ? reportDropdownRef : undefined)}
+                                        >
+                                            {isStaff ? (
+                                                <>
+                                                    {(post.reports_count ?? 0) > 0 && (
+                                                        <span className="text-[9px] font-black text-red-500 mr-0.5">{post.reports_count}</span>
+                                                    )}
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setWarningDropdown(warningDropdown === rowIndex ? null : rowIndex); }}
+                                                        className="p-1 text-amber-500 hover:text-amber-400 transition-colors"
+                                                        title="Give warning"
+                                                    >
+                                                        <FiAlertTriangle size={15} />
+                                                    </button>
+                                                    {warningDropdown === rowIndex && (
+                                                        <div className={`absolute right-0 bottom-full mb-1 w-40 py-2 rounded-xl shadow-xl z-20 border ${isSpace ? 'bg-[#0a0a14] border-amber-500/40' : 'bg-[#1a1a1a] border-amber-500/30'}`}>
+                                                            <p className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-white/80">Give warning</p>
+                                                            {[1, 2, 3].map((t) => (
+                                                                <button key={t} onClick={() => handleGiveWarning(post.user_id, t as 1 | 2 | 3)} className="w-full text-left px-3 py-2 text-xs font-bold text-amber-400 hover:bg-amber-500/20">
+                                                                    Tier {t}
+                                                                </button>
+                                                            ))}
+                                                            <button onClick={() => handleGiveWarning(post.user_id, 4)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20">
+                                                                Ban
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setReportDropdown(reportDropdown === rowIndex ? null : rowIndex); }}
+                                                        className="p-1 text-red-500 hover:text-red-600 transition-colors"
+                                                        title={post.has_reported ? 'Reported' : 'Report'}
+                                                    >
+                                                        <FiAlertTriangle size={15} />
+                                                    </button>
+                                                    {post.has_reported && (
+                                                        <span className="text-[9px] font-black text-red-500 ml-0.5">Reported</span>
+                                                    )}
+                                                    {reportDropdown === rowIndex && (
+                                                        <div className={`absolute right-0 bottom-full mb-1 w-44 py-2 rounded-xl shadow-xl z-20 border ${isSpace ? 'bg-[#0a0a14] border-red-500/40' : 'bg-[#1a1a1a] border-red-500/30'}`}>
+                                                            {post.has_reported ? (
+                                                                <>
+                                                                    <p className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-white/80">You reported as</p>
+                                                                    <p className="px-3 py-1 text-xs font-bold capitalize text-red-400">{post.my_report_type || 'other'}</p>
+                                                                    <button onClick={() => handleRemoveReport(post.post_id)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/20 transition-colors">
+                                                                        Remove report
+                                                                    </button>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <p className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-white/80">Report type</p>
+                                                                    {REPORT_TYPES.map((type) => (
+                                                                        <button key={type} onClick={() => handleReportPost(post.post_id, type)} className="w-full text-left px-3 py-2 text-xs font-bold capitalize text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors">
+                                                                            {type}
+                                                                        </button>
+                                                                    ))}
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
                                         </div>
                                     </div>
 
@@ -468,7 +644,7 @@ const SocialFeed = () => {
                                 </div>
 
                                 {/* Modal Body */}
-                                <div className="overflow-y-auto p-4 sm:p-6 space-y-3 scrollbar-hide flex-1">
+                                <div className="overflow-y-auto p-4 sm:p-6 pb-8 space-y-3 scrollbar-hide flex-1 min-h-0">
                                     {loadingLikes ? (
                                         <div className="p-20 text-center flex flex-col items-center gap-6">
                                             <div className="relative">

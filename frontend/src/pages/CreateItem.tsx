@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../api/client';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FiUpload, FiX, FiMapPin, FiCalendar, FiPackage, FiArrowLeft } from 'react-icons/fi';
 
 const CreateItem = () => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const { type: editType, id: editId } = useParams<{ type?: 'lost' | 'found'; id?: string }>();
     const [type, setType] = useState<'lost' | 'found'>((editType as 'lost' | 'found') || 'lost');
@@ -110,7 +112,7 @@ const CreateItem = () => {
         }
     };
 
-    if (fetching) return <div className="p-10 text-center text-gray-400">Loading item data...</div>;
+    if (fetching) return <div className="p-10 text-center text-gray-400">{t('lostFound.loadingItemData')}</div>;
 
     return (
         <div className="flex flex-col min-h-screen">
@@ -119,8 +121,8 @@ const CreateItem = () => {
                     <FiArrowLeft size={20} />
                 </button>
                 <div className="flex flex-col">
-                    <h2 className="text-xl font-black">{isEditing ? 'Edit Report' : 'Report an Item'}</h2>
-                    <span className="text-gray-500 text-xs">{isEditing ? 'Keep information up to date' : 'Help the UniVerse community'}</span>
+                    <h2 className="text-xl font-black">{isEditing ? t('createItem.editReport') : t('createItem.reportItem')}</h2>
+                    <span className="text-gray-500 text-xs">{isEditing ? t('createItem.keepInfoUpdated') : t('createItem.helpCommunity')}</span>
                 </div>
             </div>
 
@@ -140,7 +142,7 @@ const CreateItem = () => {
                             onClick={() => setType('lost')}
                             className={`flex-1 py-3 rounded-xl font-bold transition-all ${type === 'lost' ? 'bg-white shadow-sm text-primary' : 'text-gray-500'} ${isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
-                            I Lost Something
+                            {t('lostFound.iLostSomething')}
                         </button>
                         <button
                             type="button"
@@ -148,7 +150,7 @@ const CreateItem = () => {
                             onClick={() => setType('found')}
                             className={`flex-1 py-3 rounded-xl font-bold transition-all ${type === 'found' ? 'bg-white shadow-sm text-primary' : 'text-gray-500'} ${isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
-                            I Found Something
+                            {t('lostFound.iFoundSomething')}
                         </button>
                     </div>
 

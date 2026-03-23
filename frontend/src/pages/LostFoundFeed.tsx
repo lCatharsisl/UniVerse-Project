@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../api/client';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiMapPin, FiClock, FiSearch, FiPackage, FiArrowLeft } from 'react-icons/fi';
@@ -20,6 +21,7 @@ interface Item {
 }
 
 const LostFoundFeed = () => {
+    const { t } = useTranslation();
     const [items, setItems] = useState<Item[]>([]);
     const [activeTab, setActiveTab] = useState<'lost' | 'found' | 'resolved'>('lost');
     const [loading, setLoading] = useState(true);
@@ -74,12 +76,12 @@ const LostFoundFeed = () => {
             {/* Header */}
             <div className={`sticky top-0 premium-blur border-b z-10 px-3 py-2 md:px-4 md:py-3 ${isSpace ? 'border-white/10' : 'border-x-border'}`}>
                 <div className="flex items-center justify-between gap-3 md:gap-6">
-                    <h2 className={`text-sm md:text-xl font-black truncate ${isSpace ? 'text-white' : 'text-uv-black'}`}>Lost & Found</h2>
+                    <h2 className={`text-sm md:text-xl font-black truncate ${isSpace ? 'text-white' : 'text-uv-black'}`}>{t('lostFound.title')}</h2>
                     <div className="flex-1 max-w-[140px] md:max-w-xs relative shrink-0">
                         <FiSearch className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${isSpace ? 'text-white/30' : 'text-gray-400'}`} size={12} />
                         <input
                             type="text"
-                            placeholder="Search..."
+                            placeholder={t('common.search')}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className={`w-full pl-8 pr-3 py-1 border-none rounded-full text-[10px] md:text-xs outline-none focus:ring-1 focus:ring-primary transition-all ${
