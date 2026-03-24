@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../api/client';
 import { useNavigate, Link } from 'react-router-dom';
 import { FiUserPlus, FiArrowRight, FiShield, FiChevronDown, FiGlobe, FiCloud } from 'react-icons/fi';
@@ -6,6 +7,7 @@ import { DEPARTMENTS_DATA } from '../constants/departments';
 import { useTheme } from '../context/ThemeContext';
 
 const Register = () => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const { dimension, toggleDimension } = useTheme();
     const isSpace = dimension === 'space';
@@ -42,6 +44,31 @@ const Register = () => {
         e.preventDefault();
         setError('');
         setLoading(true);
+        
+        const email = formData.email.toLowerCase();
+
+        // Email validation
+        if (role === 'student' || role === 'community') {
+            if (!email.endsWith('@stu.yasar.edu.tr')) {
+                setError(t('register.studentEmailError'));
+                setLoading(false);
+                return;
+            }
+            if (role === 'student') {
+                const emailPrefix = email.split('@')[0];
+                if (emailPrefix !== formData.studentNumber) {
+                    setError(t('register.emailFormatError'));
+                    setLoading(false);
+                    return;
+                }
+            }
+        } else if (role === 'staff') {
+            if (!email.endsWith('@yasar.edu.tr') || email.endsWith('@stu.yasar.edu.tr')) {
+                setError(t('register.staffEmailError'));
+                setLoading(false);
+                return;
+            }
+        }
 
         try {
             const payload = {
@@ -69,7 +96,7 @@ const Register = () => {
             setSuccess(true);
             setTimeout(() => navigate('/login'), 2000);
         } catch (err: any) {
-            setError(err.response?.data?.error || 'Registry entry failed. Check protocols.');
+            setError(err.response?.data?.error || t('register.registryError'));
         } finally {
             setLoading(false);
         }
@@ -153,7 +180,7 @@ const Register = () => {
                 >
                     {isSpace ? <FiGlobe size={22} /> : <FiCloud size={22} />}
                     <span className={`absolute left-16 ${isSpace ? 'bg-white text-uv-black' : 'bg-uv-black text-white'} text-[10px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap`}>
-                        {isSpace ? 'RESTORE GRAVITY' : 'IGNITE ENGINES'}
+                        {isSpace ? t('mainLayout.restoreGravity') : t('mainLayout.igniteEngines')}
                     </span>
                 </button>
             </div>
@@ -192,13 +219,13 @@ const Register = () => {
                         <img src="/logo.svg" alt="UniVerse Logo" className="w-28 h-28 object-contain animate-bounce-hop drop-shadow-[0_0_25px_rgba(79,70,229,0.5)]" />
                     </div>
                     
-                    <h1 className={`text-3xl md:text-6xl font-black mb-1 tracking-tighter leading-none text-center md:text-left ${isSpace ? 'text-white' : 'text-uv-black'}`}>New Node.</h1>
-                    <p className={`font-bold text-[10px] md:text-lg mb-4 md:mb-12 tracking-tight text-center md:text-left ${isSpace ? 'text-gray-400' : 'text-uv-gray'}`}>Expand the UniVerse. Select your campus role to begin.</p>
+                    <h1 className={`text-3xl md:text-6xl font-black mb-1 tracking-tighter leading-none text-center md:text-left ${isSpace ? 'text-white' : 'text-uv-black'}`}>{t('register.title')}</h1>
+                    <p className={`font-bold text-[10px] md:text-lg mb-4 md:mb-12 tracking-tight text-center md:text-left ${isSpace ? 'text-gray-400' : 'text-uv-gray'}`}>{t('register.subtitle')}</p>
 
                     {success ? (
                         <div className="p-10 uv-card border-green-500/20 bg-green-50 text-green-700 text-center font-black animate-bounce rounded-tl-[3rem] rounded-br-[3rem]">
                            <FiShield size={48} className="mx-auto mb-4" />
-                           NODE GENERATED SUCCESSFULLY.<br/>REDIRECTING TO LINK...
+                           {t('register.nodeGenerated')}<br/>{t('register.redirecting')}
                         </div>
                     ) : (
                         <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
@@ -225,13 +252,13 @@ const Register = () => {
                             <div className="space-y-4">
                                 <div className="grid grid-cols-1 gap-2">
                                     <input
-                                        name="email" type="email" placeholder="Campus Email"
+                                        name="email" type="email" placeholder={t('register.campusEmail')}
                                         value={formData.email} onChange={handleChange}
                                         className={`${inputClasses} py-3 text-sm`}
                                         required
                                     />
                                     <input
-                                        name="password" type="password" placeholder="Passkey (Min 8 chars)"
+                                        name="password" type="password" placeholder={t('register.passkey')}
                                         value={formData.password} onChange={handleChange}
                                         className={`${inputClasses} py-3 text-sm`}
                                         required minLength={8}
@@ -241,11 +268,11 @@ const Register = () => {
                                 {role === 'student' && (
                                     <div className={`space-y-4 pt-4 border-t mt-2 ${isSpace ? 'border-white/10' : 'border-gray-100'}`}>
                                         <div className="grid grid-cols-2 gap-4">
-                                            <input name="studentName" placeholder="Name" className={inputClasses} onChange={handleChange} required />
-                                            <input name="studentSurname" placeholder="Surname" className={inputClasses} onChange={handleChange} required />
+                                            <input name="studentName" placeholder={t('register.name')} className={inputClasses} onChange={handleChange} required />
+                                            <input name="studentSurname" placeholder={t('register.surname')} className={inputClasses} onChange={handleChange} required />
                                         </div>
                                         <div className="space-y-4">
-                                            <input name="studentNumber" placeholder="Student ID Number" className={inputClasses} onChange={handleChange} required />
+                                            <input name="studentNumber" placeholder={t('register.studentIdNumber')} className={inputClasses} onChange={handleChange} required />
                                             
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div className="relative">
@@ -258,9 +285,9 @@ const Register = () => {
                                                         className={selectClasses}
                                                         required
                                                     >
-                                                        <option value="" className={isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}>Select Faculty</option>
+                                                        <option value="" className={isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}>{t('register.selectFaculty')}</option>
                                                         {Object.keys(DEPARTMENTS_DATA).map(faculty => (
-                                                            <option key={faculty} value={faculty} className={isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}>{faculty}</option>
+                                                            <option key={faculty} value={faculty} className={isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}>{t(`departments.faculties.${faculty}`) || faculty}</option>
                                                         ))}
                                                     </select>
                                                     <FiChevronDown className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${isSpace ? 'text-gray-500' : 'text-uv-gray'}`} />
@@ -275,9 +302,9 @@ const Register = () => {
                                                         className={selectClasses}
                                                         required
                                                     >
-                                                        <option value="" className={isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}>Select Department</option>
+                                                        <option value="" className={isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}>{t('register.selectDepartment')}</option>
                                                         {availableDepartments.map(dept => (
-                                                            <option key={dept.id} value={dept.id} className={isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}>{dept.name}</option>
+                                                            <option key={dept.id} value={dept.id} className={isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}>{t(`departments.departments.${dept.name}`) || dept.name}</option>
                                                         ))}
                                                     </select>
                                                     <FiChevronDown className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${isSpace ? 'text-gray-500' : 'text-uv-gray'}`} />
@@ -290,8 +317,8 @@ const Register = () => {
                                 {role === 'staff' && (
                                     <div className={`space-y-4 pt-4 border-t mt-2 ${isSpace ? 'border-white/10' : 'border-gray-100'}`}>
                                         <div className="grid grid-cols-2 gap-4">
-                                            <input name="staffName" placeholder="Name" className={inputClasses} onChange={handleChange} required />
-                                            <input name="staffSurname" placeholder="Surname" className={inputClasses} onChange={handleChange} required />
+                                            <input name="staffName" placeholder={t('register.name')} className={inputClasses} onChange={handleChange} required />
+                                            <input name="staffSurname" placeholder={t('register.surname')} className={inputClasses} onChange={handleChange} required />
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="relative">
@@ -304,9 +331,9 @@ const Register = () => {
                                                     className={selectClasses}
                                                     required
                                                 >
-                                                    <option value="" className={isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}>Select Faculty</option>
+                                                    <option value="" className={isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}>{t('register.selectFaculty')}</option>
                                                     {Object.keys(DEPARTMENTS_DATA).map(faculty => (
-                                                        <option key={faculty} value={faculty} className={isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}>{faculty}</option>
+                                                        <option key={faculty} value={faculty} className={isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}>{t(`departments.faculties.${faculty}`) || faculty}</option>
                                                     ))}
                                                 </select>
                                                 <FiChevronDown className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${isSpace ? 'text-gray-500' : 'text-uv-gray'}`} />
@@ -321,9 +348,9 @@ const Register = () => {
                                                     className={selectClasses}
                                                     required
                                                 >
-                                                    <option value="" className={isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}>Select Department</option>
+                                                    <option value="" className={isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}>{t('register.selectDepartment')}</option>
                                                     {availableDepartments.map(dept => (
-                                                        <option key={dept.id} value={dept.id} className={isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}>{dept.name}</option>
+                                                        <option key={dept.id} value={dept.id} className={isSpace ? 'bg-[#0a0a1a]' : 'bg-white'}>{t(`departments.departments.${dept.name}`) || dept.name}</option>
                                                     ))}
                                                 </select>
                                                 <FiChevronDown className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${isSpace ? 'text-gray-500' : 'text-uv-gray'}`} />
@@ -334,8 +361,8 @@ const Register = () => {
 
                                 {role === 'community' && (
                                     <div className={`space-y-4 pt-4 border-t mt-2 ${isSpace ? 'border-white/10' : 'border-gray-100'}`}>
-                                        <input name="communityName" placeholder="Organization Name" className={inputClasses} onChange={handleChange} required />
-                                        <textarea name="description" placeholder="Mission statement..." className={`${inputClasses} min-h-[100px] py-4`} onChange={handleChange} />
+                                        <input name="communityName" placeholder={t('register.organizationName')} className={inputClasses} onChange={handleChange} required />
+                                        <textarea name="description" placeholder={t('register.missionStatement')} className={`${inputClasses} min-h-[100px] py-4`} onChange={handleChange} />
                                     </div>
                                 )}
                             </div>
@@ -346,7 +373,7 @@ const Register = () => {
                             >
                                 <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                                 <span className="relative z-10 flex items-center gap-2 text-sm">
-                                    {loading ? 'REGISTRY IN PROGRESS...' : <><FiUserPlus /> GENERATE NODE</>}
+                                    {loading ? t('register.registryInProgress') : <><FiUserPlus /> {t('register.generateNode')}</>}
                                 </span>
                             </button>
                         </form>
@@ -354,7 +381,7 @@ const Register = () => {
 
                     <div className={`mt-6 pt-4 md:mt-12 md:pt-10 border-t flex items-center justify-center ${isSpace ? 'border-white/10' : 'border-gray-100'}`}>
                         <Link to="/login" className={`text-xs font-black uppercase tracking-widest hover:text-primary transition-colors flex items-center gap-2 ${isSpace ? 'text-gray-500' : 'text-uv-gray'}`}>
-                            Return to access terminal <FiArrowRight />
+                            {t('register.returnToAccess')} <FiArrowRight />
                         </Link>
                     </div>
                 </div>

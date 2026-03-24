@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import '../styles/components.css';
 
 export interface FilterOptions {
@@ -14,6 +15,7 @@ interface ItemFilterProps {
 }
 
 export const ItemFilter: React.FC<ItemFilterProps> = ({ onFilter, onReset }) => {
+  const { t } = useTranslation();
   const [filters, setFilters] = useState<FilterOptions>({
     location: '',
     dateFrom: '',
@@ -49,21 +51,21 @@ export const ItemFilter: React.FC<ItemFilterProps> = ({ onFilter, onReset }) => 
 
   return (
     <div className="filter-panel">
-      <h3>Filters</h3>
+      <h3>{t('itemFilter.filters')}</h3>
 
       <div className="filter-group">
         <label>
-          Location:
+          {t('itemFilter.location')}:
           <input
             type="text"
             value={filters.location}
             onChange={(e) => handleChange('location', e.target.value)}
-            placeholder="e.g. Engineering Building"
+            placeholder={t('itemFilter.locationPlaceholder')}
           />
         </label>
 
         <label>
-          From Date:
+          {t('itemFilter.fromDate')}:
           <input
             type="date"
             value={filters.dateFrom}
@@ -72,7 +74,7 @@ export const ItemFilter: React.FC<ItemFilterProps> = ({ onFilter, onReset }) => 
         </label>
 
         <label>
-          To Date:
+          {t('itemFilter.toDate')}:
           <input
             type="date"
             value={filters.dateTo}
@@ -81,7 +83,7 @@ export const ItemFilter: React.FC<ItemFilterProps> = ({ onFilter, onReset }) => 
         </label>
 
         <label>
-          Status:
+          {t('itemFilter.status')}:
           <select
             value={filters.isResolved === true ? 'resolved' : filters.isResolved === false ? 'unresolved' : ''}
             onChange={(e) => {
@@ -89,19 +91,19 @@ export const ItemFilter: React.FC<ItemFilterProps> = ({ onFilter, onReset }) => 
               handleChange('isResolved', value === '' ? '' : value === 'resolved');
             }}
           >
-            <option value="">All</option>
-            <option value="unresolved">Active/Unresolved</option>
-            <option value="resolved">Resolved</option>
+            <option value="">{t('itemFilter.all')}</option>
+            <option value="unresolved">{t('itemFilter.activeUnresolved')}</option>
+            <option value="resolved">{t('itemFilter.resolved')}</option>
           </select>
         </label>
       </div>
 
       <div className="filter-actions">
         <button onClick={handleApply} className="btn btn-primary">
-          Apply Filters
+          {t('itemFilter.applyFilters')}
         </button>
         <button onClick={handleReset} className="btn btn-secondary">
-          Reset
+          {t('common.reset')}
         </button>
       </div>
     </div>
