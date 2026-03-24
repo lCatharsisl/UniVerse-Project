@@ -13,7 +13,8 @@ import {
   FiPlus,
   FiLogOut,
   FiAlertTriangle,
-  FiSettings
+  FiSettings,
+  FiCalendar
 } from 'react-icons/fi';
 import { useAuth, isAcademic } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -49,6 +50,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
     { icon: <FiBell />, label: t('sidebar.alerts'), path: '/notifications' },
     { icon: <FiMessageSquare />, label: t('sidebar.chats'), path: '/messages' },
     { icon: <FiMap />, label: t('sidebar.campusMap'), path: '/campus-map' },
+    { icon: <FiCalendar />, label: t('sidebar.appointments'), path: '/appointments' },
     ...(isAcademic(user?.role || '') ? [{ icon: <FiAlertTriangle />, label: t('sidebar.reported'), path: '/reported', red: true }] : []),
     { icon: <FiUser />, label: t('sidebar.mySpace'), path: '/profile' },
     { icon: <FiSettings />, label: t('sidebar.settings'), path: '/settings' },

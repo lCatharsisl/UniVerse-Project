@@ -17,6 +17,7 @@ import FoodMenu from './pages/FoodMenu';
 import FreeRooms from './pages/FreeRooms';
 import GradeCalculator from './pages/GradeCalculator';
 import Reported from './pages/Reported';
+import Appointments from './pages/Appointments';
 import MainLayout from './components/MainLayout';
 import { ThemeProvider } from './context/ThemeContext';
 
@@ -58,6 +59,7 @@ function AppRoutes() {
       <Route path="/academic-calendar" element={<PrivateRoute><MainLayout><AcademicCalendar /></MainLayout></PrivateRoute>} />
       <Route path="/food-menu" element={<PrivateRoute><MainLayout><FoodMenu /></MainLayout></PrivateRoute>} />
       <Route path="/free-rooms" element={<PrivateRoute><MainLayout><FreeRooms /></MainLayout></PrivateRoute>} />
+      <Route path="/appointments" element={<PrivateRoute><MainLayout><Appointments /></MainLayout></PrivateRoute>} />
       <Route path="/grade-calculator" element={<PrivateRoute><MainLayout><GradeCalculator /></MainLayout></PrivateRoute>} />
     </Routes>
   );

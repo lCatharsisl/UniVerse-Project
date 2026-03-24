@@ -19,6 +19,7 @@
     "alerts": "Alerts",
     "chats": "Chats",
     "campusMap": "Campus Map",
+    "appointments": "Appointments",
     "reported": "Reported",
     "mySpace": "My Space",
     "settings": "Settings",
@@ -114,6 +115,40 @@
     "banConfirm": "Are you sure you want to ban this user?",
     "removeWarningConfirm": "Are you sure you want to remove the warning?",
     "unbanConfirm": "Are you sure you want to remove the ban?"
+    ,
+    "bookAppointment": "Book Appointment"
+  },
+  "appointments": {
+    "title": "Appointment System",
+    "availabilityTitle": "Date-Based Availability",
+    "saveAvailability": "Save Availability",
+    "bookTitle": "Create Appointment",
+    "searchByName": "Search by staff name",
+    "searchByDepartment": "Department",
+    "noStaffFound": "No staff found for your filters.",
+    "searchBySpecialization": "Specialization / title",
+    "topic": "Appointment topic",
+    "notes": "Notes",
+    "create": "Create Appointment",
+    "activeAppointments": "Active Appointments",
+    "archive": "Past Appointments",
+    "notifications": "Notifications",
+    "approve": "Approve",
+    "reject": "Reject",
+    "cancel": "Cancel",
+    "statusPending": "Pending",
+    "statusApproved": "Approved",
+    "statusRejected": "Rejected",
+    "statusCancelled": "Cancelled",
+    "rejectionReason": "Rejection reason",
+    "cancellationReason": "Cancellation reason",
+    "time": "Time",
+    "noSlotsForDate": "No available slots for the selected date.",
+    "reasonPrompt": "Optional reason",
+    "errors": {
+      "saveAvailability": "Could not save availability.",
+      "create": "Could not create appointment."
+    }
   },
   "changePassword": {
     "title": "Change Password",
@@ -360,8 +395,7 @@
       "Tarım Bilimleri ve Teknolojileri Fakültesi": "Faculty of Agricultural Sciences and Technologies",
       "Uygulamalı Bilimler Yüksekokulu": "School of Applied Sciences",
       "Yabancı Diller Yüksekokulu": "School of Foreign Languages",
-      "Meslek Yüksekokulu (Önlisans)": "Vocational School (Associate Degree)",
-      "Lisansüstü Eğitim Enstitüsü": "Graduate School of Education"
+      "Meslek Yüksekokulu (Önlisans)": "Vocational School (Associate Degree)"
     },
     "departments": {
       "Bilgisayar Mühendisliği": "Computer Engineering",
@@ -406,11 +440,10 @@
       "Bankacılık ve Sigortacılık": "Banking and Insurance",
       "Dış Ticaret": "Foreign Trade",
       "Lojistik": "Logistics",
-      "Halkla İlişkiler ve Tanıtım": "Public Relations and Promotion",
+      "Halkla İlişkiler ve Tanıtım": "Public Relations and Publicity",
       "Turizm ve Otel İşletmeciliği": "Tourism and Hotel Management",
       "Deniz ve Liman İşletmeciliği": "Maritime and Port Management",
-      "Marina ve Yat İşletmeciliği": "Marina and Yacht Management",
-      "Lisansüstü Eğitim Programları (Yüksek Lisans ve Doktora)": "Graduate Programs (Master and PhD)"
+      "Marina ve Yat İşletmeciliği": "Marina and Yacht Management"
     }
   }
 }

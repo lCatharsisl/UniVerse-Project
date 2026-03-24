@@ -19,6 +19,7 @@
     "alerts": "Uyarılar",
     "chats": "Sohbetler",
     "campusMap": "YERLEŞKE HARİTASI",
+    "appointments": "Randevular",
     "reported": "Bildirilen",
     "mySpace": "Benim Alanım",
     "settings": "Ayarlar",
@@ -113,7 +114,40 @@
     "reportRemoved": "Rapor kaldırıldı",
     "banConfirm": "Bu kullanıcıyı kaydetmek istediğinizden emin misiniz?",
     "removeWarningConfirm": "Bu uyarıyı kaldırmak istediğinizden emin misiniz?",
-    "unbanConfirm": "Bu yasağı kaldırmak istediğinizden emin misiniz?"
+    "unbanConfirm": "Bu yasağı kaldırmak istediğinizden emin misiniz?",
+    "bookAppointment": "Randevu Al"
+  },
+  "appointments": {
+    "title": "Randevu Sistemi",
+    "availabilityTitle": "Tarihe Gore Musaitlik",
+    "saveAvailability": "Musaitligi Kaydet",
+    "bookTitle": "Randevu Olustur",
+    "searchByName": "Ogretim uyesi adina gore ara",
+    "searchByDepartment": "Bolum",
+    "noStaffFound": "Filtrelere uygun akademik personel bulunamadi.",
+    "searchBySpecialization": "Uzmanlik / unvan",
+    "topic": "Randevu konusu",
+    "notes": "Notlar",
+    "create": "Randevu Olustur",
+    "activeAppointments": "Aktif Randevular",
+    "archive": "Gecmis Randevular",
+    "notifications": "Bildirimler",
+    "approve": "Onayla",
+    "reject": "Reddet",
+    "cancel": "Iptal Et",
+    "statusPending": "Beklemede",
+    "statusApproved": "Onaylandi",
+    "statusRejected": "Reddedildi",
+    "statusCancelled": "Iptal Edildi",
+    "rejectionReason": "Red sebebi",
+    "cancellationReason": "Iptal sebebi",
+    "time": "Saat",
+    "noSlotsForDate": "Secilen tarih icin musait saat yok.",
+    "reasonPrompt": "Opsiyonel sebep",
+    "errors": {
+      "saveAvailability": "Musaitlik kaydedilemedi.",
+      "create": "Randevu olusturulamadi."
+    }
   },
   "changePassword": {
     "title": "Parola Değiştir",
@@ -360,8 +394,7 @@
       "Tarım Bilimleri ve Teknolojileri Fakültesi": "Tarım Bilimleri ve Teknolojileri Fakültesi",
       "Uygulamalı Bilimler Yüksekokulu": "Uygulamalı Bilimler Yüksekokulu",
       "Yabancı Diller Yüksekokulu": "Yabancı Diller Yüksekokulu",
-      "Meslek Yüksekokulu (Önlisans)": "Meslek Yüksekokulu (Önlisans)",
-      "Lisansüstü Eğitim Enstitüsü": "Lisansüstü Eğitim Enstitüsü"
+      "Meslek Yüksekokulu (Önlisans)": "Meslek Yüksekokulu (Önlisans)"
     },
     "departments": {
       "Bilgisayar Mühendisliği": "Bilgisayar Mühendisliği",
@@ -409,8 +442,7 @@
       "Halkla İlişkiler ve Tanıtım": "Halkla İlişkiler ve Tanıtım",
       "Turizm ve Otel İşletmeciliği": "Turizm ve Otel İşletmeciliği",
       "Deniz ve Liman İşletmeciliği": "Deniz ve Liman İşletmeciliği",
-      "Marina ve Yat İşletmeciliği": "Marina ve Yat İşletmeciliği",
-      "Lisansüstü Eğitim Programları (Yüksek Lisans ve Doktora)": "Lisansüstü Eğitim Programları (Yüksek Lisans ve Doktora)"
+      "Marina ve Yat İşletmeciliği": "Marina ve Yat İşletmeciliği"
     }
   }
 }

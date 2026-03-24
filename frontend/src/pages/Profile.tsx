@@ -416,6 +416,14 @@ const Profile = () => {
                 {isFollowing ? <><FiUserCheck size={13} /> {t('profile.followingActive')}</> : <><FiUserPlus size={13} /> {t('profile.follow')}</>}
               </button>
             )}
+            {!isOwnProfile && profile.role === 'staff' && (
+              <button
+                onClick={() => navigate(`/appointments?staff=${targetUserId}`)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl font-black text-xs bg-uv-black text-white hover:opacity-90 transition-all"
+              >
+                <FiCalendar size={13} /> {t('profile.bookAppointment')}
+              </button>
+            )}
 
             <div className="relative" ref={profileMenuRef}>
               <button
