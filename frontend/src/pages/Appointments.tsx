@@ -5,6 +5,7 @@ import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { DEPARTMENTS_DATA } from '../constants/departments';
+import { themedPrompt } from '../utils/themedDialog';
 
 type AvailabilitySlot = {
   weekday: number;
@@ -208,7 +209,7 @@ const Appointments = () => {
 
   const updateStatus = async (id: number, status: 'approved' | 'rejected' | 'cancelled') => {
     const reason = status === 'rejected' || status === 'cancelled'
-      ? window.prompt(t('appointments.reasonPrompt')) || ''
+      ? (await themedPrompt(t('appointments.reasonPrompt'))) || ''
       : '';
     await api.patch(`/academic/appointments/${id}/status`, { status, reason });
     await loadMyData();

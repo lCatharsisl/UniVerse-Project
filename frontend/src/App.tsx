@@ -20,6 +20,14 @@ import Reported from './pages/Reported';
 import Appointments from './pages/Appointments';
 import MainLayout from './components/MainLayout';
 import { ThemeProvider } from './context/ThemeContext';
+import CommunityFair from './pages/CommunityFair';
+import CommunityProfile from './pages/CommunityProfile';
+import CommunityAdminPanel from './pages/CommunityAdminPanel';
+import JobApplicationForm from './pages/JobApplicationForm';
+import EventApplicationForm from './pages/EventApplicationForm';
+import Notifications from './pages/Notifications';
+import ThemedDialogHost from './components/ThemedDialogHost';
+import JobBoard from './pages/JobBoard';
 
 const PrivateRoute = ({ children }: { children: React.ReactElement }) => {
   const { user, isLoading } = useAuth();
@@ -60,7 +68,14 @@ function AppRoutes() {
       <Route path="/food-menu" element={<PrivateRoute><MainLayout><FoodMenu /></MainLayout></PrivateRoute>} />
       <Route path="/free-rooms" element={<PrivateRoute><MainLayout><FreeRooms /></MainLayout></PrivateRoute>} />
       <Route path="/appointments" element={<PrivateRoute><MainLayout><Appointments /></MainLayout></PrivateRoute>} />
+      <Route path="/job-board" element={<PrivateRoute><MainLayout><JobBoard /></MainLayout></PrivateRoute>} />
       <Route path="/grade-calculator" element={<PrivateRoute><MainLayout><GradeCalculator /></MainLayout></PrivateRoute>} />
+      <Route path="/notifications" element={<PrivateRoute><MainLayout><Notifications /></MainLayout></PrivateRoute>} />
+      <Route path="/explore" element={<PrivateRoute><MainLayout><CommunityFair /></MainLayout></PrivateRoute>} />
+      <Route path="/community/:communityId" element={<PrivateRoute><MainLayout><CommunityProfile /></MainLayout></PrivateRoute>} />
+      <Route path="/community/:communityId/admin" element={<PrivateRoute><MainLayout><CommunityAdminPanel /></MainLayout></PrivateRoute>} />
+      <Route path="/community/jobs/applications/:jobApplicationId" element={<PrivateRoute><MainLayout><JobApplicationForm /></MainLayout></PrivateRoute>} />
+      <Route path="/community/events/applications/:eventApplicationId" element={<PrivateRoute><MainLayout><EventApplicationForm /></MainLayout></PrivateRoute>} />
     </Routes>
   );
 }
@@ -71,6 +86,7 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <AppRoutes />
+          <ThemedDialogHost />
         </AuthProvider>
       </ThemeProvider>
     </Router>

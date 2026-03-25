@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/client';
 import { useNavigate } from 'react-router-dom';
+import { themedAlert } from '../utils/themedDialog';
 
 interface Post {
   post_id: number;
@@ -153,7 +154,7 @@ const PostDetailModal = ({ post: initialPost, onClose, onUpdate }: Props) => {
       }, ...prev]);
       setNewComment('');
     } catch {
-      alert('Failed to post comment');
+      await themedAlert('Failed to post comment');
     } finally {
       setSubmitting(false);
     }

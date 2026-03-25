@@ -12,6 +12,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
 import PostDetailModal from '../components/PostDetailModal';
+import { themedAlert, themedConfirm } from '../utils/themedDialog';
 
 // ─── Follow List Modal ────────────────────────────────────────────────────────
 interface FollowUser { user_id: number; email: string; name: string; surname: string; avatar_url?: string; }
@@ -107,9 +108,12 @@ const Profile = () => {
   const [profile, setProfile] = useState<any>(null);
   const [stats, setStats] = useState({ followers: 0, following: 0, isFollowing: false });
   const [isFollowing, setIsFollowing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'posts' | 'reposts' | 'likes' | 'my-items'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'reposts' | 'likes' | 'my-items' | 'my-communities'>('posts');
   const [activities, setActivities] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
+  const [myCommunities, setMyCommunities] = useState<any[]>([]);
+  const [myCommunitiesStatus, setMyCommunitiesStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
+  const [myCommunitiesError, setMyCommunitiesError] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const [openProfileMenu, setOpenProfileMenu] = useState(false);
@@ -155,8 +159,28 @@ const Profile = () => {
   useEffect(() => { fetchProfileData(); }, [targetUserId]);
   useEffect(() => {
     if (activeTab === 'my-items') fetchMyItems();
-    else fetchActivities();
+    else if (activeTab === 'my-communities' && isOwnProfile) {
+      // Load on tab open for better UX.
+      void fetchMyCommunities();
+    } else fetchActivities();
   }, [activeTab, targetUserId]);
+
+  const fetchMyCommunities = async () => {
+    if (!isOwnProfile || !targetUserId) return;
+    setMyCommunitiesStatus('loading');
+    setMyCommunitiesError('');
+    try {
+      const myRes = await api.get('/community/me');
+      setMyCommunities(myRes.data?.communities || []);
+      setMyCommunitiesStatus('loaded');
+    } catch (e: any) {
+      const msg = e?.response?.data?.error || 'Failed to load communities';
+      console.error('Failed to fetch my communities', e);
+      setMyCommunities([]);
+      setMyCommunitiesError(msg);
+      setMyCommunitiesStatus('error');
+    }
+  };
 
   const fetchProfileData = async () => {
     if (!targetUserId) { setLoading(false); return; }
@@ -182,6 +206,7 @@ const Profile = () => {
       } else {
         setUserReportStatus({ has_reported: false, my_report_type: null });
       }
+
     } catch (err: any) {
       console.error('Failed to fetch profile', err);
     } finally {
@@ -217,7 +242,9 @@ const Profile = () => {
       const followed = res.data.action === 'followed';
       setIsFollowing(followed);
       setStats(prev => ({ ...prev, followers: prev.followers + (followed ? 1 : -1) }));
-    } catch (err) { alert('Failed to update follow status'); }
+    } catch (err) {
+      await themedAlert('Failed to update follow status');
+    }
   };
 
   const formatDate = (dateString: string) =>
@@ -232,7 +259,7 @@ const Profile = () => {
       setReportSuccessMessage('Report submitted successfully.');
       setUserReportStatus({ has_reported: true, my_report_type: reportType });
     } catch (err) {
-      alert('Failed to submit report');
+      await themedAlert('Failed to submit report');
     }
   };
 
@@ -244,19 +271,19 @@ const Profile = () => {
       setReportSuccessMessage('Report removed.');
       setUserReportStatus({ has_reported: false, my_report_type: null });
     } catch (err: any) {
-      alert((err?.response?.data?.error as string) || 'Failed to remove report');
+      await themedAlert((err?.response?.data?.error as string) || 'Failed to remove report');
     }
   };
 
   const handleGiveWarning = async (tier: 1 | 2 | 3 | 4) => {
-    if (tier === 4 && !window.confirm('Are you sure you want to ban this user?')) return;
+    if (tier === 4 && !(await themedConfirm('Are you sure you want to ban this user?'))) return;
     try {
       await api.post(`/social/users/${targetUserId}/warning`, { tier });
       setWarningPanel(false);
       setOpenProfileMenu(false);
       fetchProfileData();
     } catch (err) {
-      alert('Failed to apply warning');
+      await themedAlert('Failed to apply warning');
     }
   };
 
@@ -264,7 +291,7 @@ const Profile = () => {
     const confirmMsg = action === 'remove_warning' ? 'Are you sure you want to remove the warning?' :
       action === 'ban' ? 'Are you sure you want to ban this user?' :
       action === 'unban' ? 'Are you sure you want to remove the ban?' : null;
-    if (confirmMsg && !window.confirm(confirmMsg)) return;
+    if (confirmMsg && !(await themedConfirm(confirmMsg))) return;
     try {
       if (action === 'remove_warning') await api.patch(`/social/users/${targetUserId}/warning`, { action: 'remove_warning' });
       else if (action === 'set_tier' && tier !== undefined) await api.patch(`/social/users/${targetUserId}/warning`, { action: 'set_tier', tier });
@@ -273,17 +300,19 @@ const Profile = () => {
       setWarningManageOpen(false);
       fetchProfileData();
     } catch (err) {
-      alert('Failed to update');
+      await themedAlert('Failed to update');
     }
   };
 
   const handleDeletePost = async (postId: number) => {
-    if (!window.confirm(t('profile.deletePostConfirm'))) return;
+    if (!(await themedConfirm(t('profile.deletePostConfirm')))) return;
     try {
       await api.delete(`/social/posts/${postId}`);
       setActivities(activities.filter(p => p.post_id !== postId));
       setOpenMenu(null);
-    } catch (err) { alert('Failed to delete post'); }
+    } catch (err) {
+      await themedAlert('Failed to delete post');
+    }
   };
 
   if (loading) return (
@@ -588,7 +617,9 @@ const Profile = () => {
       {!profile.isProfileHidden && (
       <div className="mt-6 px-3 md:px-6 overflow-x-auto scrollbar-hide">
         <div className={`flex gap-1 p-1 rounded-xl w-fit ${isSpace ? 'bg-white/5' : 'bg-gray-100'}`}>
-          {['posts', 'reposts', 'likes', 'my-items'].map(tab => (
+          {['posts', 'reposts', 'likes', 'my-items', 'my-communities']
+            .filter(tab => tab !== 'my-communities' || isOwnProfile)
+            .map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
@@ -597,7 +628,15 @@ const Profile = () => {
                 : isSpace ? 'text-white/50 hover:text-white' : 'text-uv-gray hover:text-uv-black'
               }`}
             >
-              {t(`profile.${tab === 'my-items' ? 'myItems' : tab}`)}
+              {t(
+                `profile.${
+                  tab === 'my-items'
+                    ? 'myItems'
+                    : tab === 'my-communities'
+                      ? 'myCommunitiesTab'
+                      : tab
+                }`
+              )}
             </button>
           ))}
         </div>
@@ -626,6 +665,67 @@ const Profile = () => {
                 <p className="text-xs text-uv-gray font-bold mt-1 flex items-center gap-1"><FiMapPin size={11} /> {item.location}</p>
               </div>
             ))}
+          </div>
+        ) : activeTab === 'my-communities' ? (
+          <div className="space-y-3">
+            {myCommunitiesStatus === 'loading' ? (
+              <div className="py-10 flex items-center justify-center">
+                <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+              </div>
+            ) : myCommunitiesStatus === 'error' ? (
+              <div className={`rounded-2xl p-4 border ${isSpace ? 'border-white/10 bg-white/5' : 'border-red-200 bg-red-50'}`}>
+                <p className={`font-black text-xs uppercase tracking-widest ${isSpace ? 'text-white/70' : 'text-red-700'}`}>
+                  {myCommunitiesError || t('profile.myCommunitiesLoadFailed')}
+                </p>
+              </div>
+            ) : myCommunities.length === 0 ? (
+              <p className={`p-10 text-center text-uv-gray font-bold uppercase tracking-widest text-xs ${isSpace ? 'text-white/50' : ''}`}>
+                {t('profile.myCommunitiesEmpty')}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {myCommunities.map((c: any) => (
+                  <div
+                    key={c.community_id}
+                    className={`flex items-center justify-between gap-3 p-2 rounded-xl border cursor-pointer transition-colors ${
+                      isSpace ? 'bg-white/5 border-white/10 hover:border-primary/30' : 'bg-white border-gray-100 hover:border-primary/30'
+                    }`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/community/${c.community_id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') navigate(`/community/${c.community_id}`);
+                    }}
+                  >
+                    <div className="min-w-0">
+                      <p className={`font-black text-sm truncate ${isSpace ? 'text-white' : 'text-uv-black'}`}>{c.community_name}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-uv-gray truncate">
+                        {c.membership_status === 'admin'
+                          ? t('profile.membershipStatusAdmin')
+                          : c.membership_status === 'active'
+                            ? t('profile.membershipStatusActive')
+                            : c.membership_status === 'pending'
+                              ? t('profile.membershipStatusPending')
+                              : t('profile.membershipStatusNone')}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      {c.is_admin && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/community/${c.community_id}/admin`);
+                          }}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-black bg-uv-black text-white hover:opacity-90 transition-opacity`}
+                        >
+                          {t('profile.openAdminPanel')}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-0 divide-y divide-gray-100">

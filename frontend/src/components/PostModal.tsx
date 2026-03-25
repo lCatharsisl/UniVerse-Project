@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { FiX, FiImage, FiZap, FiWifi, FiSend } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
+import { themedAlert } from '../utils/themedDialog';
 
 interface PostModalProps {
   onClose: () => void;
@@ -34,7 +35,7 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
       onClose();
       window.location.reload(); 
     } catch (error) {
-      alert(t('postModal.transmissionFailed'));
+      await themedAlert(t('postModal.transmissionFailed'));
     } finally {
       setSubmitting(false);
     }

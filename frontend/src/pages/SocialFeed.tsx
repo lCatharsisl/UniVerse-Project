@@ -7,6 +7,7 @@ import { isAcademic } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../context/ThemeContext';
+import { themedAlert, themedConfirm } from '../utils/themedDialog';
 
 interface Post {
     post_id: number;
@@ -113,20 +114,20 @@ const SocialFeed = () => {
     };
 
     const handleDeletePost = async (postId: number) => {
-        if (!window.confirm('Are you sure you want to delete this transmission?')) return;
+        if (!(await themedConfirm('Are you sure you want to delete this transmission?'))) return;
         try {
             await api.delete(`/social/posts/${postId}`);
             setPosts(posts.filter(p => p.post_id !== postId));
             setOpenMenu(null);
         } catch (err) {
-            alert('Failed to delete post');
+            await themedAlert('Failed to delete post');
         }
     };
 
-    const handleCopyLink = (postId: number) => {
+    const handleCopyLink = async (postId: number) => {
         const url = `${window.location.origin}/post/${postId}`;
         navigator.clipboard.writeText(url);
-        alert('Link copied to clipboard!');
+        await themedAlert('Link copied to clipboard!');
         setOpenMenu(null);
     };
 
@@ -150,7 +151,7 @@ const SocialFeed = () => {
             setSelectedImage(null);
             fetchPosts();
         } catch (err) {
-            alert('Failed to create post');
+            await themedAlert('Failed to create post');
         } finally {
             setSubmitting(false);
         }
@@ -239,7 +240,7 @@ const SocialFeed = () => {
             handleFetchComments(postId);
             setPosts(prev => prev.map(p => p.post_id === postId ? { ...p, comments_count: String(parseInt(p.comments_count) + 1) } : p));
         } catch (err) {
-            alert('Failed to add comment');
+            await themedAlert('Failed to add comment');
         }
     };
 
@@ -259,7 +260,7 @@ const SocialFeed = () => {
             if (status === 404) {
                 msg = 'Report endpoint not found (404). Make sure the backend is running on port 3000 and the dev server proxy is active.';
             }
-            alert(msg);
+            await themedAlert(msg);
         }
     };
 
@@ -271,7 +272,7 @@ const SocialFeed = () => {
             setPosts(prev => prev.map(p => p.post_id === postId ? { ...p, has_reported: false, my_report_type: null } : p));
         } catch (err: any) {
             const msg = (err?.response?.data?.error as string) || err?.message || 'Failed to remove report.';
-            alert(msg);
+            await themedAlert(msg);
         }
     };
 
@@ -281,7 +282,7 @@ const SocialFeed = () => {
             setWarningDropdown(null);
             setReportSuccessMessage(tier === 4 ? 'User banned.' : `Warning (Tier ${tier}) applied.`);
         } catch (err: any) {
-            alert((err?.response?.data?.error as string) || 'Failed to apply warning');
+            await themedAlert((err?.response?.data?.error as string) || 'Failed to apply warning');
         }
     };
 
@@ -323,7 +324,6 @@ const SocialFeed = () => {
                 </div>
                 <div className="flex gap-1 p-0.5 bg-uv-border/50 rounded-tl-lg rounded-br-lg md:rounded-tl-xl md:rounded-br-xl">
                     <button className="px-2 md:px-4 py-1 bg-white text-primary text-[9px] md:text-xs font-black uppercase tracking-widest rounded-tl-md rounded-br-md shadow-sm">All</button>
-                    <button className="px-2 md:px-4 py-1 text-uv-gray text-[9px] md:text-xs font-black uppercase tracking-widest rounded-tl-md rounded-br-md hover:bg-white/50 transition-all">Circle</button>
                 </div>
             </div>
 

@@ -62,10 +62,20 @@ export class IdentityService {
             [userId, data.adminName, data.adminSurname]
           );
         } else if (data.role === 'community') {
-          await client.query(
-            'INSERT INTO communities (user_id, community_name, description, contact_email) VALUES ($1, $2, $3, $4)',
+          const comm = await client.query(
+            'INSERT INTO communities (user_id, community_name, description, contact_email) VALUES ($1, $2, $3, $4) RETURNING community_id',
             [userId, data.communityName, data.description, data.email]
           );
+          const communityId = comm.rows[0]?.community_id;
+          if (communityId) {
+            // Ensure owner community user is also an active member (admin role) for member counts + notifications.
+            await client.query(
+              `INSERT INTO community_members (community_id, member_user_id, role, is_active)
+               VALUES ($1, $2, 'admin', true)
+               ON CONFLICT (community_id, member_user_id) DO UPDATE SET role='admin', is_active=true`,
+              [communityId, userId]
+            );
+          }
         }
 
         // Generate email verification token
