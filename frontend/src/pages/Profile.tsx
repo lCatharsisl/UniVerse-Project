@@ -1,14 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth, isAcademic } from '../context/AuthContext';
 import { 
   FiHeart, FiRepeat, FiMessageCircle, FiArrowLeft, FiCalendar,
-  FiMapPin, FiLink, FiEdit, FiCamera, FiUserPlus, FiUserCheck,
-  FiGrid, FiMoreVertical, FiMoreHorizontal, FiTrash2, FiX, FiUsers
+  FiMapPin, FiLink, FiEdit, FiUserPlus, FiUserCheck,
+  FiGrid, FiMoreVertical, FiMoreHorizontal, FiTrash2, FiX, FiUsers,
+  FiLinkedin, FiGithub, FiGlobe, FiInstagram, FiSettings, FiLock
 } from 'react-icons/fi';
 import api from '../api/client';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
+import PostDetailModal from '../components/PostDetailModal';
+import { themedAlert, themedConfirm } from '../utils/themedDialog';
 
 // ─── Follow List Modal ────────────────────────────────────────────────────────
 interface FollowUser { user_id: number; email: string; name: string; surname: string; avatar_url?: string; }
@@ -16,6 +20,7 @@ interface FollowUser { user_id: number; email: string; name: string; surname: st
 const FollowListModal = ({
   type, userId, onClose, onNavigate
 }: { type: 'followers' | 'following'; userId: number; onClose: () => void; onNavigate: (id: number) => void }) => {
+  const { t } = useTranslation();
   const [list, setList] = useState<FollowUser[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,7 +47,7 @@ const FollowListModal = ({
         {/* Modal header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h3 className="font-black text-base text-uv-black uppercase tracking-widest">
-            {type === 'followers' ? 'Followers' : 'Following'}
+            {type === 'followers' ? t('profile.followers') : t('profile.following')}
           </h3>
           <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-gray-100 transition-colors">
             <FiX size={18} />
@@ -58,7 +63,7 @@ const FollowListModal = ({
           ) : list.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-uv-gray">
               <FiUsers size={32} className="mb-3 opacity-30" />
-              <p className="text-xs font-bold uppercase tracking-widest">No users yet</p>
+              <p className="text-xs font-bold uppercase tracking-widest">{t('profile.noUsersYet')}</p>
             </div>
           ) : (
             <div>
@@ -90,7 +95,8 @@ const FollowListModal = ({
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
 const Profile = () => {
-  const { user: currentUser, checkAuth } = useAuth();
+  const { t } = useTranslation();
+  const { user: currentUser } = useAuth();
   const navigate = useNavigate();
   const { id: profileId } = useParams<{ id?: string }>();
   const { dimension } = useTheme();
@@ -102,21 +108,17 @@ const Profile = () => {
   const [profile, setProfile] = useState<any>(null);
   const [stats, setStats] = useState({ followers: 0, following: 0, isFollowing: false });
   const [isFollowing, setIsFollowing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'posts' | 'reposts' | 'likes' | 'my-items'>('posts');
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', surname: '', description: '', password: '' });
+  const [activeTab, setActiveTab] = useState<'posts' | 'reposts' | 'likes' | 'my-items' | 'my-communities'>('posts');
   const [activities, setActivities] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
+  const [myCommunities, setMyCommunities] = useState<any[]>([]);
+  const [myCommunitiesStatus, setMyCommunitiesStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
+  const [myCommunitiesError, setMyCommunitiesError] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const [updateResult, setUpdateResult] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const [openProfileMenu, setOpenProfileMenu] = useState(false);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string>('');
-  const [coverPreview, setCoverPreview] = useState<string>('');
   const [followModal, setFollowModal] = useState<'followers' | 'following' | null>(null);
-  const [savingProfile, setSavingProfile] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<any | null>(null);
   const [warningPanel, setWarningPanel] = useState(false);
   const [warningManageOpen, setWarningManageOpen] = useState(false);
   const [reportUserOpen, setReportUserOpen] = useState(false);
@@ -131,8 +133,6 @@ const Profile = () => {
     return () => clearTimeout(t);
   }, [reportSuccessMessage]);
 
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const coverInputRef = useRef<HTMLInputElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const warningManageRef = useRef<HTMLDivElement>(null);
 
@@ -159,35 +159,55 @@ const Profile = () => {
   useEffect(() => { fetchProfileData(); }, [targetUserId]);
   useEffect(() => {
     if (activeTab === 'my-items') fetchMyItems();
-    else fetchActivities();
+    else if (activeTab === 'my-communities' && isOwnProfile) {
+      // Load on tab open for better UX.
+      void fetchMyCommunities();
+    } else fetchActivities();
   }, [activeTab, targetUserId]);
+
+  const fetchMyCommunities = async () => {
+    if (!isOwnProfile || !targetUserId) return;
+    setMyCommunitiesStatus('loading');
+    setMyCommunitiesError('');
+    try {
+      const myRes = await api.get('/community/me');
+      setMyCommunities(myRes.data?.communities || []);
+      setMyCommunitiesStatus('loaded');
+    } catch (e: any) {
+      const msg = e?.response?.data?.error || 'Failed to load communities';
+      console.error('Failed to fetch my communities', e);
+      setMyCommunities([]);
+      setMyCommunitiesError(msg);
+      setMyCommunitiesStatus('error');
+    }
+  };
 
   const fetchProfileData = async () => {
     if (!targetUserId) { setLoading(false); return; }
     setLoading(true);
     try {
-      const requests: Promise<any>[] = [
-        api.get(`/auth/profile/${targetUserId}`),
-        api.get(`/social/users/${targetUserId}/stats`)
-      ];
-      if (!isOwnProfile) requests.push(api.get(`/social/users/${targetUserId}/my-report`));
-      const results = await Promise.all(requests);
-      const profileRes = results[0];
-      const statsRes = results[1];
+      // Fetch profile first (critical)
+      const profileRes = await api.get(`/auth/profile/${targetUserId}`);
       setProfile(profileRes.data);
-      setStats(statsRes.data);
-      setIsFollowing(statsRes.data.isFollowing || false);
-      if (isOwnProfile) setUserReportStatus({ has_reported: false, my_report_type: null });
-      else if (results[2]) setUserReportStatus(results[2].data);
-      if (isOwnProfile) {
-        setEditForm({
-          name: profileRes.data.name || '',
-          surname: profileRes.data.surname || '',
-          description: profileRes.data.description || '',
-          password: ''
-        });
+
+      // Fetch stats (non-critical, don't fail profile on error)
+      api.get(`/social/users/${targetUserId}/stats`)
+        .then(r => {
+          setStats(r.data);
+          setIsFollowing(r.data.isFollowing || false);
+        })
+        .catch(() => {});
+
+      // Fetch report status (non-critical)
+      if (!isOwnProfile) {
+        api.get(`/social/users/${targetUserId}/my-report`)
+          .then(r => setUserReportStatus(r.data))
+          .catch(() => {});
+      } else {
+        setUserReportStatus({ has_reported: false, my_report_type: null });
       }
-    } catch (err) {
+
+    } catch (err: any) {
       console.error('Failed to fetch profile', err);
     } finally {
       setLoading(false);
@@ -222,50 +242,9 @@ const Profile = () => {
       const followed = res.data.action === 'followed';
       setIsFollowing(followed);
       setStats(prev => ({ ...prev, followers: prev.followers + (followed ? 1 : -1) }));
-    } catch (err) { alert('Failed to update follow status'); }
-  };
-
-  const handleSaveProfile = async () => {
-    setSavingProfile(true);
-    setUpdateResult(null);
-    try {
-      const formData = new FormData();
-      formData.append('name', editForm.name);
-      formData.append('surname', editForm.surname);
-      formData.append('description', editForm.description);
-      if (editForm.password) formData.append('password', editForm.password);
-      if (avatarFile) formData.append('avatar', avatarFile);
-      if (coverFile) formData.append('cover', coverFile);
-
-      // Do NOT manually set Content-Type — axios detects FormData and sets it
-      // automatically WITH the boundary parameter. Without boundary, multer cannot parse files.
-      await api.patch('/auth/profile', formData);
-
-      setUpdateResult({ type: 'success', msg: 'Profil güncellendi! ✨' });
-      setIsEditing(false);
-      setAvatarFile(null);
-      setCoverFile(null);
-      setAvatarPreview('');
-      setCoverPreview('');
-      fetchProfileData();
-      checkAuth();
-      // Clear alerts after some time
-      setTimeout(() => setUpdateResult(null), 3000);
     } catch (err) {
-      setUpdateResult({ type: 'error', msg: 'Güncelleme başarısız.' });
-    } finally {
-      setSavingProfile(false);
+      await themedAlert('Failed to update follow status');
     }
-  };
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) { setAvatarFile(file); setAvatarPreview(URL.createObjectURL(file)); }
-  };
-
-  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) { setCoverFile(file); setCoverPreview(URL.createObjectURL(file)); }
   };
 
   const formatDate = (dateString: string) =>
@@ -280,7 +259,7 @@ const Profile = () => {
       setReportSuccessMessage('Report submitted successfully.');
       setUserReportStatus({ has_reported: true, my_report_type: reportType });
     } catch (err) {
-      alert('Failed to submit report');
+      await themedAlert('Failed to submit report');
     }
   };
 
@@ -292,19 +271,19 @@ const Profile = () => {
       setReportSuccessMessage('Report removed.');
       setUserReportStatus({ has_reported: false, my_report_type: null });
     } catch (err: any) {
-      alert((err?.response?.data?.error as string) || 'Failed to remove report');
+      await themedAlert((err?.response?.data?.error as string) || 'Failed to remove report');
     }
   };
 
   const handleGiveWarning = async (tier: 1 | 2 | 3 | 4) => {
-    if (tier === 4 && !window.confirm('Are you sure you want to ban this user?')) return;
+    if (tier === 4 && !(await themedConfirm('Are you sure you want to ban this user?'))) return;
     try {
       await api.post(`/social/users/${targetUserId}/warning`, { tier });
       setWarningPanel(false);
       setOpenProfileMenu(false);
       fetchProfileData();
     } catch (err) {
-      alert('Failed to apply warning');
+      await themedAlert('Failed to apply warning');
     }
   };
 
@@ -312,7 +291,7 @@ const Profile = () => {
     const confirmMsg = action === 'remove_warning' ? 'Are you sure you want to remove the warning?' :
       action === 'ban' ? 'Are you sure you want to ban this user?' :
       action === 'unban' ? 'Are you sure you want to remove the ban?' : null;
-    if (confirmMsg && !window.confirm(confirmMsg)) return;
+    if (confirmMsg && !(await themedConfirm(confirmMsg))) return;
     try {
       if (action === 'remove_warning') await api.patch(`/social/users/${targetUserId}/warning`, { action: 'remove_warning' });
       else if (action === 'set_tier' && tier !== undefined) await api.patch(`/social/users/${targetUserId}/warning`, { action: 'set_tier', tier });
@@ -321,17 +300,19 @@ const Profile = () => {
       setWarningManageOpen(false);
       fetchProfileData();
     } catch (err) {
-      alert('Failed to update');
+      await themedAlert('Failed to update');
     }
   };
 
   const handleDeletePost = async (postId: number) => {
-    if (!window.confirm('Bu gönderiyi silmek istediğine emin misin?')) return;
+    if (!(await themedConfirm(t('profile.deletePostConfirm')))) return;
     try {
       await api.delete(`/social/posts/${postId}`);
       setActivities(activities.filter(p => p.post_id !== postId));
       setOpenMenu(null);
-    } catch (err) { alert('Failed to delete post'); }
+    } catch (err) {
+      await themedAlert('Failed to delete post');
+    }
   };
 
   if (loading) return (
@@ -343,13 +324,13 @@ const Profile = () => {
   if (!profile) return (
     <div className="flex-1 flex items-center justify-center flex-col gap-4">
       <div className="text-4xl">⚠️</div>
-      <h2 className="text-xl font-black text-uv-black tracking-tighter">Profile Not Found</h2>
-      <button onClick={() => navigate(-1)} className="uv-button mt-2">Return</button>
+      <h2 className="text-xl font-black text-uv-black tracking-tighter">{t('profile.profileNotFound')}</h2>
+      <button onClick={() => navigate(-1)} className="uv-button mt-2">{t('common.return')}</button>
     </div>
   );
 
-  const coverSrc = coverPreview || profile.coverUrl || '';
-  const avatarSrc = avatarPreview || profile.avatarUrl || '';
+  const coverSrc = profile.coverUrl || '';
+  const avatarSrc = profile.avatarUrl || '';
 
   return (
     <div className={`flex flex-col min-h-screen ${isSpace ? 'bg-[#050510]' : 'bg-white'}`}>
@@ -362,38 +343,11 @@ const Profile = () => {
       )}
 
       {/* ── Cover Photo ─────────────────────────────────── */}
-      <div className="relative h-36 md:h-56 w-full bg-uv-black overflow-hidden group/cover">
+      <div className="relative h-36 md:h-56 w-full bg-uv-black overflow-hidden">
         {coverSrc ? (
-          <img src={coverSrc} className={`w-full h-full object-cover transition-opacity duration-300 ${savingProfile && coverFile ? 'opacity-50' : 'opacity-100'}`} alt="Cover" />
+          <img src={coverSrc.startsWith('http') ? coverSrc : `http://localhost:3000${coverSrc}`} className="w-full h-full object-cover" alt="Cover" />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/60 to-accent opacity-70" />
-        )}
-
-        {/* Loading Overlay for Cover */}
-        {savingProfile && coverFile && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-10">
-            <div className="animate-spin w-8 h-8 border-3 border-white border-t-transparent rounded-full" />
-          </div>
-        )}
-
-        {/* Cover upload overlay — always clickable when own profile */}
-        {isOwnProfile && (
-          <>
-            <label
-              className={`absolute inset-0 flex flex-col items-center justify-center text-white cursor-pointer transition-all gap-2
-                ${isEditing ? 'opacity-100 bg-black/30' : 'opacity-0 group-hover/cover:opacity-100 bg-black/20'}`}
-            >
-              <FiCamera size={28} />
-              <span className="text-xs font-black uppercase tracking-widest">Kapak Fotoğrafı Değiştir</span>
-              <input
-                ref={coverInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleCoverChange}
-              />
-            </label>
-          </>
         )}
 
         {/* Back button */}
@@ -404,13 +358,13 @@ const Profile = () => {
           <FiArrowLeft size={18} />
         </button>
 
-        {/* Edit mode indicator on cover */}
-        {isOwnProfile && !isEditing && (
+        {/* Profili düzenle — only for own profile */}
+        {isOwnProfile && (
           <button
-            onClick={() => setIsEditing(true)}
+            onClick={() => navigate('/profile/edit')}
             className="absolute top-3 right-3 md:top-4 md:right-4 flex items-center gap-1.5 px-3 py-1.5 bg-black/30 backdrop-blur-md rounded-xl text-white text-[10px] font-black uppercase hover:bg-black/50 transition-colors z-20"
           >
-            <FiEdit size={12} /> Düzenle
+            <FiEdit size={12} /> {t('profile.editProfile')}
           </button>
         )}
       </div>
@@ -420,34 +374,13 @@ const Profile = () => {
         <div className={`rounded-2xl p-4 md:p-6 shadow-xl border flex flex-col sm:flex-row gap-4 md:gap-6 items-start ${isSpace ? 'bg-[#0d0d1a] border-white/10' : 'bg-white border-gray-100'}`}>
 
           {/* Avatar */}
-          <div className="relative group/avatar shrink-0">
-            <div className={`w-20 h-20 md:w-28 md:h-28 rounded-2xl overflow-hidden border-4 border-white shadow-xl bg-primary/10 flex items-center justify-center text-3xl font-black text-primary transition-opacity ${savingProfile && avatarFile ? 'opacity-50' : ''}`}>
+          <div className="relative shrink-0">
+            <div className="w-20 h-20 md:w-28 md:h-28 rounded-2xl overflow-hidden border-4 border-white shadow-xl bg-primary/10 flex items-center justify-center text-3xl font-black text-primary">
               {avatarSrc
-                ? <img src={avatarSrc} className="w-full h-full object-cover" alt="Avatar" />
+                ? <img src={avatarSrc.startsWith('http') ? avatarSrc : `http://localhost:3000${avatarSrc}`} className="w-full h-full object-cover" alt="Avatar" />
                 : <span>{profile.name?.[0]?.toUpperCase() || '?'}</span>
               }
             </div>
-
-            {/* Loading Overlay for Avatar */}
-            {savingProfile && avatarFile && (
-              <div className="absolute inset-0 flex items-center justify-center z-10">
-                <div className="animate-spin w-6 h-6 border-3 border-primary border-t-transparent rounded-full" />
-              </div>
-            )}
-
-            {isOwnProfile && (
-              <label className="absolute inset-0 rounded-2xl bg-black/50 flex flex-col items-center justify-center text-white cursor-pointer opacity-0 group-hover/avatar:opacity-100 transition-opacity gap-1">
-                <FiCamera size={20} />
-                <span className="text-[8px] font-black uppercase">Fotoğraf</span>
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarChange}
-                />
-              </label>
-            )}
           </div>
 
           {/* Info */}
@@ -465,14 +398,14 @@ const Profile = () => {
                   />
                   {isStaff && warningManageOpen && (
                     <div className="absolute left-0 top-full mt-1 w-52 py-2 bg-[#0d0d1a] border border-red-500/30 rounded-xl shadow-xl z-30">
-                      <button onClick={() => handleWarningAction('remove_warning')} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">Remove warning</button>
-                      <button onClick={() => handleWarningAction('set_tier', 1)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">Set to Tier 1</button>
-                      <button onClick={() => handleWarningAction('set_tier', 2)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">Set to Tier 2</button>
-                      <button onClick={() => handleWarningAction('set_tier', 3)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">Set to Tier 3</button>
+                      <button onClick={() => handleWarningAction('remove_warning')} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">{t('profile.removeWarning')}</button>
+<button onClick={() => handleWarningAction('set_tier', 1)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">{t('profile.setToTier', { tier: 1 })}</button>
+                                      <button onClick={() => handleWarningAction('set_tier', 2)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">{t('profile.setToTier', { tier: 2 })}</button>
+                                      <button onClick={() => handleWarningAction('set_tier', 3)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">{t('profile.setToTier', { tier: 3 })}</button>
                       {profile.isBanned ? (
-                        <button onClick={() => handleWarningAction('unban')} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">Remove ban</button>
+                        <button onClick={() => handleWarningAction('unban')} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">{t('profile.removeBan')}</button>
                       ) : (
-                        <button onClick={() => handleGiveWarning(4)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-500/20">Ban</button>
+                        <button onClick={() => handleGiveWarning(4)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-500/20">{t('profile.ban')}</button>
                       )}
                     </div>
                   )}
@@ -490,44 +423,34 @@ const Profile = () => {
                 className={`text-left hover:opacity-70 transition-opacity ${isOwnProfile ? 'cursor-pointer' : ''}`}
               >
                 <p className={`text-base md:text-xl font-black ${isSpace ? 'text-white' : 'text-uv-black'}`}>{stats.followers}</p>
-                <p className="text-[8px] md:text-[10px] font-black uppercase text-uv-gray tracking-widest">Followers</p>
+                <p className="text-[8px] md:text-[10px] font-black uppercase text-uv-gray tracking-widest">{t('profile.followers')}</p>
               </button>
               <button
                 onClick={() => setFollowModal('following')}
                 className="text-left hover:opacity-70 transition-opacity"
               >
                 <p className={`text-base md:text-xl font-black ${isSpace ? 'text-white' : 'text-uv-black'}`}>{stats.following}</p>
-                <p className="text-[8px] md:text-[10px] font-black uppercase text-uv-gray tracking-widest">Following</p>
+                <p className="text-[8px] md:text-[10px] font-black uppercase text-uv-gray tracking-widest">{t('profile.following')}</p>
               </button>
             </div>
           </div>
 
           {/* Action Buttons */}
           <div className="flex gap-2 w-full sm:w-auto sm:items-start sm:flex-col md:flex-row mt-auto sm:mt-0">
-            {isOwnProfile ? (
-              isEditing ? (
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <button
-                    onClick={() => { setIsEditing(false); setAvatarPreview(''); setCoverPreview(''); setAvatarFile(null); setCoverFile(null); }}
-                    className={`flex-1 sm:flex-none px-4 py-2 border rounded-xl font-bold text-xs ${isSpace ? 'border-white/20 text-white' : 'border-uv-border text-uv-black'}`}
-                  >
-                    İptal
-                  </button>
-                  <button
-                    onClick={handleSaveProfile}
-                    disabled={savingProfile}
-                    className="flex-1 sm:flex-none uv-button !py-2 !px-5 text-xs disabled:opacity-60"
-                  >
-                    {savingProfile ? 'Kaydediliyor...' : 'Kaydet'}
-                  </button>
-                </div>
-              ) : null
-            ) : (
+            {!isOwnProfile && (
               <button
                 onClick={handleToggleFollow}
                 className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl font-black text-xs transition-all ${isFollowing ? 'bg-gray-100 text-uv-black hover:bg-red-50 hover:text-red-500' : 'bg-primary text-white shadow-lg shadow-primary/25 hover:brightness-110'}`}
               >
-                {isFollowing ? <><FiUserCheck size={13} /> Following</> : <><FiUserPlus size={13} /> Follow</>}
+                {isFollowing ? <><FiUserCheck size={13} /> {t('profile.followingActive')}</> : <><FiUserPlus size={13} /> {t('profile.follow')}</>}
+              </button>
+            )}
+            {!isOwnProfile && profile.role === 'staff' && (
+              <button
+                onClick={() => navigate(`/appointments?staff=${targetUserId}`)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl font-black text-xs bg-uv-black text-white hover:opacity-90 transition-all"
+              >
+                <FiCalendar size={13} /> {t('profile.bookAppointment')}
               </button>
             )}
 
@@ -544,26 +467,36 @@ const Profile = () => {
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
-                    className={`absolute right-0 mt-2 w-48 py-2 rounded-xl shadow-xl z-20 ${isSpace ? 'bg-[#0d0d1a] border border-white/10' : 'bg-white border border-uv-border'}`}
+                    className={`absolute left-0 sm:left-auto sm:right-0 mt-2 w-48 py-2 rounded-xl shadow-xl z-20 ${isSpace ? 'bg-[#0d0d1a] border border-white/10' : 'bg-white border border-uv-border'}`}
                   >
                     <button
                       onClick={() => { navigator.clipboard.writeText(window.location.href); setOpenProfileMenu(false); }}
                       className={`w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 ${isSpace ? 'text-white hover:bg-white/10' : 'text-uv-black hover:bg-gray-50'}`}
                     >
-                      <FiLink size={13} /> Copy profile link
+                      <FiLink size={13} /> {t('profile.copyProfileLink')}
                     </button>
+                    {isOwnProfile && (
+                      <>
+                        <button
+                          onClick={() => { navigate('/settings'); setOpenProfileMenu(false); }}
+                          className={`w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 ${isSpace ? 'text-white hover:bg-white/10' : 'text-uv-black hover:bg-gray-50'}`}
+                        >
+                          <FiSettings size={13} /> {t('profile.settings')}
+                        </button>
+                      </>
+                    )}
                     {!isOwnProfile && (
                       isStaff ? (
                         <>
                           <button onClick={() => setWarningPanel(!warningPanel)} className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 flex items-center gap-2">
-                            Give warning
+                            {t('profile.giveWarning')}
                           </button>
                           {warningPanel && (
                             <div className="border-t border-red-500/20 pt-2 mt-1">
-                              <p className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-red-400">Warning type</p>
-                              {[1, 2, 3, 4].map((t) => (
-                                <button key={t} onClick={() => handleGiveWarning(t as 1 | 2 | 3 | 4)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">
-                                  {t === 4 ? 'Ban' : `Tier ${t}`}
+                              <p className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-red-400">{t('profile.warningType')}</p>
+{[1, 2, 3, 4].map((tier) => (
+                                <button key={tier} onClick={() => handleGiveWarning(tier as 1 | 2 | 3 | 4)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">
+                                    {tier === 4 ? t('profile.ban') : `Tier ${tier}`}
                                 </button>
                               ))}
                             </div>
@@ -571,23 +504,35 @@ const Profile = () => {
                         </>
                       ) : (
                         <>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const res = await api.post(`/auth/block/${targetUserId}`);
+                                  if (res.data?.action === 'blocked') navigate('/feed');
+                                  setOpenProfileMenu(false);
+                                } catch {}
+                              }}
+                              className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-orange-500 hover:bg-orange-500/10 flex items-center gap-2"
+                            >
+                              {t('profile.blockUser')}
+                            </button>
                           <button onClick={() => setReportUserOpen(!reportUserOpen)} className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 flex items-center gap-2">
-                            Report user
+                            {t('profile.reportUser')}
                             {userReportStatus.has_reported && <span className="text-[9px] normal-case font-bold text-red-400">(Reported)</span>}
                           </button>
                           {reportUserOpen && (
                             <div className="border-t border-red-500/20 pt-2 mt-1">
                               {userReportStatus.has_reported ? (
                                 <>
-                                  <p className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-red-400">You reported as</p>
+                                  <p className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-red-400">{t('profile.youReportedAs')}</p>
                                   <p className="px-3 py-1 text-xs font-bold capitalize text-red-400">{userReportStatus.my_report_type || 'other'}</p>
                                   <button onClick={handleRemoveReportUser} className="w-full text-left px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/20">
-                                    Remove report
+                                    {t('profile.removeReport')}
                                   </button>
                                 </>
                               ) : (
                                 <>
-                                  <p className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-red-400">Report type</p>
+                                  <p className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-red-400">{t('profile.reportType')}</p>
                                   {REPORT_TYPES.map((type) => (
                                     <button key={type} onClick={() => handleReportUser(type)} className="w-full text-left px-3 py-2 text-xs font-bold capitalize text-red-400 hover:bg-red-500/20 hover:text-red-300">
                                       {type}
@@ -608,73 +553,73 @@ const Profile = () => {
         </div>
       </div>
 
-      {/* ── Edit Form ──────────────────────────────────── */}
-      <AnimatePresence>
-        {isEditing && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="px-3 md:px-6 mt-4">
-              <div className={`rounded-2xl p-4 md:p-6 border space-y-3 ${isSpace ? 'bg-[#0d0d1a] border-white/10' : 'bg-gray-50 border-gray-100'}`}>
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    value={editForm.name}
-                    onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                    placeholder="İsim"
-                    className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/30 text-sm"
-                  />
-                  <input
-                    value={editForm.surname}
-                    onChange={e => setEditForm({ ...editForm, surname: e.target.value })}
-                    placeholder="Soyisim"
-                    className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/30 text-sm"
-                  />
-                </div>
-                <textarea
-                  value={editForm.description}
-                  onChange={e => setEditForm({ ...editForm, description: e.target.value })}
-                  placeholder="Biyografi..."
-                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/30 min-h-[80px] resize-none text-sm"
-                />
-                <input
-                  type="password"
-                  value={editForm.password}
-                  onChange={e => setEditForm({ ...editForm, password: e.target.value })}
-                  placeholder="Yeni şifre (boş bırakırsan değişmez)"
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/30 text-sm"
-                />
-                {updateResult && (
-                  <p className={`text-[10px] font-bold uppercase tracking-widest ${updateResult.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
-                    {updateResult.msg}
-                  </p>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Bio ─────────────────────────────────────────── */}
-      {!isEditing && (
-        <div className="px-4 md:px-6 mt-5 max-w-3xl">
-          <p className={`text-sm md:text-base font-medium leading-relaxed ${isSpace ? 'text-white/80' : 'text-uv-black'}`}>
-            {profile.description || 'No transmission recorded. This user is a ghost in the UniVerse.'}
-          </p>
-          <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-uv-gray text-[9px] md:text-xs font-bold uppercase tracking-widest">
-            <div className="flex items-center gap-1.5"><FiMapPin size={10} className="text-primary" /> Campus Node A</div>
-            <div className="flex items-center gap-1.5"><FiLink size={10} className="text-primary" /> node.link</div>
-            <div className="flex items-center gap-1.5"><FiCalendar size={10} className="text-primary" /> Connected {formatDate(profile.createdAt || new Date().toISOString())}</div>
+      {/* ── Bio & Social Info ─────────────────────────────── */}
+      <div className="px-4 md:px-6 mt-5 max-w-3xl">
+        {/* Private account gate */}
+        {profile.isProfileHidden ? (
+          <div className={`flex flex-col items-center gap-3 py-10 text-center ${isSpace ? 'text-white/40' : 'text-uv-gray'}`}>
+            <FiLock size={32} className="opacity-40" />
+            <p className="font-black text-sm uppercase tracking-widest">{t('profile.privateAccount')}</p>
+            <p className="text-xs">{t('profile.followToSeePosts')}</p>
           </div>
-        </div>
-      )}
+        ) : (
+          <>
+            <p className={`text-sm md:text-base font-medium leading-relaxed ${isSpace ? 'text-white/80' : 'text-uv-black'}`}>
+              {profile.description || ''}
+            </p>
 
-      {/* ── Tabs ─────────────────────────────────────────── */}
+            {/* Social Links */}
+            {(() => {
+              const links = profile.socialLinks || {};
+              const entries = [
+                { key: 'linkedin', href: links.linkedin, icon: <FiLinkedin size={14} />, label: 'LinkedIn' },
+                { key: 'github', href: links.github, icon: <FiGithub size={14} />, label: 'GitHub' },
+                { key: 'website', href: links.website, icon: <FiGlobe size={14} />, label: 'Website' },
+                { key: 'instagram', href: links.instagram, icon: <FiInstagram size={14} />, label: 'Instagram' },
+              ].filter(e => e.href);
+              return entries.length > 0 ? (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {entries.map(e => (
+                    <a key={e.key} href={e.href.startsWith('http') ? e.href : `https://${e.href}`} target="_blank" rel="noopener noreferrer"
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-widest transition-colors hover:border-primary hover:text-primary ${isSpace ? 'border-white/10 text-white/50' : 'border-gray-200 text-uv-gray'}`}>
+                      {e.icon} {e.label}
+                    </a>
+                  ))}
+                </div>
+              ) : null;
+            })()}
+
+            {/* Interests */}
+            {(profile.interests || []).length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {(profile.interests as string[]).map((tag: string) => (
+                  <span key={tag} className="px-2.5 py-1 bg-primary/10 text-primary rounded-lg text-[10px] font-black">#{tag}</span>
+                ))}
+              </div>
+            )}
+
+            {/* Mutual followers */}
+            {!isOwnProfile && profile.mutualFollowersCount > 0 && (
+              <p className={`mt-3 text-xs font-bold ${isSpace ? 'text-white/40' : 'text-uv-gray'}`}>
+                <FiUsers size={11} className="inline mr-1" />{profile.mutualFollowersCount} mutual follower{profile.mutualFollowersCount !== 1 ? 's' : ''}
+              </p>
+            )}
+
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-uv-gray text-[9px] md:text-xs font-bold uppercase tracking-widest">
+              <div className="flex items-center gap-1.5"><FiCalendar size={10} className="text-primary" /> Connected {formatDate(profile.createdAt || new Date().toISOString())}</div>
+              {profile.phoneNumber && <div className="flex items-center gap-1.5"><FiMapPin size={10} className="text-primary" /> {profile.phoneNumber}</div>}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Tabs (only show if profile is visible) ────────────── */}
+      {!profile.isProfileHidden && (
       <div className="mt-6 px-3 md:px-6 overflow-x-auto scrollbar-hide">
         <div className={`flex gap-1 p-1 rounded-xl w-fit ${isSpace ? 'bg-white/5' : 'bg-gray-100'}`}>
-          {['posts', 'reposts', 'likes', 'my-items'].map(tab => (
+          {['posts', 'reposts', 'likes', 'my-items', 'my-communities']
+            .filter(tab => tab !== 'my-communities' || isOwnProfile)
+            .map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
@@ -683,18 +628,27 @@ const Profile = () => {
                 : isSpace ? 'text-white/50 hover:text-white' : 'text-uv-gray hover:text-uv-black'
               }`}
             >
-              {tab.replace('-', ' ')}
+              {t(
+                `profile.${
+                  tab === 'my-items'
+                    ? 'myItems'
+                    : tab === 'my-communities'
+                      ? 'myCommunitiesTab'
+                      : tab
+                }`
+              )}
             </button>
           ))}
         </div>
       </div>
+      )}
 
       {/* ── Content ─────────────────────────────────────── */}
       <div className="px-3 md:px-6 mt-5 pb-20 flex-1">
         {activeTab === 'my-items' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {items.length === 0 ? (
-              <p className="col-span-2 p-10 text-center text-uv-gray font-bold uppercase tracking-widest text-xs">No assets detected.</p>
+              <p className="col-span-2 p-10 text-center text-uv-gray font-bold uppercase tracking-widest text-xs">{t('profile.noAssetsDetected')}</p>
             ) : items.map(item => (
               <div
                 key={item.lost_item_id || item.found_item_id}
@@ -712,12 +666,77 @@ const Profile = () => {
               </div>
             ))}
           </div>
+        ) : activeTab === 'my-communities' ? (
+          <div className="space-y-3">
+            {myCommunitiesStatus === 'loading' ? (
+              <div className="py-10 flex items-center justify-center">
+                <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+              </div>
+            ) : myCommunitiesStatus === 'error' ? (
+              <div className={`rounded-2xl p-4 border ${isSpace ? 'border-white/10 bg-white/5' : 'border-red-200 bg-red-50'}`}>
+                <p className={`font-black text-xs uppercase tracking-widest ${isSpace ? 'text-white/70' : 'text-red-700'}`}>
+                  {myCommunitiesError || t('profile.myCommunitiesLoadFailed')}
+                </p>
+              </div>
+            ) : myCommunities.length === 0 ? (
+              <p className={`p-10 text-center text-uv-gray font-bold uppercase tracking-widest text-xs ${isSpace ? 'text-white/50' : ''}`}>
+                {t('profile.myCommunitiesEmpty')}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {myCommunities.map((c: any) => (
+                  <div
+                    key={c.community_id}
+                    className={`flex items-center justify-between gap-3 p-2 rounded-xl border cursor-pointer transition-colors ${
+                      isSpace ? 'bg-white/5 border-white/10 hover:border-primary/30' : 'bg-white border-gray-100 hover:border-primary/30'
+                    }`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/community/${c.community_id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') navigate(`/community/${c.community_id}`);
+                    }}
+                  >
+                    <div className="min-w-0">
+                      <p className={`font-black text-sm truncate ${isSpace ? 'text-white' : 'text-uv-black'}`}>{c.community_name}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-uv-gray truncate">
+                        {c.membership_status === 'admin'
+                          ? t('profile.membershipStatusAdmin')
+                          : c.membership_status === 'active'
+                            ? t('profile.membershipStatusActive')
+                            : c.membership_status === 'pending'
+                              ? t('profile.membershipStatusPending')
+                              : t('profile.membershipStatusNone')}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      {c.is_admin && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/community/${c.community_id}/admin`);
+                          }}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-black bg-uv-black text-white hover:opacity-90 transition-opacity`}
+                        >
+                          {t('profile.openAdminPanel')}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         ) : (
           <div className="space-y-0 divide-y divide-gray-100">
             {activities.length === 0 ? (
-              <div className="p-16 text-center text-uv-gray font-black uppercase tracking-widest text-[9px] opacity-40">Empty transmission.</div>
+              <div className="p-16 text-center text-uv-gray font-black uppercase tracking-widest text-[9px] opacity-40">{t('profile.emptyTransmission')}</div>
             ) : activities.map(post => (
-              <div key={post.post_id} className={`py-4 transition-all group ${isSpace ? 'hover:bg-white/3' : 'hover:bg-gray-50/50'}`}>
+              <div
+                key={post.post_id}
+                className={`py-4 transition-all group cursor-pointer ${isSpace ? 'hover:bg-white/3' : 'hover:bg-gray-50/50'}`}
+                onClick={() => setSelectedPost(post)}
+              >
                 <div className="flex gap-3">
                   <div className="w-9 h-9 md:w-11 md:h-11 bg-primary/10 rounded-xl flex items-center justify-center font-black text-sm text-primary border border-primary/10 overflow-hidden shrink-0">
                     {post.avatar_url
@@ -740,11 +759,11 @@ const Profile = () => {
                           {openMenu === post.post_id && (
                             <div className="absolute right-0 mt-1 w-36 bg-white border border-uv-border rounded-xl shadow-xl z-20 py-1.5">
                               <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/post/${post.post_id}`); setOpenMenu(null); }} className="w-full text-left px-3 py-1.5 text-[9px] font-black uppercase text-uv-black hover:bg-gray-50 flex items-center gap-2">
-                                <FiLink size={10} /> Copy Link
+                                <FiLink size={10} /> {t('profile.copyLink')}
                               </button>
                               {(post.user_id === currentUser?.userId || post.reposter_id === currentUser?.userId) && (
                                 <button onClick={() => handleDeletePost(post.post_id)} className="w-full text-left px-3 py-1.5 text-[9px] font-black uppercase text-red-500 hover:bg-red-50 flex items-center gap-2">
-                                  <FiTrash2 size={10} /> Delete
+                                  <FiTrash2 size={10} /> {t('common.delete')}
                                 </button>
                               )}
                             </div>
@@ -754,15 +773,42 @@ const Profile = () => {
                     </div>
                     <p className={`text-sm leading-relaxed ${isSpace ? 'text-white/80' : 'text-uv-black'}`}>{post.content}</p>
                     <div className="flex items-center gap-5 mt-3 text-uv-gray">
-                      <button className="flex items-center gap-1 hover:text-primary transition-colors">
+                      <button
+                        onClick={e => { e.stopPropagation(); setSelectedPost(post); }}
+                        className="flex items-center gap-1 hover:text-primary transition-colors"
+                      >
                         <FiMessageCircle size={13} /><span className="text-[9px] font-black">{post.comments_count}</span>
                       </button>
-                      <button className={`flex items-center gap-1 ${post.has_reposted ? 'text-green-500' : 'hover:text-green-500 transition-colors'}`}>
+                      <button
+                        onClick={e => { e.stopPropagation(); setSelectedPost(post); }}
+                        className={`flex items-center gap-1 ${post.has_reposted ? 'text-green-500' : 'hover:text-green-500 transition-colors'}`}
+                      >
                         <FiRepeat size={13} /><span className="text-[9px] font-black">{post.reposts_count}</span>
                       </button>
-                      <button className={`flex items-center gap-1 ${post.has_liked ? 'text-pink-500' : 'hover:text-pink-500 transition-colors'}`}>
-                        <FiHeart size={13} className={post.has_liked ? 'fill-current' : ''} /><span className="text-[9px] font-black">{post.likes_count}</span>
-                      </button>
+                      {/* Heart icon toggles like; count opens likers list */}
+                      <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await api.post(`/social/posts/${post.post_id}/like`);
+                              setActivities(prev => prev.map(p => p.post_id === post.post_id
+                                ? { ...p, has_liked: !p.has_liked, likes_count: p.has_liked ? p.likes_count - 1 : p.likes_count + 1 }
+                                : p
+                              ));
+                            } catch {}
+                          }}
+                          className={`flex items-center gap-0.5 ${post.has_liked ? 'text-pink-500' : 'hover:text-pink-500 transition-colors'}`}
+                        >
+                          <FiHeart size={13} className={post.has_liked ? 'fill-current' : ''} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSelectedPost({ ...post, _openLikers: true }); }}
+                          className={`text-[9px] font-black ml-0.5 hover:underline ${post.has_liked ? 'text-pink-500' : 'text-uv-gray hover:text-pink-400'}`}
+                        >
+                          {post.likes_count}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -772,30 +818,17 @@ const Profile = () => {
         )}
       </div>
 
-      {/* ── Floating Save Button (Visible when files picked but not in edit mode) ── */}
+      {/* ── Post Detail Modal ──────────────────────────────── */}
       <AnimatePresence>
-        {(avatarFile || coverFile) && !isEditing && (
-          <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[150] w-full max-w-xs px-4"
-          >
-            <button
-              onClick={handleSaveProfile}
-              disabled={savingProfile}
-              className="w-full bg-primary text-white shadow-2xl shadow-primary/40 rounded-2xl py-4 flex items-center justify-center gap-3 hover:brightness-110 active:scale-95 transition-all"
-            >
-              {savingProfile ? (
-                <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
-              ) : (
-                <FiCamera size={18} />
-              )}
-              <span className="font-black text-sm uppercase tracking-widest">
-                {savingProfile ? 'YÜKLENİYOR...' : 'FOTOĞRAFI KAYDET'}
-              </span>
-            </button>
-          </motion.div>
+        {selectedPost && (
+          <PostDetailModal
+            post={selectedPost}
+            onClose={() => setSelectedPost(null)}
+            onUpdate={updated => {
+              setActivities(prev => prev.map(p => p.post_id === updated.post_id ? { ...p, ...updated } : p));
+              setSelectedPost(updated);
+            }}
+          />
         )}
       </AnimatePresence>
 

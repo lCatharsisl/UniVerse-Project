@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/client';
@@ -6,6 +7,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { FiEye, FiEyeOff, FiNavigation, FiGlobe, FiCloud } from 'react-icons/fi';
 
 const Login = () => {
+    const { t } = useTranslation();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -68,7 +70,7 @@ const Login = () => {
             login(sessionToken, meRes.data);
             navigate('/feed');
         } catch (err: any) {
-            setError(err.response?.data?.error || 'Authentication failure. Check your node.');
+            setError(err.response?.data?.error || t('login.error'));
         } finally {
             setLoading(false);
         }
@@ -159,7 +161,7 @@ const Login = () => {
                 >
                     {isSpace ? <FiGlobe size={22} /> : <FiCloud size={22} />}
                     <span className={`absolute left-16 ${isSpace ? 'bg-white text-uv-black' : 'bg-uv-black text-white'} text-[10px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap`}>
-                        {isSpace ? 'RESTORE GRAVITY' : 'IGNITE ENGINES'}
+                        {isSpace ? t('mainLayout.restoreGravity') : t('mainLayout.igniteEngines')}
                     </span>
                 </button>
             </div>
@@ -192,7 +194,7 @@ const Login = () => {
             </div>
 
             {/* Right Side - Form */}
-            <div className={`flex-1 flex flex-col justify-center px-6 md:px-24 py-1 md:py-16 relative overflow-y-auto transition-colors duration-700 ${isSpace ? 'bg-[#0a0a1a]' : 'bg-[#fcfcff]'}`}>
+            <div className={`flex-1 flex flex-col justify-center px-6 md:px-16 lg:px-24 py-1 md:py-8 relative overflow-y-auto transition-colors duration-700 ${isSpace ? 'bg-[#0a0a1a]' : 'bg-[#fcfcff]'}`}>
                 {/* Subtle Right Side Space Pattern */}
                 <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
                      style={{ backgroundImage: `radial-gradient(${isSpace ? '#ffffff' : '#050510'} 1px, transparent 1px)`, backgroundSize: '40px 40px' }} />
@@ -200,17 +202,17 @@ const Login = () => {
                 <div className="absolute bottom-[-10%] left-[-10%] w-[30%] h-[30%] bg-purple-500/5 rounded-full blur-[80px] pointer-events-none" />
 
                 <div className="max-w-[420px] w-full mx-auto relative z-10 flex flex-col">
-                    <div className="md:hidden flex items-center justify-center -mb-2 mx-auto">
-                        <img src="/logo.svg" alt="UniVerse Logo" className="w-28 h-28 object-contain animate-bounce-hop drop-shadow-[0_0_25px_rgba(79,70,229,0.5)]" />
+                    <div className="md:hidden flex items-center justify-center mx-auto mb-2 mt-4">
+                        <img src="/logo.svg" alt="UniVerse Logo" className="w-20 h-20 object-contain animate-bounce-hop drop-shadow-[0_0_25px_rgba(79,70,229,0.5)]" />
                     </div>
                     
-                    <div className="mb-2 md:mb-10 text-center md:text-left">
-                        <div className="h-[60px] md:h-[160px] flex items-center justify-center md:justify-start overflow-hidden">
-                            <h1 className={`text-2xl md:text-7xl font-black tracking-tighter leading-tight cursor-blink ${isSpace ? 'text-white' : 'text-uv-black'}`}>
+                    <div className="mb-4 md:mb-6 text-center md:text-left">
+                        <div className="h-[40px] md:h-[60px] lg:h-[130px] flex items-center justify-center md:justify-start">
+                            <h1 className={`text-3xl md:text-5xl lg:text-6xl font-black tracking-tighter leading-tight cursor-blink ${isSpace ? 'text-white' : 'text-uv-black'}`}>
                                 {displayText}
                             </h1>
                         </div>
-                        <p className={`font-bold text-[10px] md:text-lg tracking-tight mt-0 md:mt-3 ${isSpace ? 'text-gray-400' : 'text-uv-gray'}`}>The digital heartbeat of your university starts here.</p>
+                        <p className={`font-bold text-[10px] md:text-base lg:text-lg tracking-tight mt-1 md:mt-2 ${isSpace ? 'text-gray-400' : 'text-uv-gray'}`}>{t('login.subtitle')}</p>
                     </div>
 
                     {error && (
@@ -221,13 +223,13 @@ const Login = () => {
 
                     <form onSubmit={handleSubmit} className="space-y-3 md:space-y-6">
                         <div className="space-y-1 group">
-                             <label className={`text-[10px] font-black uppercase tracking-widest ml-1 group-focus-within:text-primary transition-colors ${isSpace ? 'text-gray-500' : 'text-uv-gray'}`}>Access Protocol</label>
+                             <label className={`text-[10px] font-black uppercase tracking-widest ml-1 group-focus-within:text-primary transition-colors ${isSpace ? 'text-gray-500' : 'text-uv-gray'}`}>{t('login.accessProtocol')}</label>
                              <div className="relative">
                                 <input
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className={`w-full px-5 py-3 md:py-4 backdrop-blur-sm border rounded-tl-2xl rounded-br-2xl focus:ring-2 focus:ring-primary/10 focus:border-primary/50 outline-none transition-all font-bold shadow-sm ${isSpace ? 'bg-[#111827]/80 border-white/10 text-white placeholder:text-gray-600 focus:bg-[#111827]' : 'bg-white/40 border-uv-border text-uv-black placeholder:text-uv-gray/40 focus:bg-white'}`}
+                                    className={`w-full px-4 py-2.5 md:px-5 md:py-3.5 backdrop-blur-sm border rounded-tl-2xl rounded-br-2xl focus:ring-2 focus:ring-primary/10 focus:border-primary/50 outline-none transition-all font-bold shadow-sm ${isSpace ? 'bg-[#111827]/80 border-white/10 text-white placeholder:text-gray-600 focus:bg-[#111827]' : 'bg-white/40 border-uv-border text-uv-black placeholder:text-uv-gray/40 focus:bg-white'}`}
                                     placeholder="name@uni.edu"
                                     required
                                 />
@@ -235,13 +237,13 @@ const Login = () => {
                         </div>
 
                         <div className="space-y-1 group">
-                            <label className={`text-[10px] font-black uppercase tracking-widest ml-1 group-focus-within:text-primary transition-colors ${isSpace ? 'text-gray-500' : 'text-uv-gray'}`}>Security Key</label>
+                            <label className={`text-[10px] font-black uppercase tracking-widest ml-1 group-focus-within:text-primary transition-colors ${isSpace ? 'text-gray-500' : 'text-uv-gray'}`}>{t('login.securityKey')}</label>
                             <div className="relative">
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className={`w-full px-5 py-3 md:py-4 backdrop-blur-sm border rounded-tl-2xl rounded-br-2xl focus:ring-2 focus:ring-primary/10 focus:border-primary/50 outline-none transition-all font-bold shadow-sm ${isSpace ? 'bg-[#111827]/80 border-white/10 text-white placeholder:text-gray-600 focus:bg-[#111827]' : 'bg-white/40 border-uv-border text-uv-black placeholder:text-uv-gray/40 focus:bg-white'}`}
+                                    className={`w-full px-4 py-2.5 md:px-5 md:py-3.5 backdrop-blur-sm border rounded-tl-2xl rounded-br-2xl focus:ring-2 focus:ring-primary/10 focus:border-primary/50 outline-none transition-all font-bold shadow-sm ${isSpace ? 'bg-[#111827]/80 border-white/10 text-white placeholder:text-gray-600 focus:bg-[#111827]' : 'bg-white/40 border-uv-border text-uv-black placeholder:text-uv-gray/40 focus:bg-white'}`}
                                     placeholder="••••••••"
                                     required
                                 />
@@ -258,20 +260,20 @@ const Login = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-primary text-white font-black py-4 rounded-tl-3xl rounded-br-3xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 mt-6 flex items-center justify-center gap-2 group relative overflow-hidden border border-primary/50"
+                            className="w-full bg-primary text-white font-black py-3 md:py-3.5 rounded-tl-3xl rounded-br-3xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 mt-4 flex items-center justify-center gap-2 group relative overflow-hidden border border-primary/50"
                         >
                             <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                             <span className="relative z-10 flex items-center gap-2">
-                                {loading ? 'SYNCING...' : <><FiNavigation className="rotate-45" /> INITIALIZE LINK</>}
+                                {loading ? t('login.syncing') : <><FiNavigation className="rotate-45" /> {t('login.initializeLink')}</>}
                             </span>
                         </button>
                     </form>
 
-                    <div className={`mt-4 pt-4 md:mt-12 md:pt-10 border-t flex flex-col gap-2 md:gap-4 ${isSpace ? 'border-white/10' : 'border-gray-100'}`}>
-                        <span className={`text-[9px] md:text-xs font-black uppercase tracking-widest block text-center ${isSpace ? 'text-gray-500' : 'text-uv-gray'}`}>New to the system?</span>
-                        <Link to="/register" className={`w-full font-black py-2.5 md:py-4 rounded-tl-2xl rounded-br-2xl flex items-center justify-center transition-all shadow-xl group relative overflow-hidden border ${isSpace ? 'bg-[#111827] text-white hover:bg-white/10 hover:border-white/30 border-white/10 shadow-black/50' : 'bg-uv-black text-white hover:bg-primary border-transparent shadow-black/10'}`}>
+                    <div className={`mt-4 pt-3 md:mt-6 md:pt-6 border-t flex flex-col gap-2 md:gap-3 ${isSpace ? 'border-white/10' : 'border-gray-100'}`}>
+                        <span className={`text-[9px] md:text-[11px] font-black uppercase tracking-widest block text-center ${isSpace ? 'text-gray-500' : 'text-uv-gray'}`}>{t('login.newToSystem')}</span>
+                        <Link to="/register" className={`w-full font-black py-2 md:py-3.5 rounded-tl-2xl rounded-br-2xl flex items-center justify-center transition-all shadow-xl group relative overflow-hidden border ${isSpace ? 'bg-[#111827] text-white hover:bg-white/10 hover:border-white/30 border-white/10 shadow-black/50' : 'bg-uv-black text-white hover:bg-primary border-transparent shadow-black/10'}`}>
                              <div className="absolute inset-0 bg-white/5 translate-x-full group-hover:translate-x-0 transition-transform duration-500" />
-                             <span className="relative z-10 text-xs md:text-base">GENERATE ACCOUNT</span>
+                             <span className="relative z-10 text-[10px] md:text-[13px] xl:text-base">{t('login.generateAccount')}</span>
                         </Link>
                     </div>
                 </div>

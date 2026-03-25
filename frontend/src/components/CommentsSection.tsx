@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { commentsService } from '../api/services/commentsService';
 import { LoadingButton } from './LoadingButton';
 import '../styles/components.css';
+import { themedAlert, themedConfirm } from '../utils/themedDialog';
 
 interface Comment {
   comment_id: number;
@@ -64,13 +65,13 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
   };
 
   const handleDelete = async (commentId: number) => {
-    if (!confirm('Are you sure you want to delete this comment?')) return;
+    if (!(await themedConfirm('Are you sure you want to delete this comment?'))) return;
 
     try {
       await commentsService.deleteComment(commentId);
       await loadComments(); // Reload comments
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to delete comment');
+      await themedAlert(err.response?.data?.error || 'Failed to delete comment');
     }
   };
 

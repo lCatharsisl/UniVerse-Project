@@ -67,6 +67,11 @@ export class SocialService {
     let countSql = '';
     let countParams: any[] = [];
 
+    // Fetch muted words first
+    const userSettings = await queryOne<{muted_words: string[]}>('SELECT muted_words FROM users WHERE user_id = $1', [currentUserId]);
+    const mutedWords = userSettings?.muted_words || [];
+    const mutedRegex = mutedWords.length > 0 ? mutedWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') : null;
+
     if (type === 'feed') {
       // Timeline consists of original posts AND reposts
       sql = `
@@ -112,9 +117,12 @@ export class SocialService {
           LEFT JOIN admins ra ON ra.user_id = ru.user_id
           LEFT JOIN communities rc ON rc.user_id = ru.user_id
         ) combined
+        ${mutedRegex ? `WHERE content !~* $4` : ''}
         ORDER BY sorted_at DESC
         LIMIT $2 OFFSET $3
       `;
+      if (mutedRegex) params.push(mutedRegex);
+
       // Count for feed
       countSql = `
         SELECT (SELECT COUNT(*) FROM posts) + (SELECT COUNT(*) FROM post_reposts) as total
@@ -137,6 +145,11 @@ export class SocialService {
         whereClause = `WHERE pr2.user_id = $${targetUserIdIdx}`;
       }
 
+      if (mutedRegex) {
+        params.push(mutedRegex);
+        whereClause += ` AND p.content !~* $5`;
+      }
+
       sql = `
         SELECT 
           p.*,
@@ -157,8 +170,9 @@ export class SocialService {
         LIMIT $2 OFFSET $3
       `;
 
-      countSql = `SELECT COUNT(*) as total ${fromClause} ${whereClause.replace('$4', '$1')}`;
+      countSql = `SELECT COUNT(*) as total ${fromClause} ${whereClause.replace('$4', '$1').replace('$5', '$2')}`;
       countParams = [targetUserId];
+      if (mutedRegex) countParams.push(mutedRegex);
     }
 
     // Common Interaction subqueries

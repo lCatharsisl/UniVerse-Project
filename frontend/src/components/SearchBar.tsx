@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import '../styles/components.css';
 
 interface SearchBarProps {
@@ -9,9 +10,10 @@ interface SearchBarProps {
 
 export const SearchBar: React.FC<SearchBarProps> = ({
   onSearch,
-  placeholder = 'Search items...',
+  placeholder,
   className = '',
 }) => {
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -30,7 +32,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         type="text"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        placeholder={placeholder}
+        placeholder={placeholder ?? t('searchBar.placeholder')}
         className="search-input"
       />
       {searchTerm && (
@@ -38,13 +40,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           type="button"
           onClick={handleClear}
           className="search-clear"
-          aria-label="Clear search"
+          aria-label={t('searchBar.clearSearch')}
         >
           ✕
         </button>
       )}
       <button type="submit" className="search-button">
-        🔍 Search
+        🔍 {t('searchBar.search')}
       </button>
     </form>
   );

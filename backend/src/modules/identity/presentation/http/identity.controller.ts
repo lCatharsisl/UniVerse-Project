@@ -16,11 +16,14 @@ export class IdentityController {
 
   static async login(req: Request, res: Response) {
     const { email, password } = req.body;
-    const result = await LoginHandler.execute(email, password);
+    const userAgent = req.headers['user-agent'] || '';
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+      || req.socket.remoteAddress
+      || '';
+    const result = await LoginHandler.execute(email, password, userAgent, ipAddress);
     if (!result.success) {
       return res.status(401).json({ error: result.error });
     }
-    // Keep sessionToken key for frontend compatibility
     const { token, user } = result.data as any;
     return res.json({ sessionToken: token, user });
   }
@@ -64,13 +67,79 @@ export class IdentityController {
     return res.json({ message: 'Profile updated successfully' });
   }
 
-  static async getPublicProfile(req: Request, res: Response) {
+  static async getPublicProfile(req: AuthenticatedRequest, res: Response) {
     try {
       const { id } = req.params;
-      const profile = await IdentityService.getPublicProfile(parseInt(id));
+      const requesterId = req.userId; // may be undefined for unauthenticated requests
+      const profile = await IdentityService.getPublicProfile(parseInt(id), requesterId);
       return res.json(profile);
     } catch (error: any) {
       return res.status(error.status || 500).json({ error: error.message });
+    }
+  }
+
+  // ─── Block / Unblock ─────────────────────────────────────────────────────────
+  static async toggleBlock(req: AuthenticatedRequest, res: Response) {
+    try {
+      const targetId = parseInt(req.params.id);
+      const result = await IdentityService.toggleBlock(req.userId!, targetId);
+      if (!result.success) return res.status(400).json({ error: result.error });
+      return res.json(result.data);
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  static async isBlocked(req: AuthenticatedRequest, res: Response) {
+    try {
+      const targetId = parseInt(req.params.id);
+      const status = await IdentityService.isBlocked(req.userId!, targetId);
+      return res.json(status);
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // ─── Active Sessions ──────────────────────────────────────────────────────────
+  static async getSessions(req: AuthenticatedRequest, res: Response) {
+    try {
+      const sessions = await IdentityService.getActiveSessions(req.userId!);
+      return res.json(sessions);
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  static async terminateSession(req: AuthenticatedRequest, res: Response) {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      await IdentityService.terminateSession(req.userId!, sessionId);
+      return res.json({ message: 'Session terminated' });
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // ─── Privacy Settings ─────────────────────────────────────────────────────────
+  static async updatePrivacy(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { isPrivate, mutedWords } = req.body;
+      const result = await IdentityService.updatePrivacySettings(req.userId!, { isPrivate, mutedWords });
+      if (!result.success) return res.status(400).json({ error: result.error });
+      return res.json({ message: 'Privacy settings updated' });
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // ─── Deactivate Account ───────────────────────────────────────────────────────
+  static async deactivateAccount(req: AuthenticatedRequest, res: Response) {
+    try {
+      const result = await IdentityService.deactivateAccount(req.userId!);
+      if (!result.success) return res.status(400).json({ error: result.error });
+      return res.json({ message: 'Account deactivated' });
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
     }
   }
 }

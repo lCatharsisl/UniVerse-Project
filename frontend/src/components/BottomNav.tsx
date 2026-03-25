@@ -1,6 +1,7 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
-import { FiHome, FiBox, FiMap, FiUser, FiPlus } from 'react-icons/fi';
+import { FiHome, FiBox, FiMap, FiUser, FiPlus, FiSettings } from 'react-icons/fi';
 import { useTheme } from '../context/ThemeContext';
 
 interface BottomNavProps {
@@ -8,14 +9,16 @@ interface BottomNavProps {
 }
 
 const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
+  const { t } = useTranslation();
   const { dimension } = useTheme();
   const isSpace = dimension === 'space';
 
   const navItems = [
-    { icon: <FiHome size={20} />, path: '/feed', label: 'Hub' },
-    { icon: <FiBox size={20} />, path: '/lost-found', label: 'L&F' },
-    { icon: <FiMap size={20} />, path: '/campus-map', label: 'Map' },
-    { icon: <FiUser size={20} />, path: '/profile', label: 'Profile' },
+    { icon: <FiHome size={20} />, path: '/feed', label: t('bottomNav.hub') },
+    { icon: <FiBox size={20} />, path: '/lost-found', label: t('bottomNav.lAndF') },
+    { icon: <FiMap size={20} />, path: '/campus-map', label: t('bottomNav.map') },
+    { icon: <FiUser size={20} />, path: '/profile', label: t('bottomNav.profile') },
+    { icon: <FiSettings size={20} />, path: '/settings', label: t('bottomNav.settings') },
   ];
 
   return (
@@ -54,7 +57,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
         <FiPlus size={20} />
       </button>
 
-      {navItems.slice(2).map((item) => (
+      {navItems.slice(2, 4).map((item) => (
         <NavLink
           key={item.path}
           to={item.path}

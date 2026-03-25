@@ -10,6 +10,26 @@ export class IdentityService {
 
   static async register(data: any) {
     try {
+      // Email format validation
+      const email = data.email.toLowerCase();
+      
+      if (data.role === 'student' || data.role === 'community') {
+        if (!email.endsWith('@stu.yasar.edu.tr')) {
+          throw AppError.badRequest('Student/Society accounts must use @stu.yasar.edu.tr email');
+        }
+        
+        if (data.role === 'student') {
+          const emailPrefix = email.split('@')[0];
+          if (emailPrefix !== data.studentNumber.toString()) {
+            throw AppError.badRequest('Email prefix must match student number');
+          }
+        }
+      } else if (data.role === 'staff') {
+        if (!email.endsWith('@yasar.edu.tr') || email.endsWith('@stu.yasar.edu.tr')) {
+          throw AppError.badRequest('Academic staff accounts must use @yasar.edu.tr email');
+        }
+      }
+
       return await transaction(async (client) => {
         // Check if email already exists
         const existingUser = await client.query('SELECT user_id FROM users WHERE email = $1', [data.email]);
@@ -42,10 +62,20 @@ export class IdentityService {
             [userId, data.adminName, data.adminSurname]
           );
         } else if (data.role === 'community') {
-          await client.query(
-            'INSERT INTO communities (user_id, community_name, description, contact_email) VALUES ($1, $2, $3, $4)',
+          const comm = await client.query(
+            'INSERT INTO communities (user_id, community_name, description, contact_email) VALUES ($1, $2, $3, $4) RETURNING community_id',
             [userId, data.communityName, data.description, data.email]
           );
+          const communityId = comm.rows[0]?.community_id;
+          if (communityId) {
+            // Ensure owner community user is also an active member (admin role) for member counts + notifications.
+            await client.query(
+              `INSERT INTO community_members (community_id, member_user_id, role, is_active)
+               VALUES ($1, $2, 'admin', true)
+               ON CONFLICT (community_id, member_user_id) DO UPDATE SET role='admin', is_active=true`,
+              [communityId, userId]
+            );
+          }
         }
 
         // Generate email verification token
@@ -64,7 +94,7 @@ export class IdentityService {
     }
   }
 
-  static async login(email: string, password: string) {
+  static async login(email: string, password: string, userAgent?: string, ipAddress?: string) {
     try {
       const user = await queryOne<any>('SELECT * FROM users WHERE email = $1', [email]);
       if (!user) {
@@ -82,11 +112,13 @@ export class IdentityService {
 
       const sessionToken = randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + this.SESSION_DURATION_MS);
-      await query('INSERT INTO user_sessions (user_id, session_token, expires_at) VALUES ($1, $2, $3)', 
-        [user.user_id, sessionToken, expiresAt]);
+      await query(
+        'INSERT INTO user_sessions (user_id, session_token, expires_at, user_agent, ip_address, last_active_at) VALUES ($1, $2, $3, $4, $5, NOW())',
+        [user.user_id, sessionToken, expiresAt, userAgent || null, ipAddress || null]
+      );
 
-      return Result.ok({ 
-        token: sessionToken, 
+      return Result.ok({
+        token: sessionToken,
         user: {
           id: user.user_id,
           email: user.email,
@@ -155,64 +187,99 @@ export class IdentityService {
   static async updateProfile(userId: number, data: any) {
     try {
       return await transaction(async (client) => {
-        const user = await client.query('SELECT role FROM users WHERE user_id = $1', [userId]);
+        const user = await client.query('SELECT role, password_hash FROM users WHERE user_id = $1', [userId]);
         if (user.rows.length === 0) throw AppError.notFound('User not found');
         const role = user.rows[0].role;
+        const password_hash = user.rows[0].password_hash;
 
         // Update password if provided
         if (data.password) {
+          if (!data.currentPassword) {
+            throw AppError.badRequest('Current password is required to change password.');
+          }
+          const isMatch = await bcrypt.compare(data.currentPassword, password_hash);
+          if (!isMatch) {
+            throw AppError.badRequest('Current password is incorrect.');
+          }
           const passwordHash = await bcrypt.hash(data.password, this.SALT_ROUNDS);
           await client.query('UPDATE users SET password_hash = $1 WHERE user_id = $2', [passwordHash, userId]);
         }
 
+        // Parse social_links JSON if it comes as a string
+        let socialLinks = null;
+        if (data.socialLinks !== undefined) {
+          socialLinks = typeof data.socialLinks === 'string'
+            ? JSON.parse(data.socialLinks)
+            : data.socialLinks;
+        }
+
+        // Parse interests array if it comes as a string
+        let interests = null;
+        if (data.interests !== undefined) {
+          interests = Array.isArray(data.interests)
+            ? data.interests
+            : (typeof data.interests === 'string' ? JSON.parse(data.interests) : []);
+        }
+
+        // Parse phone number
+        const phoneNumber = data.phoneNumber || null;
+
         // Update role-specific profile fields
         if (role === 'student') {
           await client.query(
-            `UPDATE students SET 
-              student_name = COALESCE($1, student_name), 
-              student_surname = COALESCE($2, student_surname), 
-              phone_number = COALESCE($3, phone_number),
-              avatar_url = COALESCE($4, avatar_url),
-              cover_url = COALESCE($5, cover_url),
-              description = COALESCE($6, description)
-             WHERE user_id = $7`,
+            `UPDATE students SET
+              student_name    = COALESCE($1, student_name),
+              student_surname = COALESCE($2, student_surname),
+              phone_number    = COALESCE($3, phone_number),
+              avatar_url      = COALESCE($4, avatar_url),
+              cover_url       = COALESCE($5, cover_url),
+              description     = COALESCE($6, description),
+              social_links    = COALESCE($7, social_links),
+              interests       = COALESCE($8, interests)
+             WHERE user_id = $9`,
             [
-              data.name || null, 
-              data.surname || null, 
-              data.phoneNumber || null, 
-              data.avatarUrl || null, 
-              data.coverUrl || null, 
+              data.name || null,
+              data.surname || null,
+              phoneNumber,
+              data.avatarUrl || null,
+              data.coverUrl || null,
               data.description || null,
+              socialLinks,
+              interests,
               userId
             ]
           );
         } else if (role === 'staff') {
           await client.query(
-            `UPDATE staff SET 
-              staff_name = COALESCE($1, staff_name), 
-              staff_surname = COALESCE($2, staff_surname), 
-              phone_number = COALESCE($3, phone_number),
-              avatar_url = COALESCE($4, avatar_url),
-              cover_url = COALESCE($5, cover_url),
-              description = COALESCE($6, description)
-             WHERE user_id = $7`,
+            `UPDATE staff SET
+              staff_name    = COALESCE($1, staff_name),
+              staff_surname = COALESCE($2, staff_surname),
+              phone_number  = COALESCE($3, phone_number),
+              avatar_url    = COALESCE($4, avatar_url),
+              cover_url     = COALESCE($5, cover_url),
+              description   = COALESCE($6, description),
+              social_links  = COALESCE($7, social_links),
+              interests     = COALESCE($8, interests)
+             WHERE user_id = $9`,
             [
-              data.name || null, 
-              data.surname || null, 
-              data.phoneNumber || null, 
-              data.avatarUrl || null, 
-              data.coverUrl || null, 
+              data.name || null,
+              data.surname || null,
+              phoneNumber,
+              data.avatarUrl || null,
+              data.coverUrl || null,
               data.description || null,
+              socialLinks,
+              interests,
               userId
             ]
           );
         } else if (role === 'community') {
           await client.query(
-            `UPDATE communities SET 
+            `UPDATE communities SET
               community_name = COALESCE($1, community_name),
-              avatar_url = COALESCE($2, avatar_url),
-              cover_url = COALESCE($3, cover_url),
-              description = COALESCE($4, description)
+              avatar_url     = COALESCE($2, avatar_url),
+              cover_url      = COALESCE($3, cover_url),
+              description    = COALESCE($4, description)
              WHERE user_id = $5`,
             [data.name || null, data.avatarUrl || null, data.coverUrl || null, data.description || null, userId]
           );
@@ -226,50 +293,201 @@ export class IdentityService {
     }
   }
 
-  static async getPublicProfile(userId: number) {
+  static async updatePrivacySettings(userId: number, data: { isPrivate?: boolean; mutedWords?: string[] }) {
+    try {
+      const fields: string[] = [];
+      const values: any[] = [];
+      let idx = 1;
+
+      if (data.isPrivate !== undefined) {
+        fields.push(`is_private = $${idx++}`);
+        values.push(data.isPrivate);
+      }
+      if (data.mutedWords !== undefined) {
+        fields.push(`muted_words = $${idx++}`);
+        values.push(data.mutedWords);
+      }
+
+      if (fields.length === 0) return Result.ok();
+
+      values.push(userId);
+      await query(`UPDATE users SET ${fields.join(', ')} WHERE user_id = $${idx}`, values);
+      return Result.ok();
+    } catch (error: any) {
+      return Result.fail(error.message || 'Privacy update failed');
+    }
+  }
+
+  static async getPublicProfile(userId: number, requesterId?: number) {
     const user = await queryOne<any>(
-      `SELECT user_id, email, role, created_at,
-              COALESCE(warning_tier, 0) AS warning_tier, COALESCE(is_banned, false) AS is_banned
+      `SELECT user_id, email, role, created_at, is_private,
+              COALESCE(warning_tier, 0) AS warning_tier, COALESCE(is_banned, false) AS is_banned,
+              COALESCE(muted_words, '{}') AS muted_words
        FROM users WHERE user_id = $1 AND is_active = true`,
       [userId]
     );
 
     if (!user) throw AppError.notFound('User not found');
 
-    let profile: any;
-    if (user.role === 'student') {
-      profile = await queryOne(`
-        SELECT student_name, student_surname, s.department_id, current_semester, avatar_url, cover_url, d.department_name, f.faculty_name, description
-        FROM students s
-        LEFT JOIN departments d ON s.department_id = d.department_id
-        LEFT JOIN faculties f ON d.faculty_id = f.faculty_id
-        WHERE user_id = $1`, [userId]);
-    } else if (user.role === 'staff') {
-      profile = await queryOne(`
-        SELECT staff_name, staff_surname, s.department_id, avatar_url, cover_url, staff_title, d.department_name, f.faculty_name, description
-        FROM staff s
-        LEFT JOIN departments d ON s.department_id = d.department_id
-        LEFT JOIN faculties f ON d.faculty_id = f.faculty_id
-        WHERE user_id = $1`, [userId]);
-    } else if (user.role === 'community') {
-      profile = await queryOne(`SELECT community_name, description, avatar_url, cover_url FROM communities WHERE user_id = $1`, [userId]);
+    // Check if blocked
+    if (requesterId && requesterId !== userId) {
+      const blocked = await queryOne(
+        `SELECT 1 FROM blocked_users WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)`,
+        [userId, requesterId]
+      );
+      if (blocked) throw AppError.forbidden('User not available');
+    }
+
+    // Check if requester is following (needed for private account check)
+    let isFollower = false;
+    if (requesterId && requesterId !== userId) {
+      const followCheck = await queryOne(
+        `SELECT 1 FROM user_follows WHERE follower_id = $1 AND following_id = $2`,
+        [requesterId, userId]
+      );
+      isFollower = !!followCheck;
+    }
+
+    // Private account: hide bio/profile details if not follower
+    const isPrivate = user.is_private;
+    const canSeeFull = !isPrivate || requesterId === userId || isFollower;
+
+    let profile: any = null;
+    if (canSeeFull) {
+      if (user.role === 'student') {
+        profile = await queryOne(`
+          SELECT student_name, student_surname, s.department_id, current_semester, avatar_url, cover_url,
+                 d.department_name, f.faculty_name, description, phone_number,
+                 COALESCE(social_links, '{}') AS social_links,
+                 COALESCE(interests, '{}') AS interests
+          FROM students s
+          LEFT JOIN departments d ON s.department_id = d.department_id
+          LEFT JOIN faculties f ON d.faculty_id = f.faculty_id
+          WHERE user_id = $1`, [userId]);
+      } else if (user.role === 'staff') {
+        profile = await queryOne(`
+          SELECT staff_name, staff_surname, s.department_id, avatar_url, cover_url, staff_title,
+                 d.department_name, f.faculty_name, description, phone_number,
+                 COALESCE(social_links, '{}') AS social_links,
+                 COALESCE(interests, '{}') AS interests
+          FROM staff s
+          LEFT JOIN departments d ON s.department_id = d.department_id
+          LEFT JOIN faculties f ON d.faculty_id = f.faculty_id
+          WHERE user_id = $1`, [userId]);
+      } else if (user.role === 'community') {
+        profile = await queryOne(`SELECT community_name, description, avatar_url, cover_url FROM communities WHERE user_id = $1`, [userId]);
+      }
+    } else {
+      // Private account: fetch only avatar (visible to everyone)
+      if (user.role === 'student') {
+        profile = await queryOne(`SELECT student_name, student_surname, avatar_url FROM students WHERE user_id = $1`, [userId]);
+      } else if (user.role === 'staff') {
+        profile = await queryOne(`SELECT staff_name, staff_surname, avatar_url FROM staff WHERE user_id = $1`, [userId]);
+      } else if (user.role === 'community') {
+        profile = await queryOne(`SELECT community_name, avatar_url FROM communities WHERE user_id = $1`, [userId]);
+      }
+    }
+
+    // Mutual followers count
+    let mutualFollowersCount = 0;
+    if (requesterId && requesterId !== userId && canSeeFull) {
+      const mutual = await queryOne<{ count: string }>(
+        `SELECT COUNT(*) AS count
+         FROM user_follows f1
+         JOIN user_follows f2 ON f1.follower_id = f2.following_id
+         WHERE f1.following_id = $1 AND f2.follower_id = $2`,
+        [userId, requesterId]
+      );
+      mutualFollowersCount = parseInt(mutual?.count || '0', 10);
     }
 
     return {
       userId: user.user_id,
       email: user.email,
       role: user.role,
+      isPrivate: user.is_private,
+      isProfileHidden: !canSeeFull,
       name: profile?.student_name || profile?.staff_name || profile?.community_name,
       surname: profile?.student_surname || profile?.staff_surname,
       avatarUrl: profile?.avatar_url,
-      coverUrl: profile?.cover_url,
-      description: profile?.description,
-      title: profile?.staff_title,
-      departmentName: profile?.department_name,
-      facultyName: profile?.faculty_name,
+      coverUrl: canSeeFull ? profile?.cover_url : undefined,
+      description: canSeeFull ? profile?.description : undefined,
+      title: canSeeFull ? profile?.staff_title : undefined,
+      departmentName: canSeeFull ? profile?.department_name : undefined,
+      facultyName: canSeeFull ? profile?.faculty_name : undefined,
+      phoneNumber: canSeeFull ? profile?.phone_number : undefined,
+      socialLinks: canSeeFull ? (profile?.social_links || {}) : {},
+      interests: canSeeFull ? (profile?.interests || []) : [],
+      mutualFollowersCount,
       createdAt: user.created_at,
       warningTier: user.warning_tier ?? 0,
       isBanned: user.is_banned ?? false,
+      mutedWords: user.muted_words || [],
     };
+  }
+
+  // ─── Block / Unblock ────────────────────────────────────────────────────────
+  static async toggleBlock(blockerId: number, blockedId: number) {
+    if (blockerId === blockedId) return Result.fail('Cannot block yourself');
+    try {
+      const existing = await queryOne(
+        `SELECT id FROM blocked_users WHERE blocker_id = $1 AND blocked_id = $2`,
+        [blockerId, blockedId]
+      );
+      if (existing) {
+        await query(`DELETE FROM blocked_users WHERE blocker_id = $1 AND blocked_id = $2`, [blockerId, blockedId]);
+        return Result.ok({ action: 'unblocked' });
+      } else {
+        // Also remove any existing follows when blocking
+        await query(`DELETE FROM user_follows WHERE (follower_id = $1 AND following_id = $2) OR (follower_id = $2 AND following_id = $1)`, [blockerId, blockedId]);
+        await query(`INSERT INTO blocked_users (blocker_id, blocked_id) VALUES ($1, $2)`, [blockerId, blockedId]);
+        return Result.ok({ action: 'blocked' });
+      }
+    } catch (error: any) {
+      return Result.fail(error.message || 'Block operation failed');
+    }
+  }
+
+  static async isBlocked(userId: number, targetId: number): Promise<{ isBlocked: boolean; blockedByTarget: boolean }> {
+    const row = await queryOne<{ blocker_id: number; blocked_id: number }>(
+      `SELECT blocker_id, blocked_id FROM blocked_users
+       WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)`,
+      [userId, targetId]
+    );
+    if (!row) return { isBlocked: false, blockedByTarget: false };
+    return {
+      isBlocked: row.blocker_id === userId,
+      blockedByTarget: row.blocker_id === targetId,
+    };
+  }
+
+  // ─── Active Sessions ─────────────────────────────────────────────────────────
+  static async getActiveSessions(userId: number) {
+    return await query<any>(
+      `SELECT session_id, user_agent, ip_address, last_active_at, expires_at, created_at
+       FROM user_sessions
+       WHERE user_id = $1 AND expires_at > NOW()
+       ORDER BY last_active_at DESC`,
+      [userId]
+    );
+  }
+
+  static async terminateSession(userId: number, sessionId: number) {
+    const result = await query(
+      `DELETE FROM user_sessions WHERE session_id = $1 AND user_id = $2`,
+      [sessionId, userId]
+    );
+    return result;
+  }
+
+  // ─── Deactivate Account ──────────────────────────────────────────────────────
+  static async deactivateAccount(userId: number) {
+    try {
+      await query(`UPDATE users SET is_active = false WHERE user_id = $1`, [userId]);
+      await query(`DELETE FROM user_sessions WHERE user_id = $1`, [userId]);
+      return Result.ok();
+    } catch (error: any) {
+      return Result.fail(error.message || 'Account deactivation failed');
+    }
   }
 }

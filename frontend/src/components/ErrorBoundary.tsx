@@ -1,4 +1,6 @@
-import React, { Component, ReactNode, ErrorInfo } from 'react';
+import { Component } from 'react';
+import type { ReactNode, ErrorInfo } from 'react';
+import i18n from '../i18n/config';
 
 interface Props {
   children: ReactNode;
@@ -32,16 +34,16 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="error-boundary">
           <div className="error-content">
-            <h1>⚠️ Something went wrong</h1>
-            <p>{this.state.error?.message || 'An unexpected error occurred'}</p>
-            {process.env.NODE_ENV === 'development' && this.state.error?.stack && (
+            <h1>⚠️ {i18n.t('errorBoundary.somethingWrong')}</h1>
+            <p>{this.state.error?.message || i18n.t('errorBoundary.unexpectedError')}</p>
+            {import.meta.env.DEV && this.state.error?.stack && (
               <details className="error-details">
-                <summary>Error details</summary>
+                <summary>{i18n.t('errorBoundary.errorDetails')}</summary>
                 <pre>{this.state.error.stack}</pre>
               </details>
             )}
             <button onClick={this.handleReset} className="btn btn-primary">
-              Reload Page
+              {i18n.t('errorBoundary.reloadPage')}
             </button>
           </div>
         </div>
