@@ -47,7 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
   const baseMenuItems = [
     { icon: <FiHome />, label: t('sidebar.hub'), path: '/feed' },
     { icon: <FiBox />, label: t('sidebar.lostFound'), path: '/lost-found' },
-    { icon: <FiSearch />, label: t('sidebar.discover'), path: '/explore' },
+    { icon: <FiSearch />, label: t('sidebar.discover'), path: '/discover' },
     { icon: <FiBell />, label: t('sidebar.alerts'), path: '/notifications' },
     { icon: <FiMessageSquare />, label: t('sidebar.chats'), path: '/messages' },
     { icon: <FiMap />, label: t('sidebar.campusMap'), path: '/campus-map' },

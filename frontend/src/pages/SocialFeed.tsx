@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../context/ThemeContext';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
+import { useTranslation } from 'react-i18next';
 
 interface Post {
     post_id: number;
@@ -38,6 +39,7 @@ interface Post {
 }
 
 const SocialFeed = () => {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const navigate = useNavigate();
     const [posts, setPosts] = useState<Post[]>([]);
@@ -104,7 +106,7 @@ const SocialFeed = () => {
 
     const fetchPosts = async () => {
         try {
-            const res = await api.get('/social/posts');
+            const res = await api.get('/social/feed');
             setPosts(res.data.items || []);
         } catch (err) {
             console.error('Failed to load feed', err);
@@ -114,20 +116,20 @@ const SocialFeed = () => {
     };
 
     const handleDeletePost = async (postId: number) => {
-        if (!(await themedConfirm('Are you sure you want to delete this transmission?'))) return;
+        if (!(await themedConfirm(t('socialFeed.deleteConfirm')))) return;
         try {
             await api.delete(`/social/posts/${postId}`);
             setPosts(posts.filter(p => p.post_id !== postId));
             setOpenMenu(null);
         } catch (err) {
-            await themedAlert('Failed to delete post');
+            await themedAlert(t('socialFeed.deleteFailed'));
         }
     };
 
     const handleCopyLink = async (postId: number) => {
         const url = `${window.location.origin}/post/${postId}`;
         navigator.clipboard.writeText(url);
-        await themedAlert('Link copied to clipboard!');
+        await themedAlert(t('socialFeed.linkCopied'));
         setOpenMenu(null);
     };
 
@@ -151,7 +153,7 @@ const SocialFeed = () => {
             setSelectedImage(null);
             fetchPosts();
         } catch (err) {
-            await themedAlert('Failed to create post');
+            await themedAlert(t('socialFeed.createFailed'));
         } finally {
             setSubmitting(false);
         }
@@ -240,7 +242,7 @@ const SocialFeed = () => {
             handleFetchComments(postId);
             setPosts(prev => prev.map(p => p.post_id === postId ? { ...p, comments_count: String(parseInt(p.comments_count) + 1) } : p));
         } catch (err) {
-            await themedAlert('Failed to add comment');
+            await themedAlert(t('socialFeed.commentFailed'));
         }
     };
 
@@ -249,16 +251,16 @@ const SocialFeed = () => {
         try {
             await api.post(`/social/posts/${postId}/report`, { reportType });
             setReportDropdown(null);
-            setReportSuccessMessage('Report submitted successfully.');
+            setReportSuccessMessage(t('socialFeed.reportSubmitted'));
             setPosts(prev => prev.map(p => p.post_id === postId ? { ...p, has_reported: true, my_report_type: reportType } : p));
         } catch (err: any) {
             const status = err?.response?.status;
             let msg =
                 (err?.response?.data?.error as string) ||
                 err?.message ||
-                (status === 401 ? 'Please log in again.' : 'Failed to submit report.');
+                (status === 401 ? t('socialFeed.loginAgain') : t('socialFeed.reportFailed'));
             if (status === 404) {
-                msg = 'Report endpoint not found (404). Make sure the backend is running on port 3000 and the dev server proxy is active.';
+                msg = t('socialFeed.reportEndpointMissing');
             }
             await themedAlert(msg);
         }
@@ -268,10 +270,10 @@ const SocialFeed = () => {
         try {
             await api.delete(`/social/posts/${postId}/report`);
             setReportDropdown(null);
-            setReportSuccessMessage('Report removed.');
+            setReportSuccessMessage(t('socialFeed.reportRemoved'));
             setPosts(prev => prev.map(p => p.post_id === postId ? { ...p, has_reported: false, my_report_type: null } : p));
         } catch (err: any) {
-            const msg = (err?.response?.data?.error as string) || err?.message || 'Failed to remove report.';
+            const msg = (err?.response?.data?.error as string) || err?.message || t('socialFeed.removeReportFailed');
             await themedAlert(msg);
         }
     };
@@ -280,9 +282,9 @@ const SocialFeed = () => {
         try {
             await api.post(`/social/users/${userId}/warning`, { tier });
             setWarningDropdown(null);
-            setReportSuccessMessage(tier === 4 ? 'User banned.' : `Warning (Tier ${tier}) applied.`);
+            setReportSuccessMessage(tier === 4 ? t('socialFeed.userBanned') : t('socialFeed.warningApplied', { tier }));
         } catch (err: any) {
-            await themedAlert((err?.response?.data?.error as string) || 'Failed to apply warning');
+            await themedAlert((err?.response?.data?.error as string) || t('socialFeed.warningFailed'));
         }
     };
 
@@ -302,8 +304,8 @@ const SocialFeed = () => {
     if (user?.isBanned) {
         return (
             <div className="flex flex-col min-h-screen items-center justify-center p-6">
-                <p className="text-center font-black uppercase tracking-widest text-uv-gray mb-2">Social access restricted</p>
-                <p className="text-sm text-center text-uv-gray">Your account cannot access the feed, posts, or social features. You can still use campus map, calendar, and other non-social pages.</p>
+                <p className="text-center font-black uppercase tracking-widest text-uv-gray mb-2">{t('socialFeed.restrictedTitle')}</p>
+                <p className="text-sm text-center text-uv-gray">{t('socialFeed.restrictedDesc')}</p>
             </div>
         );
     }
@@ -319,11 +321,11 @@ const SocialFeed = () => {
             {/* Unique Header */}
             <div className="sticky top-0 premium-blur border-b border-uv-border z-20 px-3 md:px-6 py-1.5 md:py-4 flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                   <h2 className="text-sm md:text-2xl font-black tracking-tighter text-uv-black leading-none">The Hub</h2>
-                   <p className="text-[8px] md:text-[10px] font-black text-primary uppercase tracking-widest mt-0.5 whitespace-nowrap">Real-time Campus Stream</p>
+                   <h2 className="text-sm md:text-2xl font-black tracking-tighter text-uv-black leading-none">{t('socialFeed.title')}</h2>
+                   <p className="text-[8px] md:text-[10px] font-black text-primary uppercase tracking-widest mt-0.5 whitespace-nowrap">{t('socialFeed.subtitle')}</p>
                 </div>
                 <div className="flex gap-1 p-0.5 bg-uv-border/50 rounded-tl-lg rounded-br-lg md:rounded-tl-xl md:rounded-br-xl">
-                    <button className="px-2 md:px-4 py-1 bg-white text-primary text-[9px] md:text-xs font-black uppercase tracking-widest rounded-tl-md rounded-br-md shadow-sm">All</button>
+                    <button className="px-2 md:px-4 py-1 bg-white text-primary text-[9px] md:text-xs font-black uppercase tracking-widest rounded-tl-md rounded-br-md shadow-sm">{t('socialFeed.all')}</button>
                 </div>
             </div>
 
@@ -338,7 +340,7 @@ const SocialFeed = () => {
                             <textarea
                                 value={content}
                                 onChange={(e) => setContent(e.target.value)}
-                                placeholder="Broadcast to the campus..."
+                                placeholder={t('socialFeed.broadcastPlaceholder')}
                                 className="w-full bg-transparent border-none focus:ring-0 text-xs md:text-lg font-medium text-uv-black resize-none min-h-[36px] md:min-h-[52px] placeholder:text-primary/30 py-1"
                                 disabled={submitting}
                             />
@@ -355,7 +357,7 @@ const SocialFeed = () => {
                             <div className="flex items-center justify-between mt-0.5 md:mt-4">
                                 <label className="flex items-center gap-1 p-1 md:p-2 hover:bg-white/50 rounded-lg cursor-pointer transition-all text-primary">
                                     <FiImage size={16} />
-                                    <span className="text-[8px] font-black uppercase tracking-widest hidden md:inline">Attach Data</span>
+                                    <span className="text-[8px] font-black uppercase tracking-widest hidden md:inline">{t('socialFeed.attach')}</span>
                                     <input type="file" accept="image/*" className="hidden" onChange={(e) => setSelectedImage(e.target.files?.[0] || null)} disabled={submitting} />
                                 </label>
                                 <button
@@ -363,7 +365,7 @@ const SocialFeed = () => {
                                     disabled={!content.trim() || submitting}
                                     className="uv-button !py-1 md:!py-2 !px-3 md:!px-8 text-[10px] md:text-sm flex items-center gap-1.5"
                                 >
-                                    {submitting ? 'Sending...' : <><FiSend size={12} /> <span className="hidden md:inline">BROADCAST</span><span className="md:hidden">SEND</span></>}
+                                    {submitting ? t('socialFeed.sending') : <><FiSend size={12} /> <span className="hidden md:inline">{t('socialFeed.broadcast')}</span><span className="md:hidden">{t('socialFeed.send')}</span></>}
                                 </button>
                             </div>
                         </form>
@@ -376,10 +378,10 @@ const SocialFeed = () => {
                 {loading ? (
                     <div className="p-12 md:p-20 text-center flex flex-col items-center gap-4">
                         <div className="w-8 h-8 md:w-12 md:h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-                        <p className="text-[9px] md:text-xs font-black uppercase tracking-widest text-uv-gray">Syncing Feed...</p>
+                        <p className="text-[9px] md:text-xs font-black uppercase tracking-widest text-uv-gray">{t('socialFeed.syncing')}</p>
                     </div>
                 ) : posts.length === 0 ? (
-                    <div className="p-12 md:p-20 text-center text-uv-gray font-black uppercase tracking-widest text-[9px] md:text-xs opacity-50">Pulse is flat. Start the heartbeat.</div>
+                    <div className="p-12 md:p-20 text-center text-uv-gray font-black uppercase tracking-widest text-[9px] md:text-xs opacity-50">{t('socialFeed.empty')}</div>
                 ) : (
                     posts.map((post, rowIndex) => (
                         <div
@@ -389,7 +391,7 @@ const SocialFeed = () => {
                              {/* Repost Indicator */}
                              {post.reposter_id && (
                                 <div className="mb-1 flex items-center gap-1.5 text-[7px] md:text-[10px] font-black text-green-600 uppercase tracking-widest pl-9 md:pl-16">
-                                    <FiRepeat size={9} /> {post.reposter_id === user?.userId ? 'YOU' : post.reposter_name} BOOSTED
+                                    <FiRepeat size={9} /> {post.reposter_id === user?.userId ? t('socialFeed.you') : post.reposter_name} {t('socialFeed.boosted')}
                                 </div>
                              )}
   
@@ -427,14 +429,14 @@ const SocialFeed = () => {
                                                         onClick={() => handleCopyLink(post.post_id)}
                                                         className={`w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 ${isSpace ? 'text-white hover:bg-white/10' : 'text-uv-black hover:bg-gray-50'}`}
                                                     >
-                                                        <FiSend size={14} /> Copy Link
+                                                        <FiSend size={14} /> {t('socialFeed.copyLink')}
                                                     </button>
                                                     {(post.user_id === user?.userId || post.reposter_id === user?.userId) && (
                                                         <button 
                                                             onClick={() => handleDeletePost(post.post_id)}
                                                             className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 flex items-center gap-2"
                                                         >
-                                                            <FiTrash2 size={14} /> Delete
+                                                            <FiTrash2 size={14} /> {t('common.delete')}
                                                         </button>
                                                     )}
                                                 </div>
@@ -503,26 +505,26 @@ const SocialFeed = () => {
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); setReportDropdown(reportDropdown === rowIndex ? null : rowIndex); }}
                                                         className="p-1 text-red-500 hover:text-red-600 transition-colors"
-                                                        title={post.has_reported ? 'Reported' : 'Report'}
+                                                        title={post.has_reported ? t('socialFeed.reported') : t('socialFeed.report')}
                                                     >
                                                         <FiAlertTriangle size={15} />
                                                     </button>
                                                     {post.has_reported && (
-                                                        <span className="text-[9px] font-black text-red-500 ml-0.5">Reported</span>
+                                                        <span className="text-[9px] font-black text-red-500 ml-0.5">{t('socialFeed.reported')}</span>
                                                     )}
                                                     {reportDropdown === rowIndex && (
                                                         <div className={`absolute right-0 bottom-full mb-1 w-44 py-2 rounded-xl shadow-xl z-20 border ${isSpace ? 'bg-[#0a0a14] border-red-500/40' : 'bg-[#1a1a1a] border-red-500/30'}`}>
                                                             {post.has_reported ? (
                                                                 <>
-                                                                    <p className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-white/80">You reported as</p>
+                                                                    <p className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-white/80">{t('socialFeed.youReportedAs')}</p>
                                                                     <p className="px-3 py-1 text-xs font-bold capitalize text-red-400">{post.my_report_type || 'other'}</p>
                                                                     <button onClick={() => handleRemoveReport(post.post_id)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/20 transition-colors">
-                                                                        Remove report
+                                                                        {t('socialFeed.removeReport')}
                                                                     </button>
                                                                 </>
                                                             ) : (
                                                                 <>
-                                                                    <p className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-white/80">Report type</p>
+                                                                    <p className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-white/80">{t('socialFeed.reportType')}</p>
                                                                     {REPORT_TYPES.map((type) => (
                                                                         <button key={type} onClick={() => handleReportPost(post.post_id, type)} className="w-full text-left px-3 py-2 text-xs font-bold capitalize text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors">
                                                                             {type}

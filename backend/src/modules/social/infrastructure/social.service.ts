@@ -61,7 +61,7 @@ export class SocialService {
     }
   }
 
-  static async getFeedItems(currentUserId: number, type: 'feed' | 'user_posts' | 'user_likes' | 'user_reposts', targetUserId?: number, limit = 20, offset = 0) {
+  static async getFeedItems(currentUserId: number, type: 'feed' | 'discover' | 'user_posts' | 'user_likes' | 'user_reposts', targetUserId?: number, limit = 20, offset = 0) {
     const params: any[] = [currentUserId, limit, offset];
     let sql = '';
     let countSql = '';
@@ -72,8 +72,24 @@ export class SocialService {
     const mutedWords = userSettings?.muted_words || [];
     const mutedRegex = mutedWords.length > 0 ? mutedWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') : null;
 
-    if (type === 'feed') {
+    if (type === 'feed' || type === 'discover') {
       // Timeline consists of original posts AND reposts
+      const discoverClause = type === 'discover'
+        ? `
+          WHERE (
+            user_id <> $1
+            AND user_id NOT IN (
+              SELECT following_id FROM follows WHERE follower_id = $1
+            )
+            AND user_id NOT IN (
+              SELECT blocked_id FROM blocked_users WHERE blocker_id = $1
+            )
+            AND user_id NOT IN (
+              SELECT blocker_id FROM blocked_users WHERE blocked_id = $1
+            )
+          )
+        `
+        : '';
       sql = `
         SELECT * FROM (
           -- Original Posts
@@ -117,17 +133,45 @@ export class SocialService {
           LEFT JOIN admins ra ON ra.user_id = ru.user_id
           LEFT JOIN communities rc ON rc.user_id = ru.user_id
         ) combined
-        ${mutedRegex ? `WHERE content !~* $4` : ''}
+        ${discoverClause}
+        ${mutedRegex ? `${discoverClause ? ' AND ' : ' WHERE '} content !~* $4` : ''}
         ORDER BY sorted_at DESC
         LIMIT $2 OFFSET $3
       `;
       if (mutedRegex) params.push(mutedRegex);
 
-      // Count for feed
-      countSql = `
-        SELECT (SELECT COUNT(*) FROM posts) + (SELECT COUNT(*) FROM post_reposts) as total
-      `;
-      countParams = [];
+      // Count for feed/discover
+      if (type === 'discover') {
+        countSql = `
+          SELECT COUNT(*)::text AS total
+          FROM (
+            SELECT p.post_id, p.user_id, p.content FROM posts p
+            UNION ALL
+            SELECT p.post_id, p.user_id, p.content
+            FROM post_reposts pr
+            JOIN posts p ON p.post_id = pr.post_id
+          ) combined
+          WHERE (
+            user_id <> $1
+            AND user_id NOT IN (
+              SELECT following_id FROM follows WHERE follower_id = $1
+            )
+            AND user_id NOT IN (
+              SELECT blocked_id FROM blocked_users WHERE blocker_id = $1
+            )
+            AND user_id NOT IN (
+              SELECT blocker_id FROM blocked_users WHERE blocked_id = $1
+            )
+          )
+          ${mutedRegex ? 'AND content !~* $2' : ''}
+        `;
+        countParams = mutedRegex ? [currentUserId, mutedRegex] : [currentUserId];
+      } else {
+        countSql = `
+          SELECT (SELECT COUNT(*) FROM posts) + (SELECT COUNT(*) FROM post_reposts) as total
+        `;
+        countParams = [];
+      }
     } else {
       // Profile activity tabs
       let whereClause = '';
@@ -176,6 +220,14 @@ export class SocialService {
     }
 
     // Common Interaction subqueries
+    const finalOrderBy = type === 'discover'
+      ? `ORDER BY (
+          (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = q.post_id) * 3 +
+          (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = q.post_id) * 2 +
+          (SELECT COUNT(*) FROM post_reposts pr WHERE pr.post_id = q.post_id)
+        ) DESC, q.sorted_at DESC`
+      : `ORDER BY q.sorted_at DESC`;
+
     const finalSql = `
       SELECT 
         q.*,
@@ -185,7 +237,7 @@ export class SocialService {
         EXISTS(SELECT 1 FROM post_likes pl WHERE pl.post_id = q.post_id AND pl.user_id = $1) as has_liked,
         EXISTS(SELECT 1 FROM post_reposts pr WHERE pr.post_id = q.post_id AND pr.user_id = $1) as has_reposted
       FROM (${sql}) q
-      ORDER BY q.sorted_at DESC
+      ${finalOrderBy}
     `;
 
     const items = await query(finalSql, params);

@@ -28,6 +28,8 @@ import EventApplicationForm from './pages/EventApplicationForm';
 import Notifications from './pages/Notifications';
 import ThemedDialogHost from './components/ThemedDialogHost';
 import JobBoard from './pages/JobBoard';
+import DiscoverFeed from './pages/DiscoverFeed';
+import Messages from './pages/Messages';
 
 const PrivateRoute = ({ children }: { children: React.ReactElement }) => {
   const { user, isLoading } = useAuth();
@@ -71,6 +73,8 @@ function AppRoutes() {
       <Route path="/job-board" element={<PrivateRoute><MainLayout><JobBoard /></MainLayout></PrivateRoute>} />
       <Route path="/grade-calculator" element={<PrivateRoute><MainLayout><GradeCalculator /></MainLayout></PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute><MainLayout><Notifications /></MainLayout></PrivateRoute>} />
+      <Route path="/discover" element={<PrivateRoute><MainLayout><DiscoverFeed /></MainLayout></PrivateRoute>} />
+      <Route path="/messages" element={<PrivateRoute><MainLayout><Messages /></MainLayout></PrivateRoute>} />
       <Route path="/explore" element={<PrivateRoute><MainLayout><CommunityFair /></MainLayout></PrivateRoute>} />
       <Route path="/community/:communityId" element={<PrivateRoute><MainLayout><CommunityProfile /></MainLayout></PrivateRoute>} />
       <Route path="/community/:communityId/admin" element={<PrivateRoute><MainLayout><CommunityAdminPanel /></MainLayout></PrivateRoute>} />

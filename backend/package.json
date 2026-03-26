@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "type-check": "tsc --noEmit",
+    "messages:migrate": "node scripts/apply-messaging-migration.js",
     "menu:verify": "tsx scripts/verify-menu-pdf.ts",
     "menu:refresh": "tsx scripts/refresh-cache-from-pdf.ts",
     "calendar:parse": "tsx scripts/parse-academic-calendar.ts"

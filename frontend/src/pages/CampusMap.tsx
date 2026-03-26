@@ -46,6 +46,11 @@ const namedPoints: WayPoint[] = [
   { id: 21, name: 'F Blok',             building: 'F Blok',      type: 'Education', x: 41,  y: 73, label: 'F' },
   { id: 22, name: 'E Blok / Ön Giriş',  building: 'E Blok',      type: 'Entry',     x: 43,  y: 89, label: 'E' },
   { id: 23, name: 'K Blok / Arka Kapı', building: 'K Blok',      type: 'Entry',     x: 68,  y: 19, label: 'K' },
+  { id: 24, name: 'A Blok Yan Giriş',   building: 'A Blok',      type: 'Entry',     x: 30,  y: 77, label: 'A' },
+  { id: 25, name: 'S Blok Kuzey Giriş', building: 'S Blok',      type: 'Entry',     x: 58,  y: 58, label: 'S' },
+  { id: 26, name: 'Y Blok Yan Giriş',   building: 'Y Blok',      type: 'Entry',     x: 80,  y: 71, label: 'Y' },
+  { id: 27, name: 'Merkez Avlu',        building: 'Açık Alan',   type: 'Common',    x: 49,  y: 48 },
+  { id: 28, name: 'Kuzey Açık Geçiş',   building: 'Açık Alan',   type: 'Passage',   x: 56,  y: 31 },
 ];
 
 // Outdoor/junction routing nodes (invisible to user, only for pathfinding)
@@ -100,6 +105,7 @@ const edges: [number, number][] = [
   [10, 100], [11, 100],
   // Buildings → bottom perimeter (outdoor entry points)
   [1,  102],  // Fuaye: A Blok → güney yol
+  [24, 102],  // A yan giriş -> güney yol
   [22, 103],  // E Blok → güney yol
   [4,  104],  // S Blok → güney yol
   [13, 104], [15, 104],  // SKS → güney yol
@@ -111,6 +117,7 @@ const edges: [number, number][] = [
   [120, 121], [121, 122], [122, 123],
   // Buildings → left spine
   [1,  120],  // Fuaye → sol dikey
+  [24, 120],  // A yan giriş -> sol dikey
   [20, 120],  // B Blok → sol dikey
   [19, 121],  // G Blok → sol dikey
   [2,  122],  // C Blok → sol dikey
@@ -123,10 +130,13 @@ const edges: [number, number][] = [
   [114, 4], [114, 16],
   [116, 5], [116, 14],
   [1,  110], [4,  113], [16, 114], [13, 115], [5,  116],
+  [25, 114], [25, 115], // S kuzey giriş -> plaza
+  [26, 116], [26, 130], // Y yan giriş -> plaza/right axis
   [121, 111], [120, 110],
   // ── MERKEZ AVLU OMURGASI (kuzey-güney açık alan yolu) ─────────────────────────
   // This is the direct outdoor path through the central campus courtyard
   [150, 151], [151, 152], [152, 153],
+  [27, 151], [27, 152], // merkez avlu explicit node
   // South connections to avlu
   [112, 150],              // plaza → avlu güney (entry from east)
   [114, 150],              // plaza merkez → avlu güney
@@ -139,11 +149,12 @@ const edges: [number, number][] = [
   // North avlu → Yemekhane DIRECTLY (key fix!)
   [152, 18],               // avlu kuzey → H Blok giriş outdoor
   [152, 3],                // avlu kuzey → Yemekhane direct outdoor!
+  [152, 28],               // avlu kuzey -> kuzey açık geçiş
   [153, 3],                // avlu top → Yemekhane (very close)
   [153, 17],               // avlu top → D Blok
-  [153, 140],              // avlu top → kuzey yol
+  [153, 140], [153, 28],   // avlu top → kuzey yol
   // Kuzey yol (east-west top path)
-  [140, 141], [141, 23],   // kuzey → Arka Kapı
+  [140, 141], [141, 23], [141, 28],   // kuzey → Arka Kapı + açık geçiş
   [141, 12],               // kuzey → Yurt area
   // ── Right side outdoor ──────────────────────────────────────────────────────
   [107, 130], [130, 131], [131, 132], [132, 133],
@@ -175,6 +186,11 @@ function getXY(id: number, extraNode?: { id: number; x: number; y: number }) {
   if (extraNode && extraNode.id === id) return { x: extraNode.x, y: extraNode.y };
   const p = navigationPoints.find(n => n.id === id);
   return p ? { x: p.x, y: p.y } : { x: 0, y: 0 };
+}
+
+function isJunctionId(id: number, extraNode?: { id: number; x: number; y: number }) {
+  if (extraNode && id === extraNode.id) return false;
+  return !!navigationPoints.find((n) => n.id === id)?.isJunction;
 }
 
 function dijkstra(
@@ -216,7 +232,12 @@ function dijkstra(
     for (const v of (adj[u] || [])) {
       if (visited.has(v)) continue;
       const pa = getXY(u, extraNode), pb = getXY(v, extraNode);
-      const alt = dist[u] + euclidean(pa.x, pa.y, pb.x, pb.y);
+      const base = euclidean(pa.x, pa.y, pb.x, pb.y);
+      const uJ = isJunctionId(u, extraNode);
+      const vJ = isJunctionId(v, extraNode);
+      // Prefer open-campus/junction mesh over long direct building hops.
+      const factor = uJ && vJ ? 1.0 : (uJ || vJ ? 1.08 : 1.22);
+      const alt = dist[u] + (base * factor);
       if (alt < dist[v]) { dist[v] = alt; prev[v] = u; }
     }
   }
@@ -258,9 +279,9 @@ const CampusMap: React.FC = () => {
   const buildings = [
     { id: 'T', name: 'T Blok', points: [10, 11] },
     { id: 'M', name: 'M Blok', points: [16] },
-    { id: 'S', name: 'S Blok', points: [4, 13, 14, 15] },
-    { id: 'Y', name: 'Y Blok', points: [5, 6, 7, 8, 9] },
-    { id: 'C', name: 'Main',   points: [1, 2, 3] },
+    { id: 'S', name: 'S Blok', points: [4, 13, 14, 15, 25] },
+    { id: 'Y', name: 'Y Blok', points: [5, 6, 7, 8, 9, 26] },
+    { id: 'C', name: 'Main',   points: [1, 2, 3, 24] },
   ];
 
   // ── Path Computation ────────────────────────────────────────────────────────
@@ -526,6 +547,18 @@ const CampusMap: React.FC = () => {
             <input type="text" placeholder="Waypoint ara..." className={`bg-transparent border-none outline-none text-xs font-bold w-full py-1.5 placeholder:text-uv-gray/40 ${isSpace ? 'text-white' : 'text-uv-black'}`}
               value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
           </div>
+        </div>
+      </div>
+      <div className={`md:hidden px-4 pb-2 ${isSpace ? 'bg-[#0a0a1a]/80' : 'bg-white/90'}`}>
+        <div className={`flex items-center gap-2 border p-1.5 rounded-xl ${isSpace ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-uv-border'}`}>
+          <FiSearch className="ml-2 text-uv-gray" size={13} />
+          <input
+            type="text"
+            placeholder="Waypoint ara..."
+            className={`bg-transparent border-none outline-none text-xs font-bold w-full py-1.5 placeholder:text-uv-gray/40 ${isSpace ? 'text-white' : 'text-uv-black'}`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
       </div>
 
