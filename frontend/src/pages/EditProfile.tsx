@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiCamera } from 'react-icons/fi';
 import api from '../api/client';
@@ -6,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
 const EditProfile = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { dimension } = useTheme();
@@ -82,7 +84,7 @@ const EditProfile = () => {
       if (avatarFile) formData.append('avatar', avatarFile);
       if (coverFile) formData.append('cover', coverFile);
       await api.patch('/auth/profile', formData);
-      setMessage({ type: 'success', text: 'Profil kaydedildi.' });
+      setMessage({ type: 'success', text: t('editProfile.profileSaved') });
       setAvatarFile(null);
       setCoverFile(null);
       setAvatarPreview('');
@@ -90,7 +92,7 @@ const EditProfile = () => {
       const res = await api.get(`/auth/profile/${user.userId}`);
       setProfile(res.data);
     } catch (err: any) {
-      setMessage({ type: 'error', text: (err?.response?.data?.error as string) || 'Kayıt başarısız.' });
+      setMessage({ type: 'error', text: (err?.response?.data?.error as string) || t('editProfile.saveError') });
     } finally {
       setSaving(false);
     }
@@ -111,8 +113,8 @@ const EditProfile = () => {
   if (!profile) {
     return (
       <div className="flex-1 flex items-center justify-center flex-col gap-4 min-h-[40vh]">
-        <p className="text-uv-gray font-bold">Profil yüklenemedi.</p>
-        <button onClick={() => navigate('/profile')} className="uv-button">Profile dön</button>
+        <p className="text-uv-gray font-bold">{t('editProfile.loadError')}</p>
+        <button onClick={() => navigate('/profile')} className="uv-button">{t('editProfile.backToProfile')}</button>
       </div>
     );
   }
@@ -131,7 +133,7 @@ const EditProfile = () => {
           <FiArrowLeft size={18} />
         </button>
         <h1 className={`text-lg md:text-xl font-black tracking-tight ${isSpace ? 'text-white' : 'text-uv-black'}`}>
-          Profili düzenle
+          {t('editProfile.title')}
         </h1>
       </div>
 
@@ -151,7 +153,7 @@ const EditProfile = () => {
           )}
           <label className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white cursor-pointer bg-black/30 hover:bg-black/40 transition-colors">
             <FiCamera size={28} />
-            <span className="text-xs font-black uppercase tracking-widest">Kapak fotoğrafı değiştir</span>
+            <span className="text-xs font-black uppercase tracking-widest">{t('editProfile.changeCover')}</span>
             <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
           </label>
         </div>
@@ -166,7 +168,7 @@ const EditProfile = () => {
             )}
           </div>
           <label className="px-4 py-2 rounded-xl border border-uv-border text-sm font-bold cursor-pointer hover:bg-gray-100 transition-colors">
-            Profil fotoğrafı değiştir
+            {t('editProfile.changeAvatar')}
             <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
           </label>
         </div>
@@ -175,30 +177,30 @@ const EditProfile = () => {
         <div className={`rounded-2xl p-4 md:p-6 border space-y-4 ${isSpace ? 'bg-[#0d0d1a] border-white/10' : 'bg-white border-gray-100'}`}>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-black uppercase tracking-widest text-uv-gray mb-1.5">İsim</label>
+              <label className="block text-xs font-black uppercase tracking-widest text-uv-gray mb-1.5">{t('editProfile.name')}</label>
               <input
                 value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
-                placeholder="İsim"
+                placeholder={t('editProfile.name')}
                 className={`w-full px-4 py-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-primary/30 text-sm ${isSpace ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-uv-black'}`}
               />
             </div>
             <div>
-              <label className="block text-xs font-black uppercase tracking-widest text-uv-gray mb-1.5">Soyisim</label>
+              <label className="block text-xs font-black uppercase tracking-widest text-uv-gray mb-1.5">{t('editProfile.surname')}</label>
               <input
                 value={form.surname}
                 onChange={e => setForm({ ...form, surname: e.target.value })}
-                placeholder="Soyisim"
+                placeholder={t('editProfile.surname')}
                 className={`w-full px-4 py-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-primary/30 text-sm ${isSpace ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-uv-black'}`}
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-black uppercase tracking-widest text-uv-gray mb-1.5">Biyografi</label>
+            <label className="block text-xs font-black uppercase tracking-widest text-uv-gray mb-1.5">{t('editProfile.bio')}</label>
             <textarea
               value={form.description}
               onChange={e => setForm({ ...form, description: e.target.value })}
-              placeholder="Kendini kısaca tanıt..."
+              placeholder={t('editProfile.bioPlaceholder')}
               rows={4}
               className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-primary/30 text-sm resize-none ${isSpace ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-uv-black'}`}
             />
@@ -212,14 +214,14 @@ const EditProfile = () => {
             onClick={handleCancel}
             className={`flex-1 py-3 rounded-xl font-bold text-sm border ${isSpace ? 'border-white/20 text-white' : 'border-uv-border text-uv-black'}`}
           >
-            İptal
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
             disabled={saving}
             className="flex-1 uv-button py-3 text-sm font-bold disabled:opacity-60"
           >
-            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+            {saving ? t('settings.saving') : t('common.save')}
           </button>
         </div>
       </form>

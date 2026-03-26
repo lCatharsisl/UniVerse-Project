@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import '../styles/components.css';
 
 interface LoadingProps {
@@ -7,11 +8,15 @@ interface LoadingProps {
 }
 
 export const Loading: React.FC<LoadingProps> = ({ 
-  message = 'Loading...', 
+  message, 
   size = 'medium' 
-}) => (
+}) => {
+  const { t } = useTranslation();
+  const displayMessage = message ?? t('loading.default');
+  return (
   <div className="loading-container">
     <div className={`spinner spinner-${size}`}></div>
-    {message && <p className="loading-message">{message}</p>}
+    {displayMessage && <p className="loading-message">{displayMessage}</p>}
   </div>
-);
+  );
+};

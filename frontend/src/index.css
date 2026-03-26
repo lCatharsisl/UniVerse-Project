@@ -62,12 +62,12 @@ body {
 }
 
 .sidebar-link {
-  @apply flex items-center gap-3 px-4 py-2.5 rounded-tr-2xl rounded-bl-2xl text-base transition-all hover:bg-primary/5 hover:text-primary w-fit cursor-pointer font-medium;
+  @apply flex items-center gap-3 px-3 py-2 rounded-tr-xl rounded-bl-xl text-sm transition-all hover:bg-primary/5 hover:text-primary w-fit cursor-pointer font-medium;
 }
 
 @media (min-width: 768px) {
   .sidebar-link {
-    @apply px-5 py-3 text-lg rounded-tr-3xl rounded-bl-3xl;
+    @apply px-4 py-2.5 text-base rounded-tr-2xl rounded-bl-2xl;
   }
 }
 

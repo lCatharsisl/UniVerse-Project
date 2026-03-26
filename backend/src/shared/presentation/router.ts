@@ -4,6 +4,8 @@ import { socialModule } from '../../modules/social/index';
 import { academicModule } from '../../modules/academic/index';
 import { servicesModule } from '../../modules/services/index';
 import { campusInfoModule } from '../../modules/campus-info/index';
+import { communityModule } from '../../modules/community/index';
+import { messagingModule } from '../../modules/messaging/index';
 
 const router = Router();
 
@@ -12,5 +14,7 @@ router.use('/social', socialModule.router);
 router.use('/academic', academicModule.router);
 router.use('/services', servicesModule.router);
 router.use('/campus', campusInfoModule.router);
+router.use('/community', communityModule.router);
+router.use('/messages', messagingModule.router);
 
 export { router as mainRouter };

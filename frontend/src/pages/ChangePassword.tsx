@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiLock } from 'react-icons/fi';
 import api from '../api/client';
@@ -6,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
 const ChangePassword = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { dimension } = useTheme();
@@ -23,22 +25,22 @@ const ChangePassword = () => {
       return;
     }
     if (newPassword.length < 8) {
-      setMessage({ type: 'error', text: 'Yeni şifre en az 8 karakter olmalı.' });
+      setMessage({ type: 'error', text: t('changePassword.minLengthError') });
       return;
     }
     if (newPassword !== confirmPassword) {
-      setMessage({ type: 'error', text: 'Yeni şifre ve tekrar eşleşmiyor.' });
+      setMessage({ type: 'error', text: t('changePassword.mismatchError') });
       return;
     }
     setSaving(true);
     setMessage(null);
     try {
       await api.patch('/auth/profile', { password: newPassword });
-      setMessage({ type: 'success', text: 'Şifre güncellendi. Gerekirse tekrar giriş yapabilirsin.' });
+      setMessage({ type: 'success', text: t('changePassword.passwordUpdated') });
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
-      setMessage({ type: 'error', text: (err?.response?.data?.error as string) || 'Şifre güncellenemedi.' });
+      setMessage({ type: 'error', text: (err?.response?.data?.error as string) || t('changePassword.passwordError') });
     } finally {
       setSaving(false);
     }
@@ -57,7 +59,7 @@ const ChangePassword = () => {
           <FiArrowLeft size={18} />
         </button>
         <h1 className={`text-lg md:text-xl font-black tracking-tight ${isSpace ? 'text-white' : 'text-uv-black'}`}>
-          Şifre değiştir
+          {t('changePassword.title')}
         </h1>
       </div>
 
@@ -74,29 +76,29 @@ const ChangePassword = () => {
               <FiLock size={24} className="text-primary" />
             </div>
             <p className={`text-sm ${isSpace ? 'text-white/80' : 'text-uv-gray'}`}>
-              Yeni şifreni aşağıya gir. En az 8 karakter kullan.
+              {t('changePassword.instruction')}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-black uppercase tracking-widest text-uv-gray mb-1.5">Yeni şifre</label>
+              <label className="block text-xs font-black uppercase tracking-widest text-uv-gray mb-1.5">{t('changePassword.newPassword')}</label>
               <input
                 type="password"
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
-                placeholder="En az 8 karakter"
+                placeholder={t('changePassword.min8Chars')}
                 minLength={8}
                 className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-primary/30 text-sm ${isSpace ? 'bg-white/5 border-white/10 text-white placeholder:text-white/40' : 'bg-gray-50 border-gray-200 text-uv-black'}`}
               />
             </div>
             <div>
-              <label className="block text-xs font-black uppercase tracking-widest text-uv-gray mb-1.5">Yeni şifre (tekrar)</label>
+              <label className="block text-xs font-black uppercase tracking-widest text-uv-gray mb-1.5">{t('changePassword.newPasswordRepeat')}</label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
-                placeholder="Aynı şifreyi tekrar gir"
+                placeholder={t('changePassword.repeatPassword')}
                 minLength={8}
                 className={`w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-primary/30 text-sm ${isSpace ? 'bg-white/5 border-white/10 text-white placeholder:text-white/40' : 'bg-gray-50 border-gray-200 text-uv-black'}`}
               />
@@ -107,14 +109,14 @@ const ChangePassword = () => {
                 onClick={handleCancel}
                 className={`flex-1 py-3 rounded-xl font-bold text-sm border ${isSpace ? 'border-white/20 text-white' : 'border-uv-border text-uv-black'}`}
               >
-                İptal
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={saving}
                 className="flex-1 uv-button py-3 text-sm font-bold disabled:opacity-60"
               >
-                {saving ? 'Kaydediliyor...' : 'Şifreyi güncelle'}
+                {saving ? t('settings.saving') : t('settings.updatePassword')}
               </button>
             </div>
           </form>

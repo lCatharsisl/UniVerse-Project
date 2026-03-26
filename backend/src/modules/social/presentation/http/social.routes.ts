@@ -21,6 +21,8 @@ router.get('/comments/:itemType/:itemId', authenticateSession, SocialController.
 
 // Feed & Posts
 router.post('/posts', authenticateSession, upload.array('images', 1), SocialController.createPost);
+router.get('/feed', authenticateSession, SocialController.getFeed);
+router.get('/discover', authenticateSession, SocialController.getDiscover);
 router.get('/posts', authenticateSession, SocialController.getFeed);
 router.delete('/posts/:id', authenticateSession, SocialController.deletePost);
 

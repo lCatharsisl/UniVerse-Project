@@ -5,6 +5,7 @@ import api from '../api/client';
 import { FiAlertTriangle, FiTrash2, FiChevronDown, FiX } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
+import { themedAlert, themedConfirm } from '../utils/themedDialog';
 
 interface ReportedPost {
   post_id: number;
@@ -109,12 +110,12 @@ const Reported = () => {
   }, [isStaff, reportTypePosts, reportTypeUsers]);
 
   const handleDeletePost = async (postId: number) => {
-    if (!window.confirm('Are you sure you want to delete this post?')) return;
+    if (!(await themedConfirm('Are you sure you want to delete this post?'))) return;
     try {
       await api.delete(`/social/posts/${postId}`);
       setReportedPosts((prev) => prev.filter((p) => p.post_id !== postId));
     } catch (err) {
-      alert('Failed to delete post');
+      await themedAlert('Failed to delete post');
     }
   };
 
