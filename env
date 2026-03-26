@@ -1,9 +1,1 @@
-# Environment variables for UniVerse backend
-NODE_ENV=development
-PORT=3000
 
-# Database - Supabase (New Project - Session Pooler)
-DATABASE_URL=postgresql://postgres.zdzkpuvqgkyqvaajkewy:UniVerse2024xyz@aws-1-eu-west-2.pooler.supabase.com:5432/postgres?sslmode=require
-
-# Security
-SESSION_SECRET=UniVerse2024SecretKeyForSessions!
