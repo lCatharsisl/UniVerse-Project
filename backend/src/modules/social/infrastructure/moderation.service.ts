@@ -164,7 +164,7 @@ export class ModerationService {
     return { success: true };
   }
 
-  static async deletePostByStaff(postId: number, staffUserId: number, staffRole: string) {
+  static async deletePostByStaff(postId: number, _staffUserId: number, staffRole: string) {
     if (!isAcademic(staffRole)) throw AppError.forbidden('Only academic staff can delete this post');
     await query('DELETE FROM posts WHERE post_id = $1', [postId]);
     await query('DELETE FROM post_reports WHERE post_id = $1', [postId]);
@@ -194,17 +194,17 @@ export class ModerationService {
     return { warning_tier: displayTier, is_banned: isBanned };
   }
 
-  static async setWarningTier(targetUserId: number, tier: 0 | 1 | 2 | 3, issuedByUserId: number) {
+  static async setWarningTier(targetUserId: number, tier: 0 | 1 | 2 | 3, _issuedByUserId: number) {
     await query('UPDATE users SET warning_tier = $1, is_banned = false WHERE user_id = $2', [tier, targetUserId]);
     return { warning_tier: tier, is_banned: false };
   }
 
-  static async removeWarning(targetUserId: number, issuedByUserId: number) {
+  static async removeWarning(targetUserId: number, _issuedByUserId: number) {
     await query('UPDATE users SET warning_tier = 0, is_banned = false WHERE user_id = $1', [targetUserId]);
     return { warning_tier: 0, is_banned: false };
   }
 
-  static async setBanned(targetUserId: number, banned: boolean, issuedByUserId: number) {
+  static async setBanned(targetUserId: number, banned: boolean, _issuedByUserId: number) {
     await query('UPDATE users SET is_banned = $1 WHERE user_id = $2', [banned, targetUserId]);
     if (!banned) await query('UPDATE users SET warning_tier = 0 WHERE user_id = $1', [targetUserId]);
     return { is_banned: banned };

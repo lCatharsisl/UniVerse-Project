@@ -252,7 +252,8 @@ const Register = () => {
                             <div className="space-y-4">
                                 <div className="grid grid-cols-1 gap-2">
                                     <input
-                                        name="email" type="email" placeholder={t('register.campusEmail')}
+                                        name="email" type="email"
+                                        placeholder={role === 'staff' ? t('register.staffEmailPlaceholder') : t('register.campusEmail')}
                                         value={formData.email} onChange={handleChange}
                                         className={`${inputClasses} py-3 text-sm`}
                                         required
@@ -316,9 +317,12 @@ const Register = () => {
 
                                 {role === 'staff' && (
                                     <div className={`space-y-4 pt-4 border-t mt-2 ${isSpace ? 'border-white/10' : 'border-gray-100'}`}>
+                                        <p className={`text-[10px] md:text-xs font-bold leading-relaxed ${isSpace ? 'text-gray-400' : 'text-uv-gray'}`}>
+                                            {t('register.staffDirectoryHint')}
+                                        </p>
                                         <div className="grid grid-cols-2 gap-4">
-                                            <input name="staffName" placeholder={t('register.name')} className={inputClasses} onChange={handleChange} required />
-                                            <input name="staffSurname" placeholder={t('register.surname')} className={inputClasses} onChange={handleChange} required />
+                                            <input name="staffName" placeholder={t('register.staffNamePlaceholder')} className={inputClasses} onChange={handleChange} required />
+                                            <input name="staffSurname" placeholder={t('register.staffSurnamePlaceholder')} className={inputClasses} onChange={handleChange} required />
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="relative">

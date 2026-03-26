@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import api from '../api/client';
@@ -13,6 +13,8 @@ type AvailabilitySlot = {
   end_time?: string;
   startTime?: string;
   endTime?: string;
+  is_booked?: boolean;
+  isBooked?: boolean;
 };
 
 /** 50 dk ders, aralarda 10 dk; öğle 12:30–13:30; son slot 18:30’da biter. */
@@ -45,8 +47,9 @@ const Appointments = () => {
   const isStaff = user?.role === 'staff';
 
   const [staffList, setStaffList] = useState<any[]>([]);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [filters, setFilters] = useState({ name: '', department: '' });
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [filters, setFilters] = useState({ name: '', departmentId: '' });
+  const [debouncedName, setDebouncedName] = useState('');
   const [selectedStaff, setSelectedStaff] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState('');
   const [staffAvailabilityDate, setStaffAvailabilityDate] = useState(
@@ -73,10 +76,8 @@ const Appointments = () => {
     if (preselectedStaff) setSelectedStaff(Number(preselectedStaff));
   }, [searchParams]);
 
-  const loadStaff = async () => {
-    const res = await api.get('/academic/staff/search', { params: filters });
-    setStaffList(res.data || []);
-  };
+  const staffFetchGen = useRef(0);
+  const prevDepartmentIdRef = useRef<string | undefined>(undefined);
 
   const loadMyData = async () => {
     const [activeRes, archiveRes, notificationsRes] = await Promise.all([
@@ -111,15 +112,63 @@ const Appointments = () => {
   useEffect(() => {
     loadMyData().catch(() => {});
   }, []);
-  const handleSearch = async () => {
-    try {
-      await loadStaff();
-      setHasSearched(true);
-    } catch {
-      setHasSearched(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedName(filters.name), 300);
+    return () => clearTimeout(t);
+  }, [filters.name]);
+
+  useEffect(() => {
+    if (isStaff) return;
+    if (!filters.name.trim()) {
+      staffFetchGen.current += 1;
       setStaffList([]);
+      setStaffLoading(false);
     }
-  };
+  }, [filters.name, isStaff]);
+
+  useEffect(() => {
+    if (isStaff) return;
+    if (!debouncedName.trim()) {
+      staffFetchGen.current += 1;
+      setStaffList([]);
+      setStaffLoading(false);
+      return;
+    }
+    const gen = ++staffFetchGen.current;
+    setStaffLoading(true);
+    const ac = new AbortController();
+    api
+      .get('/academic/staff/search', {
+        params: {
+          name: debouncedName.trim(),
+          departmentId: filters.departmentId || undefined,
+        },
+        signal: ac.signal,
+      })
+      .then((res) => {
+        if (gen === staffFetchGen.current) setStaffList(res.data || []);
+      })
+      .catch((e: unknown) => {
+        const err = e as { name?: string; code?: string };
+        if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
+        if (gen === staffFetchGen.current) setStaffList([]);
+      })
+      .finally(() => {
+        if (gen === staffFetchGen.current) setStaffLoading(false);
+      });
+    return () => ac.abort();
+  }, [debouncedName, filters.departmentId, isStaff]);
+
+  const nameSearchPending =
+    Boolean(filters.name.trim()) && filters.name.trim() !== debouncedName.trim();
+
+  useEffect(() => {
+    if (prevDepartmentIdRef.current !== undefined && prevDepartmentIdRef.current !== filters.departmentId) {
+      setSelectedStaff(null);
+    }
+    prevDepartmentIdRef.current = filters.departmentId;
+  }, [filters.departmentId]);
 
 
   useEffect(() => {
@@ -140,11 +189,12 @@ const Appointments = () => {
 
   const availableSlotsForDate = useMemo(() => {
     if (!selectedDate) return [];
-    const unique = new Map<string, { startTime: string; endTime: string }>();
+    const unique = new Map<string, { startTime: string; endTime: string; booked: boolean }>();
     availability
       .map((s) => ({
         startTime: (s.start_time || s.startTime || '').slice(0, 5),
         endTime: (s.end_time || s.endTime || '').slice(0, 5),
+        booked: Boolean(s.is_booked ?? s.isBooked),
       }))
       .forEach((slot) => {
         const key = `${slot.startTime}-${slot.endTime}`;
@@ -154,6 +204,14 @@ const Appointments = () => {
       });
     return Array.from(unique.values());
   }, [availability, selectedDate]);
+
+  useEffect(() => {
+    if (!selectedSlot) return;
+    const match = availableSlotsForDate.find(
+      (s) => s.startTime === selectedSlot.startTime && s.endTime === selectedSlot.endTime
+    );
+    if (match?.booked) setSelectedSlot(null);
+  }, [availableSlotsForDate, selectedSlot]);
 
   useEffect(() => {
     setSelectedSlot(null);
@@ -200,6 +258,7 @@ const Appointments = () => {
       setNotes('');
       setSelectedSlot(null);
       await loadMyData();
+      await loadAvailability(selectedStaff, selectedDate);
     } catch (e: any) {
       setError(e?.response?.data?.error || t('appointments.errors.create'));
     } finally {
@@ -299,11 +358,11 @@ const Appointments = () => {
               <select
                 className={`uv-input appearance-none ${
                   isSpace
-                    ? `bg-white/5 border-white/10 ${filters.department ? 'text-white' : 'text-gray-500'}`
-                    : `bg-white border-uv-border ${filters.department ? 'text-uv-black' : 'text-uv-gray/40'}`
+                    ? `bg-white/5 border-white/10 ${filters.departmentId ? 'text-white' : 'text-gray-500'}`
+                    : `bg-white border-uv-border ${filters.departmentId ? 'text-uv-black' : 'text-uv-gray/40'}`
                 }`}
-                value={filters.department}
-                onChange={(e) => setFilters((p) => ({ ...p, department: e.target.value }))}
+                value={filters.departmentId}
+                onChange={(e) => setFilters((p) => ({ ...p, departmentId: e.target.value }))}
               >
                 <option
                   value=""
@@ -314,7 +373,7 @@ const Appointments = () => {
                 {allDepartments.map((department) => (
                   <option
                     key={department.id}
-                    value={department.name}
+                    value={String(department.id)}
                     className={isSpace ? 'bg-[#0a0a1a] text-white' : 'bg-white text-uv-black'}
                   >
                     {t(`departments.departments.${department.name}`) || department.name}
@@ -322,9 +381,11 @@ const Appointments = () => {
                 ))}
               </select>
             </div>
-            <button className="uv-button mt-3" onClick={handleSearch}>{t('common.search')}</button>
-
-            {hasSearched && (
+            {!filters.name.trim() ? (
+              <p className={`text-xs font-bold mt-4 ${isSpace ? 'text-gray-400' : 'text-uv-gray'}`}>{t('appointments.typeNameToSearchStaff')}</p>
+            ) : staffLoading || nameSearchPending ? (
+              <p className={`text-xs font-bold mt-4 ${isSpace ? 'text-gray-400' : 'text-uv-gray'}`}>{t('common.loading')}</p>
+            ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
                 {staffList.map((s) => (
                   <button key={s.staff_user_id} onClick={() => setSelectedStaff(s.staff_user_id)} className={`text-left p-3 rounded-xl border ${selectedStaff === s.staff_user_id ? 'border-primary' : 'border-gray-300'}`}>
@@ -343,10 +404,35 @@ const Appointments = () => {
                 <input type="date" className="uv-input w-full" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
                 <div className="flex flex-wrap gap-2">
                   {availableSlotsForDate.map((slot) => {
-                    const active = selectedSlot?.startTime === slot.startTime && selectedSlot?.endTime === slot.endTime;
+                    const active =
+                      !slot.booked &&
+                      selectedSlot?.startTime === slot.startTime &&
+                      selectedSlot?.endTime === slot.endTime;
+                    const baseBtn =
+                      'px-3 py-2 rounded-lg border text-xs font-bold transition-opacity';
+                    const stateClass = slot.booked
+                      ? isSpace
+                        ? 'border-white/20 bg-white/5 text-gray-500 cursor-not-allowed opacity-60'
+                        : 'border-uv-border bg-gray-100 text-uv-gray cursor-not-allowed opacity-70'
+                      : active
+                        ? 'bg-primary text-white border-primary'
+                        : isSpace
+                          ? 'border-white/20 text-white hover:border-primary/50'
+                          : 'border-gray-300 text-uv-black';
                     return (
-                      <button key={`${slot.startTime}-${slot.endTime}`} onClick={() => setSelectedSlot(slot)} className={`px-3 py-2 rounded-lg border text-xs font-bold ${active ? 'bg-primary text-white border-primary' : 'border-gray-300'}`}>
+                      <button
+                        key={`${slot.startTime}-${slot.endTime}`}
+                        type="button"
+                        disabled={slot.booked}
+                        aria-disabled={slot.booked}
+                        title={slot.booked ? t('appointments.slotBooked') : undefined}
+                        onClick={() => {
+                          if (!slot.booked) setSelectedSlot({ startTime: slot.startTime, endTime: slot.endTime });
+                        }}
+                        className={`${baseBtn} ${stateClass}`}
+                      >
                         {slot.startTime} - {slot.endTime}
+                        {slot.booked ? ` · ${t('appointments.slotBookedShort')}` : ''}
                       </button>
                     );
                   })}

@@ -1,6 +1,7 @@
 import { query, queryOne } from '../../../config/db';
 import { AppError } from '../../../shared/core/errors';
 import { isAcademic } from './moderation.service';
+import { NotificationEmitterService } from '../../notifications/infrastructure/notificationEmitter.service';
 
 export class SocialService {
   static async addComment(userId: number, itemId: number, itemType: string, content: string) {
@@ -46,6 +47,21 @@ export class SocialService {
       return { action: 'unliked' };
     } else {
       await query('INSERT INTO post_likes (post_id, user_id) VALUES ($1, $2)', [postId, userId]);
+
+      const owner = await queryOne<{ user_id: number }>('SELECT user_id FROM posts WHERE post_id = $1', [postId]);
+      if (owner?.user_id) {
+        await NotificationEmitterService.createSafe({
+          recipientUserId: owner.user_id,
+          actorUserId: userId,
+          sourceModule: 'social',
+          kind: 'social.like',
+          message: 'Someone liked your post',
+          entityType: 'post',
+          entityId: postId,
+          payload: { postId },
+        });
+      }
+
       return { action: 'liked' };
     }
   }
@@ -57,8 +73,61 @@ export class SocialService {
       return { action: 'unreposted' };
     } else {
       await query('INSERT INTO post_reposts (post_id, user_id) VALUES ($1, $2)', [postId, userId]);
+
+      const owner = await queryOne<{ user_id: number }>('SELECT user_id FROM posts WHERE post_id = $1', [postId]);
+      if (owner?.user_id && owner.user_id !== userId) {
+        await NotificationEmitterService.createSafe({
+          recipientUserId: owner.user_id,
+          actorUserId: userId,
+          sourceModule: 'social',
+          kind: 'social.repost',
+          message: 'Someone reposted your post',
+          entityType: 'post',
+          entityId: postId,
+          payload: { postId },
+        });
+      }
+
       return { action: 'reposted' };
     }
+  }
+
+  /** Single post card for deep links (notifications, /post/:id). */
+  static async getPostForViewer(viewerUserId: number, postId: number) {
+    const row = await queryOne<any>(
+      `
+      SELECT
+        p.post_id,
+        p.user_id,
+        p.content,
+        p.image_url,
+        p.created_at,
+        u.email,
+        u.role,
+        COALESCE(s.student_name, st.staff_name, a.admin_name, c.community_name) AS first_name,
+        COALESCE(s.student_surname, st.staff_surname, a.admin_surname) AS last_name,
+        COALESCE(s.avatar_url, st.avatar_url, c.avatar_url) AS avatar_url,
+        (SELECT COUNT(*)::int FROM post_likes pl WHERE pl.post_id = p.post_id) AS likes_count,
+        (SELECT COUNT(*)::int FROM post_reposts pr WHERE pr.post_id = p.post_id) AS reposts_count,
+        (SELECT COUNT(*)::int FROM post_comments pc WHERE pc.post_id = p.post_id) AS comments_count,
+        EXISTS(SELECT 1 FROM post_likes pl WHERE pl.post_id = p.post_id AND pl.user_id = $2) AS has_liked,
+        EXISTS(SELECT 1 FROM post_reposts pr WHERE pr.post_id = p.post_id AND pr.user_id = $2) AS has_reposted
+      FROM posts p
+      JOIN users u ON u.user_id = p.user_id
+      LEFT JOIN students s ON s.user_id = u.user_id
+      LEFT JOIN staff st ON st.user_id = u.user_id
+      LEFT JOIN admins a ON a.user_id = u.user_id
+      LEFT JOIN communities c ON c.user_id = u.user_id
+      WHERE p.post_id = $1
+        AND NOT EXISTS (
+          SELECT 1 FROM blocked_users b
+          WHERE (b.blocker_id = $2 AND b.blocked_id = p.user_id)
+             OR (b.blocker_id = p.user_id AND b.blocked_id = $2)
+        )
+      `,
+      [postId, viewerUserId]
+    );
+    return row || null;
   }
 
   static async getFeedItems(currentUserId: number, type: 'feed' | 'discover' | 'user_posts' | 'user_likes' | 'user_reposts', targetUserId?: number, limit = 20, offset = 0) {
@@ -254,6 +323,21 @@ export class SocialService {
       'INSERT INTO post_comments (user_id, post_id, content) VALUES ($1, $2, $3) RETURNING *',
       [userId, postId, content]
     );
+
+    const owner = await queryOne<{ user_id: number }>('SELECT user_id FROM posts WHERE post_id = $1', [postId]);
+    if (owner?.user_id) {
+      await NotificationEmitterService.createSafe({
+        recipientUserId: owner.user_id,
+        actorUserId: userId,
+        sourceModule: 'social',
+        kind: 'social.comment',
+        message: 'Someone commented on your post',
+        entityType: 'post',
+        entityId: postId,
+        payload: { postId, commentId: (result as any)?.comment_id ?? null },
+      });
+    }
+
     return result;
   }
 
@@ -302,6 +386,18 @@ export class SocialService {
       return { action: 'unfollowed' };
     } else {
       await query('INSERT INTO follows (follower_id, following_id) VALUES ($1, $2)', [followerId, followingId]);
+
+      await NotificationEmitterService.createSafe({
+        recipientUserId: followingId,
+        actorUserId: followerId,
+        sourceModule: 'social',
+        kind: 'social.follow',
+        message: 'You have a new follower',
+        entityType: 'user',
+        entityId: followerId,
+        payload: { followerId },
+      });
+
       return { action: 'followed' };
     }
   }

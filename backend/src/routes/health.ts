@@ -1,6 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { pool } from '../config/db.js';
-import { logger } from '../utils/logger.js';
+import { Router, type Request, type Response } from 'express';
+import { getPool } from '../config/db';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -8,7 +8,7 @@ const router = Router();
  * Health check endpoint
  * GET /health
  */
-router.get('/health', async (req: Request, res: Response) => {
+router.get('/health', async (_req: Request, res: Response) => {
   const healthCheck = {
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -20,8 +20,7 @@ router.get('/health', async (req: Request, res: Response) => {
   };
 
   try {
-    // Check database connection
-    await pool.query('SELECT 1');
+    await getPool().query('SELECT 1');
     healthCheck.services.database = 'connected';
     
     res.status(200).json(healthCheck);
@@ -38,10 +37,10 @@ router.get('/health', async (req: Request, res: Response) => {
  * Readiness check endpoint
  * GET /ready
  */
-router.get('/ready', async (req: Request, res: Response) => {
+router.get('/ready', async (_req: Request, res: Response) => {
   try {
     // Check if app is ready to serve requests
-    await pool.query('SELECT 1');
+    await getPool().query('SELECT 1');
     
     res.status(200).json({
       status: 'ready',

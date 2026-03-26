@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, isAcademic } from '../context/AuthContext';
 import api from '../api/client';
@@ -6,6 +6,7 @@ import { FiAlertTriangle, FiTrash2, FiChevronDown, FiX } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
+import PostAttachment from '../components/PostAttachment';
 
 interface ReportedPost {
   post_id: number;
@@ -133,8 +134,6 @@ const Reported = () => {
     }
   };
 
-  const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   const formatPostDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase();
 
@@ -249,13 +248,11 @@ const Reported = () => {
                           {post.content}
                         </p>
                         {post.image_url && (
-                          <div className="rounded-xl border overflow-hidden mb-3 md:mb-4 shadow-sm border-uv-border/50">
-                            <img
-                              src={`http://localhost:3000${post.image_url}`}
-                              alt=""
-                              className="max-h-48 md:max-h-80 w-full object-cover"
-                            />
-                          </div>
+                          <PostAttachment
+                            path={post.image_url}
+                            className="rounded-xl border overflow-hidden mb-3 md:mb-4 shadow-sm border-uv-border/50"
+                            mediaClassName="max-h-48 md:max-h-80 w-full object-cover"
+                          />
                         )}
                         <div className="flex flex-wrap items-center gap-3 md:gap-4 pt-1">
                           <button

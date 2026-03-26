@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
 import { FiHeart, FiRepeat, FiMessageCircle, FiImage, FiTrash2, FiMoreHorizontal, FiSend, FiNavigation, FiX, FiUser, FiAlertTriangle } from 'react-icons/fi';
@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import { useTheme } from '../context/ThemeContext';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
 import { useTranslation } from 'react-i18next';
+import PostAttachment from '../components/PostAttachment';
 
 interface Post {
     post_id: number;
@@ -104,6 +105,16 @@ const SocialFeed = () => {
         fetchPosts();
     }, []);
 
+    const composerPreviewUrl = useMemo(
+        () => (selectedImage ? URL.createObjectURL(selectedImage) : null),
+        [selectedImage]
+    );
+    useEffect(() => {
+        return () => {
+            if (composerPreviewUrl) URL.revokeObjectURL(composerPreviewUrl);
+        };
+    }, [composerPreviewUrl]);
+
     const fetchPosts = async () => {
         try {
             const res = await api.get('/social/feed');
@@ -135,7 +146,7 @@ const SocialFeed = () => {
 
     const handleCreatePost = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!content.trim()) return;
+        if (!content.trim() && !selectedImage) return;
 
         setSubmitting(true);
         try {
@@ -163,11 +174,11 @@ const SocialFeed = () => {
         setPosts(posts.map(post => {
             if (post.post_id === postId) {
                 const liked = !post.has_liked;
-                const _count = parseInt(post.likes_count);
+                const _count = Number.parseInt(String(post.likes_count ?? '0'), 10) || 0;
                 return {
                     ...post,
                     has_liked: liked,
-                    likes_count: String(liked ? _count + 1 : _count - 1)
+                    likes_count: String(liked ? _count + 1 : Math.max(0, _count - 1))
                 };
             }
             return post;
@@ -179,11 +190,11 @@ const SocialFeed = () => {
         setPosts(posts.map(post => {
             if (post.post_id === postId) {
                 const reposted = !post.has_reposted;
-                const _count = parseInt(post.reposts_count);
+                const _count = Number.parseInt(String(post.reposts_count ?? '0'), 10) || 0;
                 return {
                     ...post,
                     has_reposted: reposted,
-                    reposts_count: String(reposted ? _count + 1 : _count - 1)
+                    reposts_count: String(reposted ? _count + 1 : Math.max(0, _count - 1))
                 };
             }
             return post;
@@ -345,9 +356,22 @@ const SocialFeed = () => {
                                 disabled={submitting}
                             />
                             
-                            {selectedImage && (
+                            {composerPreviewUrl && selectedImage && (
                                 <div className="relative mb-2 md:mb-4">
-                                    <img src={URL.createObjectURL(selectedImage)} className="max-h-40 md:max-h-80 w-full object-cover rounded-xl border-2 border-white shadow-lg" />
+                                    {selectedImage.type.startsWith('video/') ? (
+                                        <video
+                                            src={composerPreviewUrl}
+                                            controls
+                                            playsInline
+                                            className="max-h-40 md:max-h-80 w-full rounded-xl border-2 border-white shadow-lg bg-black object-contain"
+                                        />
+                                    ) : (
+                                        <img
+                                            src={composerPreviewUrl}
+                                            alt=""
+                                            className="max-h-40 md:max-h-80 w-full object-cover rounded-xl border-2 border-white shadow-lg"
+                                        />
+                                    )}
                                     <button type="button" onClick={() => setSelectedImage(null)} className="absolute top-1.5 right-1.5 bg-uv-black/80 text-white rounded-full p-1.5 hover:bg-uv-black transition-all">
                                         <FiTrash2 size={12} />
                                     </button>
@@ -358,11 +382,17 @@ const SocialFeed = () => {
                                 <label className="flex items-center gap-1 p-1 md:p-2 hover:bg-white/50 rounded-lg cursor-pointer transition-all text-primary">
                                     <FiImage size={16} />
                                     <span className="text-[8px] font-black uppercase tracking-widest hidden md:inline">{t('socialFeed.attach')}</span>
-                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => setSelectedImage(e.target.files?.[0] || null)} disabled={submitting} />
+                                    <input
+                                        type="file"
+                                        accept="image/*,video/mp4,.mp4"
+                                        className="hidden"
+                                        onChange={(e) => setSelectedImage(e.target.files?.[0] || null)}
+                                        disabled={submitting}
+                                    />
                                 </label>
                                 <button
                                     type="submit"
-                                    disabled={!content.trim() || submitting}
+                                    disabled={(!content.trim() && !selectedImage) || submitting}
                                     className="uv-button !py-1 md:!py-2 !px-3 md:!px-8 text-[10px] md:text-sm flex items-center gap-1.5"
                                 >
                                     {submitting ? t('socialFeed.sending') : <><FiSend size={12} /> <span className="hidden md:inline">{t('socialFeed.broadcast')}</span><span className="md:hidden">{t('socialFeed.send')}</span></>}
@@ -447,9 +477,10 @@ const SocialFeed = () => {
                                     <p className={`font-medium leading-relaxed mb-3 text-xs md:text-[15px] break-words ${isSpace ? 'text-white' : 'text-uv-black'}`}>{post.content}</p>
  
                                     {post.image_url && (
-                                        <div className="rounded-xl border overflow-hidden mb-3 sm:mb-4 shadow-sm border-uv-border/50">
-                                            <img src={`http://localhost:3000${post.image_url}`} loading="lazy" className="max-h-48 md:max-h-[512px] w-full object-cover" alt="" />
-                                        </div>
+                                        <PostAttachment
+                                            path={post.image_url}
+                                            className="rounded-xl border overflow-hidden mb-3 sm:mb-4 shadow-sm border-uv-border/50"
+                                        />
                                     )}
  
                                     {/* Action Deck */}

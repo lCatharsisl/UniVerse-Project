@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { 
   FiMaximize2, FiMinimize2, FiSearch, FiNavigation, FiLayers, 
   FiAlertCircle, FiTarget, FiList, FiX, FiCornerDownRight,
-  FiMapPin, FiArrowRight, FiCheckCircle, FiActivity
+  FiMapPin, FiArrowRight, FiCheckCircle
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
@@ -447,7 +447,7 @@ const CampusMap: React.FC = () => {
               ))}
 
               {/* Path step markers */}
-              {pathNodes.map((id, i) => {
+              {pathNodes.map((id) => {
                 const node = navigationPoints.find(n => n.id === id);
                 if (node?.isJunction) return null;
                 const isCustom = id === CUSTOM_START_ID;

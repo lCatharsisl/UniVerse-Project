@@ -6,6 +6,7 @@ import { useTheme } from '../context/ThemeContext';
 import api from '../api/client';
 import { useNavigate } from 'react-router-dom';
 import { themedAlert } from '../utils/themedDialog';
+import PostAttachment from './PostAttachment';
 
 interface Post {
   post_id: number;
@@ -112,7 +113,8 @@ const PostDetailModal = ({ post: initialPost, onClose, onUpdate }: Props) => {
   const handleLike = async () => {
     try {
       const prev = post.has_liked;
-      const newPost = { ...post, has_liked: !prev, likes_count: prev ? post.likes_count - 1 : post.likes_count + 1 };
+      const n = Number(post.likes_count) || 0;
+      const newPost = { ...post, has_liked: !prev, likes_count: prev ? n - 1 : n + 1 };
       setPost(newPost);
       onUpdate?.(newPost);
       await api.post(`/social/posts/${post.post_id}/like`);
@@ -124,7 +126,8 @@ const PostDetailModal = ({ post: initialPost, onClose, onUpdate }: Props) => {
   const handleRepost = async () => {
     try {
       const prev = post.has_reposted;
-      const newPost = { ...post, has_reposted: !prev, reposts_count: prev ? post.reposts_count - 1 : post.reposts_count + 1 };
+      const n = Number(post.reposts_count) || 0;
+      const newPost = { ...post, has_reposted: !prev, reposts_count: prev ? n - 1 : n + 1 };
       setPost(newPost);
       onUpdate?.(newPost);
       await api.post(`/social/posts/${post.post_id}/repost`);
@@ -202,7 +205,11 @@ const PostDetailModal = ({ post: initialPost, onClose, onUpdate }: Props) => {
             </div>
             <p className={`text-base leading-relaxed ${text}`}>{post.content}</p>
             {post.image_url && (
-              <img src={post.image_url} className="mt-3 rounded-xl w-full max-h-72 object-cover" alt="post attachment" />
+              <PostAttachment
+                path={post.image_url}
+                className="mt-3"
+                mediaClassName="rounded-xl w-full max-h-72 object-cover"
+              />
             )}
 
             {/* Actions */}

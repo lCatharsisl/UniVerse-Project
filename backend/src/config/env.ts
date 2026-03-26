@@ -1,6 +1,9 @@
+import path from 'node:path';
 import { z } from 'zod';
 import dotenv from 'dotenv';
 
+const backendRoot = path.resolve(__dirname, '../..');
+dotenv.config({ path: path.join(backendRoot, '_env') });
 dotenv.config();
 
 const envSchema = z.object({
