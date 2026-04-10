@@ -25,6 +25,7 @@ function requestDialog(type: DialogType, message: string, title?: string, defaul
       return;
     }
 
+    // Fallback when host is not mounted.
     if (type === 'alert') {
       window.alert(message);
       resolve(undefined);

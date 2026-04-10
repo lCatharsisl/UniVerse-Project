@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { FiMapPin, FiClock, FiCheckCircle, FiArrowLeft, FiMoreHorizontal } from 'react-icons/fi';
-import { themedAlert } from '../utils/themedDialog';
+import { themedAlert, themedConfirm } from '../utils/themedDialog';
 
 interface Comment {
     comment_id: number;
@@ -81,7 +81,7 @@ const ItemDetail = () => {
     };
 
     const handleDelete = async () => {
-        if (!window.confirm('Are you sure you want to delete this report?')) return;
+        if (!(await themedConfirm('Are you sure you want to delete this report?'))) return;
         try {
             const endpoint = type === 'lost' ? `/services/lost-items/${id}` : `/services/found-items/${id}`;
             await api.delete(endpoint);
@@ -91,9 +91,9 @@ const ItemDetail = () => {
         }
     };
 
-    const handleCopyLink = () => {
+    const handleCopyLink = async () => {
         navigator.clipboard.writeText(window.location.href);
-        alert('Link copied!');
+        await themedAlert('Link copied!');
         setOpenMenu(false);
     };
 

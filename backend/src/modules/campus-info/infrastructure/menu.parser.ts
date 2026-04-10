@@ -44,9 +44,7 @@ export interface ParsedMenu {
   sourceText?: string;
 }
 
-type MenuValueKey = 'soup' | 'main' | 'side' | 'salad' | 'yogurt' | 'dessert' | 'fruit';
-
-const ROW_KEYS: MenuValueKey[] = ['soup', 'main', 'side', 'salad', 'yogurt', 'dessert', 'fruit'];
+const ROW_KEYS: (keyof DayMenu)[] = ['soup', 'main', 'side', 'salad', 'yogurt', 'dessert', 'fruit'];
 
 function parseDateToISO(day: number, month: string, year: string | undefined): string {
   const monthIndex = MONTHS.indexOf(month.toUpperCase() as (typeof MONTHS)[number]);
@@ -184,7 +182,7 @@ export function parseMenuText(raw: string): ParsedMenu {
             const idxFood = row * numDays + col;
             if (idxFood < slice.length && dayMenus[dayOffset + col]) {
               const v = sanitizeMenuValue(slice[idxFood]);
-              dayMenus[dayOffset + col][key] = v;
+              ((dayMenus[dayOffset + col] as unknown) as Record<string, string>)[key] = v;
             }
           }
         }

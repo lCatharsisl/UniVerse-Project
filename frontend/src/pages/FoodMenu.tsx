@@ -117,7 +117,8 @@ function MenuCard({
         <div className="grid grid-cols-1 gap-2 sm:gap-3">
           {MENU_ITEM_KEYS.map(
             (key) => {
-              const val = sanitizeDisplay(menu[key]);
+              const raw = menu[key];
+              const val = typeof raw === 'string' ? sanitizeDisplay(raw) : '';
               if (!val) return null;
               return (
                 <div

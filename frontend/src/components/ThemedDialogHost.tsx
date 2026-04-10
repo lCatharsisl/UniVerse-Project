@@ -63,9 +63,7 @@ const ThemedDialogHost = () => {
         <h3 className={`text-lg font-black ${isSpace ? 'text-white' : 'text-uv-black'}`}>
           {request.title || t('notifications.title')}
         </h3>
-        <p className={`mt-2 text-sm ${isSpace ? 'text-white/70' : 'text-uv-gray'}`}>
-          {request.message}
-        </p>
+        <p className={`mt-2 text-sm ${isSpace ? 'text-white/70' : 'text-uv-gray'}`}>{request.message}</p>
 
         {request.type === 'prompt' ? (
           <input
