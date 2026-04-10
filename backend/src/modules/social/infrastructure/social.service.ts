@@ -167,6 +167,7 @@ export class SocialService {
             u.email, u.role,
             COALESCE(s.student_name, st.staff_name, a.admin_name, c.community_name) as first_name,
             COALESCE(s.student_surname, st.staff_surname, a.admin_surname) as last_name,
+            COALESCE(s.avatar_url, st.avatar_url, c.avatar_url) as avatar_url,
             NULL::text as reposter_name, NULL::text as reposter_email, NULL::int as reposter_id,
             p.created_at as sorted_at
           FROM posts p
@@ -184,6 +185,7 @@ export class SocialService {
             u.email, u.role,
             COALESCE(s.student_name, st.staff_name, a.admin_name, c.community_name) as first_name,
             COALESCE(s.student_surname, st.staff_surname, a.admin_surname) as last_name,
+            COALESCE(s.avatar_url, st.avatar_url, c.avatar_url) as avatar_url,
             COALESCE(rs.student_name, rst.staff_name, ra.admin_name, rc.community_name, ru.email) as reposter_name,
             ru.email as reposter_email,
             pr.user_id as reposter_id,
@@ -270,6 +272,7 @@ export class SocialService {
           u.role,
           COALESCE(s.student_name, st.staff_name, a.admin_name, c.community_name) as first_name,
           COALESCE(s.student_surname, st.staff_surname, a.admin_surname) as last_name,
+          COALESCE(s.avatar_url, st.avatar_url, c.avatar_url) as avatar_url,
           NULL::text as reposter_name, NULL::text as reposter_email, NULL::int as reposter_id,
           p.created_at as sorted_at
         ${fromClause}
@@ -347,7 +350,8 @@ export class SocialService {
         pc.*, 
         u.email,
         COALESCE(s.student_name, st.staff_name, a.admin_name, c.community_name) as first_name,
-        COALESCE(s.student_surname, st.staff_surname, a.admin_surname) as last_name
+        COALESCE(s.student_surname, st.staff_surname, a.admin_surname) as last_name,
+        COALESCE(s.avatar_url, st.avatar_url, c.avatar_url) as avatar_url
       FROM post_comments pc
       JOIN users u ON u.user_id = pc.user_id
       LEFT JOIN students s ON s.user_id = u.user_id
@@ -365,7 +369,8 @@ export class SocialService {
         u.user_id,
         u.email,
         COALESCE(s.student_name, st.staff_name, a.admin_name, c.community_name) as first_name,
-        COALESCE(s.student_surname, st.staff_surname, a.admin_surname) as last_name
+        COALESCE(s.student_surname, st.staff_surname, a.admin_surname) as last_name,
+        COALESCE(s.avatar_url, st.avatar_url, c.avatar_url) as avatar_url
       FROM post_likes pl
       JOIN users u ON u.user_id = pl.user_id
       LEFT JOIN students s ON s.user_id = u.user_id

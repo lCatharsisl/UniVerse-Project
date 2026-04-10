@@ -10,6 +10,7 @@ import { useTheme } from '../context/ThemeContext';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
 import { useTranslation } from 'react-i18next';
 import PostAttachment from '../components/PostAttachment';
+import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 
 interface Post {
     post_id: number;
@@ -29,7 +30,7 @@ interface Post {
     reposter_name?: string;
     reposter_email?: string;
     reposter_id?: number;
-    avatar_url?: string;
+    avatar_url?: string | null;
     reports_count?: number;
     has_reported?: boolean;
     my_report_type?: string | null;
@@ -104,6 +105,20 @@ const SocialFeed = () => {
     useEffect(() => {
         fetchPosts();
     }, []);
+
+    const getInitials = (firstName?: string, lastName?: string, email?: string) => {
+        const first = firstName?.trim() || '';
+        const last = lastName?.trim() || '';
+        if (first && last) return `${first[0]}${last[0]}`.toUpperCase();
+
+        if (first) {
+            const words = first.split(/\s+/).filter(Boolean);
+            if (words.length >= 2) return `${words[0][0]}${words[1][0]}`.toUpperCase();
+            return first[0].toUpperCase();
+        }
+
+        return email?.trim()?.[0]?.toUpperCase() || '?';
+    };
 
     const composerPreviewUrl = useMemo(
         () => (selectedImage ? URL.createObjectURL(selectedImage) : null),
@@ -430,7 +445,11 @@ const SocialFeed = () => {
                                     onClick={() => navigate(`/profile/${post.user_id}`)}
                                     className="w-8 h-8 md:w-12 md:h-12 rounded-xl flex items-center justify-center font-black text-primary border border-primary/20 overflow-hidden cursor-pointer text-xs md:text-base shrink-0 bg-primary/10"
                                 >
-                                    {post.avatar_url ? <img src={post.avatar_url} className="w-full h-full object-cover" alt="" /> : post.email[0].toUpperCase()}
+                                    {post.avatar_url ? (
+                                        <img src={resolveMediaUrl(post.avatar_url)} className="w-full h-full object-cover" alt="" />
+                                    ) : (
+                                        getInitials(post.first_name, post.last_name, post.email)
+                                    )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-2 mb-0.5 md:mb-1 text-xs md:text-base">
@@ -601,7 +620,11 @@ const SocialFeed = () => {
                                                                 onClick={() => navigate(`/profile/${comment.user_id}`)}
                                                                 className="w-5 h-5 md:w-7 md:h-7 bg-gray-100 rounded-md md:rounded-lg flex items-center justify-center text-uv-gray text-[8px] font-black shrink-0 cursor-pointer"
                                                             >
-                                                                {comment.email[0].toUpperCase()}
+                                                                {comment.avatar_url ? (
+                                                                    <img src={resolveMediaUrl(comment.avatar_url)} className="w-full h-full object-cover rounded-md md:rounded-lg" alt="" />
+                                                                ) : (
+                                                                    getInitials(comment.first_name, comment.last_name, comment.email)
+                                                                )}
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <div className="flex items-center gap-1 md:gap-2 mb-0.5">
@@ -805,7 +828,11 @@ const SocialFeed = () => {
                                         commentSheet.post.comments?.map(comment => (
                                             <div key={comment.comment_id} className="flex gap-3">
                                                 <div className="w-8 h-8 bg-primary/5 rounded-lg flex items-center justify-center text-primary font-black text-xs shrink-0">
-                                                    {comment.email[0].toUpperCase()}
+                                                    {comment.avatar_url ? (
+                                                        <img src={resolveMediaUrl(comment.avatar_url)} className="w-full h-full object-cover rounded-lg" alt="" />
+                                                    ) : (
+                                                        getInitials(comment.first_name, comment.last_name, comment.email)
+                                                    )}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 mb-0.5">
