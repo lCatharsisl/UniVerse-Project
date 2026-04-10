@@ -34,7 +34,7 @@ function applyTranslations(
   for (const k of MENU_KEYS) {
     const val = menu[k];
     if (typeof val === 'string' && val.trim()) {
-      out[k] = translations.get(val.trim()) ?? val;
+      (out as Record<string, string | string[] | undefined>)[k] = translations.get(val.trim()) ?? val;
     }
   }
   return out;

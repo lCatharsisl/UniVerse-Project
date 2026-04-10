@@ -71,6 +71,61 @@ export class SocialController {
     return res.json(data);
   }
 
+  static async getDiscover(req: AuthenticatedRequest, res: Response) {
+    if (req.isBanned) return res.json({ items: [], total: 0 });
+    const userId = req.userId!;
+    const { limit, offset } = req.query;
+    try {
+      const data = await SocialService.getFeedItems(
+        userId,
+        'discover',
+        undefined,
+        limit ? parseInt(limit as string, 10) : 20,
+        offset ? parseInt(offset as string, 10) : 0
+      );
+      if (data.items?.length) {
+        const postIds = data.items.map((i: any) => i.post_id);
+        const myReports = await ModerationService.getMyReportsForPosts(postIds, userId);
+        data.items = data.items.map((i: any) => ({
+          ...i,
+          has_reported: !!myReports[i.post_id],
+          my_report_type: myReports[i.post_id] || null,
+        }));
+      }
+      if (isAcademic(req.userRole || '') && data.items?.length) {
+        const counts = await ModerationService.getPostReportCounts(data.items.map((i: any) => i.post_id));
+        data.items = data.items.map((i: any) => ({ ...i, reports_count: counts[i.post_id] ?? 0 }));
+      }
+      return res.json(data);
+    } catch (error: any) {
+      return res.status(400).json({ error: error.message || 'Failed to get discover feed' });
+    }
+  }
+
+  static async getPost(req: AuthenticatedRequest, res: Response) {
+    if (req.isBanned) return res.status(403).json({ error: 'Social access is restricted for this account' });
+    const userId = req.userId!;
+    const postId = parseInt(String(req.params.id), 10);
+    if (Number.isNaN(postId)) return res.status(400).json({ error: 'Invalid post id' });
+    try {
+      const post = await SocialService.getPostForViewer(userId, postId);
+      if (!post) return res.status(404).json({ error: 'Post not found' });
+      const myReports = await ModerationService.getMyReportsForPosts([postId], userId);
+      let out: any = {
+        ...post,
+        has_reported: !!myReports[postId],
+        my_report_type: myReports[postId] || null,
+      };
+      if (isAcademic(req.userRole || '')) {
+        const counts = await ModerationService.getPostReportCounts([postId]);
+        out = { ...out, reports_count: counts[postId] ?? 0 };
+      }
+      return res.json(out);
+    } catch (error: any) {
+      return res.status(400).json({ error: error.message || 'Failed to load post' });
+    }
+  }
+
   static async deletePost(req: AuthenticatedRequest, res: Response) {
     const userId = req.userId!;
     const userRole = req.userRole || '';

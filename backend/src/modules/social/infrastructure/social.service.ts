@@ -1,6 +1,7 @@
 import { query, queryOne } from '../../../config/db';
 import { AppError } from '../../../shared/core/errors';
 import { isAcademic } from './moderation.service';
+import { NotificationEmitterService } from '../../notifications/infrastructure/notificationEmitter.service';
 
 export class SocialService {
   static async addComment(userId: number, itemId: number, itemType: string, content: string) {
@@ -46,6 +47,21 @@ export class SocialService {
       return { action: 'unliked' };
     } else {
       await query('INSERT INTO post_likes (post_id, user_id) VALUES ($1, $2)', [postId, userId]);
+
+      const owner = await queryOne<{ user_id: number }>('SELECT user_id FROM posts WHERE post_id = $1', [postId]);
+      if (owner?.user_id) {
+        await NotificationEmitterService.createSafe({
+          recipientUserId: owner.user_id,
+          actorUserId: userId,
+          sourceModule: 'social',
+          kind: 'social.like',
+          message: 'Someone liked your post',
+          entityType: 'post',
+          entityId: postId,
+          payload: { postId },
+        });
+      }
+
       return { action: 'liked' };
     }
   }
@@ -57,11 +73,64 @@ export class SocialService {
       return { action: 'unreposted' };
     } else {
       await query('INSERT INTO post_reposts (post_id, user_id) VALUES ($1, $2)', [postId, userId]);
+
+      const owner = await queryOne<{ user_id: number }>('SELECT user_id FROM posts WHERE post_id = $1', [postId]);
+      if (owner?.user_id && owner.user_id !== userId) {
+        await NotificationEmitterService.createSafe({
+          recipientUserId: owner.user_id,
+          actorUserId: userId,
+          sourceModule: 'social',
+          kind: 'social.repost',
+          message: 'Someone reposted your post',
+          entityType: 'post',
+          entityId: postId,
+          payload: { postId },
+        });
+      }
+
       return { action: 'reposted' };
     }
   }
 
-  static async getFeedItems(currentUserId: number, type: 'feed' | 'user_posts' | 'user_likes' | 'user_reposts', targetUserId?: number, limit = 20, offset = 0) {
+  /** Single post card for deep links (notifications, /post/:id). */
+  static async getPostForViewer(viewerUserId: number, postId: number) {
+    const row = await queryOne<any>(
+      `
+      SELECT
+        p.post_id,
+        p.user_id,
+        p.content,
+        p.image_url,
+        p.created_at,
+        u.email,
+        u.role,
+        COALESCE(s.student_name, st.staff_name, a.admin_name, c.community_name) AS first_name,
+        COALESCE(s.student_surname, st.staff_surname, a.admin_surname) AS last_name,
+        COALESCE(s.avatar_url, st.avatar_url, c.avatar_url) AS avatar_url,
+        (SELECT COUNT(*)::int FROM post_likes pl WHERE pl.post_id = p.post_id) AS likes_count,
+        (SELECT COUNT(*)::int FROM post_reposts pr WHERE pr.post_id = p.post_id) AS reposts_count,
+        (SELECT COUNT(*)::int FROM post_comments pc WHERE pc.post_id = p.post_id) AS comments_count,
+        EXISTS(SELECT 1 FROM post_likes pl WHERE pl.post_id = p.post_id AND pl.user_id = $2) AS has_liked,
+        EXISTS(SELECT 1 FROM post_reposts pr WHERE pr.post_id = p.post_id AND pr.user_id = $2) AS has_reposted
+      FROM posts p
+      JOIN users u ON u.user_id = p.user_id
+      LEFT JOIN students s ON s.user_id = u.user_id
+      LEFT JOIN staff st ON st.user_id = u.user_id
+      LEFT JOIN admins a ON a.user_id = u.user_id
+      LEFT JOIN communities c ON c.user_id = u.user_id
+      WHERE p.post_id = $1
+        AND NOT EXISTS (
+          SELECT 1 FROM blocked_users b
+          WHERE (b.blocker_id = $2 AND b.blocked_id = p.user_id)
+             OR (b.blocker_id = p.user_id AND b.blocked_id = $2)
+        )
+      `,
+      [postId, viewerUserId]
+    );
+    return row || null;
+  }
+
+  static async getFeedItems(currentUserId: number, type: 'feed' | 'discover' | 'user_posts' | 'user_likes' | 'user_reposts', targetUserId?: number, limit = 20, offset = 0) {
     const params: any[] = [currentUserId, limit, offset];
     let sql = '';
     let countSql = '';
@@ -72,8 +141,24 @@ export class SocialService {
     const mutedWords = userSettings?.muted_words || [];
     const mutedRegex = mutedWords.length > 0 ? mutedWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') : null;
 
-    if (type === 'feed') {
+    if (type === 'feed' || type === 'discover') {
       // Timeline consists of original posts AND reposts
+      const discoverClause = type === 'discover'
+        ? `
+          WHERE (
+            user_id <> $1
+            AND user_id NOT IN (
+              SELECT following_id FROM follows WHERE follower_id = $1
+            )
+            AND user_id NOT IN (
+              SELECT blocked_id FROM blocked_users WHERE blocker_id = $1
+            )
+            AND user_id NOT IN (
+              SELECT blocker_id FROM blocked_users WHERE blocked_id = $1
+            )
+          )
+        `
+        : '';
       sql = `
         SELECT * FROM (
           -- Original Posts
@@ -82,6 +167,7 @@ export class SocialService {
             u.email, u.role,
             COALESCE(s.student_name, st.staff_name, a.admin_name, c.community_name) as first_name,
             COALESCE(s.student_surname, st.staff_surname, a.admin_surname) as last_name,
+            COALESCE(s.avatar_url, st.avatar_url, c.avatar_url) as avatar_url,
             NULL::text as reposter_name, NULL::text as reposter_email, NULL::int as reposter_id,
             p.created_at as sorted_at
           FROM posts p
@@ -99,6 +185,7 @@ export class SocialService {
             u.email, u.role,
             COALESCE(s.student_name, st.staff_name, a.admin_name, c.community_name) as first_name,
             COALESCE(s.student_surname, st.staff_surname, a.admin_surname) as last_name,
+            COALESCE(s.avatar_url, st.avatar_url, c.avatar_url) as avatar_url,
             COALESCE(rs.student_name, rst.staff_name, ra.admin_name, rc.community_name, ru.email) as reposter_name,
             ru.email as reposter_email,
             pr.user_id as reposter_id,
@@ -117,17 +204,45 @@ export class SocialService {
           LEFT JOIN admins ra ON ra.user_id = ru.user_id
           LEFT JOIN communities rc ON rc.user_id = ru.user_id
         ) combined
-        ${mutedRegex ? `WHERE content !~* $4` : ''}
+        ${discoverClause}
+        ${mutedRegex ? `${discoverClause ? ' AND ' : ' WHERE '} content !~* $4` : ''}
         ORDER BY sorted_at DESC
         LIMIT $2 OFFSET $3
       `;
       if (mutedRegex) params.push(mutedRegex);
 
-      // Count for feed
-      countSql = `
-        SELECT (SELECT COUNT(*) FROM posts) + (SELECT COUNT(*) FROM post_reposts) as total
-      `;
-      countParams = [];
+      // Count for feed/discover
+      if (type === 'discover') {
+        countSql = `
+          SELECT COUNT(*)::text AS total
+          FROM (
+            SELECT p.post_id, p.user_id, p.content FROM posts p
+            UNION ALL
+            SELECT p.post_id, p.user_id, p.content
+            FROM post_reposts pr
+            JOIN posts p ON p.post_id = pr.post_id
+          ) combined
+          WHERE (
+            user_id <> $1
+            AND user_id NOT IN (
+              SELECT following_id FROM follows WHERE follower_id = $1
+            )
+            AND user_id NOT IN (
+              SELECT blocked_id FROM blocked_users WHERE blocker_id = $1
+            )
+            AND user_id NOT IN (
+              SELECT blocker_id FROM blocked_users WHERE blocked_id = $1
+            )
+          )
+          ${mutedRegex ? 'AND content !~* $2' : ''}
+        `;
+        countParams = mutedRegex ? [currentUserId, mutedRegex] : [currentUserId];
+      } else {
+        countSql = `
+          SELECT (SELECT COUNT(*) FROM posts) + (SELECT COUNT(*) FROM post_reposts) as total
+        `;
+        countParams = [];
+      }
     } else {
       // Profile activity tabs
       let whereClause = '';
@@ -157,6 +272,7 @@ export class SocialService {
           u.role,
           COALESCE(s.student_name, st.staff_name, a.admin_name, c.community_name) as first_name,
           COALESCE(s.student_surname, st.staff_surname, a.admin_surname) as last_name,
+          COALESCE(s.avatar_url, st.avatar_url, c.avatar_url) as avatar_url,
           NULL::text as reposter_name, NULL::text as reposter_email, NULL::int as reposter_id,
           p.created_at as sorted_at
         ${fromClause}
@@ -176,6 +292,14 @@ export class SocialService {
     }
 
     // Common Interaction subqueries
+    const finalOrderBy = type === 'discover'
+      ? `ORDER BY (
+          (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = q.post_id) * 3 +
+          (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = q.post_id) * 2 +
+          (SELECT COUNT(*) FROM post_reposts pr WHERE pr.post_id = q.post_id)
+        ) DESC, q.sorted_at DESC`
+      : `ORDER BY q.sorted_at DESC`;
+
     const finalSql = `
       SELECT 
         q.*,
@@ -185,7 +309,7 @@ export class SocialService {
         EXISTS(SELECT 1 FROM post_likes pl WHERE pl.post_id = q.post_id AND pl.user_id = $1) as has_liked,
         EXISTS(SELECT 1 FROM post_reposts pr WHERE pr.post_id = q.post_id AND pr.user_id = $1) as has_reposted
       FROM (${sql}) q
-      ORDER BY q.sorted_at DESC
+      ${finalOrderBy}
     `;
 
     const items = await query(finalSql, params);
@@ -202,6 +326,21 @@ export class SocialService {
       'INSERT INTO post_comments (user_id, post_id, content) VALUES ($1, $2, $3) RETURNING *',
       [userId, postId, content]
     );
+
+    const owner = await queryOne<{ user_id: number }>('SELECT user_id FROM posts WHERE post_id = $1', [postId]);
+    if (owner?.user_id) {
+      await NotificationEmitterService.createSafe({
+        recipientUserId: owner.user_id,
+        actorUserId: userId,
+        sourceModule: 'social',
+        kind: 'social.comment',
+        message: 'Someone commented on your post',
+        entityType: 'post',
+        entityId: postId,
+        payload: { postId, commentId: (result as any)?.comment_id ?? null },
+      });
+    }
+
     return result;
   }
 
@@ -211,7 +350,8 @@ export class SocialService {
         pc.*, 
         u.email,
         COALESCE(s.student_name, st.staff_name, a.admin_name, c.community_name) as first_name,
-        COALESCE(s.student_surname, st.staff_surname, a.admin_surname) as last_name
+        COALESCE(s.student_surname, st.staff_surname, a.admin_surname) as last_name,
+        COALESCE(s.avatar_url, st.avatar_url, c.avatar_url) as avatar_url
       FROM post_comments pc
       JOIN users u ON u.user_id = pc.user_id
       LEFT JOIN students s ON s.user_id = u.user_id
@@ -229,7 +369,8 @@ export class SocialService {
         u.user_id,
         u.email,
         COALESCE(s.student_name, st.staff_name, a.admin_name, c.community_name) as first_name,
-        COALESCE(s.student_surname, st.staff_surname, a.admin_surname) as last_name
+        COALESCE(s.student_surname, st.staff_surname, a.admin_surname) as last_name,
+        COALESCE(s.avatar_url, st.avatar_url, c.avatar_url) as avatar_url
       FROM post_likes pl
       JOIN users u ON u.user_id = pl.user_id
       LEFT JOIN students s ON s.user_id = u.user_id
@@ -250,6 +391,18 @@ export class SocialService {
       return { action: 'unfollowed' };
     } else {
       await query('INSERT INTO follows (follower_id, following_id) VALUES ($1, $2)', [followerId, followingId]);
+
+      await NotificationEmitterService.createSafe({
+        recipientUserId: followingId,
+        actorUserId: followerId,
+        sourceModule: 'social',
+        kind: 'social.follow',
+        message: 'You have a new follower',
+        entityType: 'user',
+        entityId: followerId,
+        payload: { followerId },
+      });
+
       return { action: 'followed' };
     }
   }

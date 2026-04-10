@@ -5,6 +5,7 @@ import api from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import { FiCalendar, FiAlertTriangle } from 'react-icons/fi';
 import { themedAlert, themedPrompt } from '../utils/themedDialog';
+import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 
 const CommunityAdminPanel = () => {
   const { t } = useTranslation();
@@ -283,7 +284,7 @@ const CommunityAdminPanel = () => {
                         </div>
                         {a.cv_file_url && (
                           <a
-                            href={`http://localhost:3000${a.cv_file_url}`}
+                            href={resolveMediaUrl(a.cv_file_url)}
                             target="_blank"
                             rel="noreferrer"
                             className={`block mt-3 text-[12px] font-black ${isSpace ? 'text-primary/90 hover:text-primary' : 'text-primary hover:text-primary'}`}

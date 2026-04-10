@@ -1,4 +1,5 @@
 import { query, queryOne, transaction } from '../../../config/db';
+import { NotificationEmitterService } from '../../notifications/infrastructure/notificationEmitter.service';
 
 export class AcademicService {
   static async getFreeRooms(params: any) {
@@ -37,10 +38,18 @@ export class AcademicService {
 
   static async getStaffAvailabilityByDate(staffUserId: number, date: string) {
     return await query(
-      `SELECT availability_date_id, specific_date, start_time::text, end_time::text, is_active
-       FROM staff_availability_dates
-       WHERE staff_user_id = $1 AND specific_date = $2::date AND is_active = true
-       ORDER BY start_time`,
+      `SELECT d.availability_date_id, d.specific_date, d.start_time::text, d.end_time::text, d.is_active,
+              EXISTS (
+                SELECT 1 FROM appointments a
+                WHERE a.staff_user_id = d.staff_user_id
+                  AND a.appointment_date = d.specific_date
+                  AND a.start_time = d.start_time
+                  AND a.end_time = d.end_time
+                  AND a.status IN ('pending', 'approved')
+              ) AS is_booked
+       FROM staff_availability_dates d
+       WHERE d.staff_user_id = $1 AND d.specific_date = $2::date AND d.is_active = true
+       ORDER BY d.start_time`,
       [staffUserId, date]
     );
   }
@@ -121,7 +130,18 @@ export class AcademicService {
       throw new Error('Selected slot is not available for this date');
     }
 
-    return await transaction(async (client) => {
+    const slotTaken = await queryOne(
+      `SELECT 1 FROM appointments
+       WHERE staff_user_id = $1 AND appointment_date = $2::date
+         AND start_time = $3::time AND end_time = $4::time
+         AND status IN ('pending', 'approved')`,
+      [staffUserId, date, startTime, endTime]
+    );
+    if (slotTaken) {
+      throw new Error('This time slot is already booked');
+    }
+
+    const appointment = await transaction(async (client) => {
       const appointmentRes = await client.query(
         `INSERT INTO appointments
           (staff_user_id, student_user_id, appointment_date, start_time, end_time, topic, notes)
@@ -130,20 +150,21 @@ export class AcademicService {
         [staffUserId, studentUserId, date, startTime, endTime, data.topic || null, data.notes || null]
       );
 
-      const appointment = appointmentRes.rows[0];
-
-      await client.query(
-        `INSERT INTO appointment_notifications (appointment_id, recipient_user_id, message)
-         VALUES ($1, $2, $3)`,
-        [
-          appointment.appointment_id,
-          staffUserId,
-          `New appointment request for ${appointment.appointment_date} ${appointment.start_time}-${appointment.end_time}`,
-        ]
-      );
-
-      return appointment;
+      return appointmentRes.rows[0];
     });
+
+    await NotificationEmitterService.createSafe({
+      recipientUserId: staffUserId,
+      actorUserId: studentUserId,
+      sourceModule: 'academic',
+      kind: 'academic.appointment_request',
+      message: `New appointment request for ${appointment.appointment_date} ${appointment.start_time}-${appointment.end_time}`,
+      entityType: 'appointment',
+      entityId: appointment.appointment_id,
+      payload: { appointmentId: appointment.appointment_id, status: appointment.status },
+    });
+
+    return appointment;
   }
 
   static async listAppointments(userId: number, role: string, archive: boolean) {
@@ -206,7 +227,7 @@ export class AcademicService {
     const cancellationReason = nextStatus === 'cancelled' ? reason : null;
     const recipientUserId = isStaffOwner ? appointment.student_user_id : appointment.staff_user_id;
 
-    return await transaction(async (client) => {
+    const updated = await transaction(async (client) => {
       const updateRes = await client.query(
         `UPDATE appointments
          SET status = $1,
@@ -217,37 +238,51 @@ export class AcademicService {
         [nextStatus, rejectionReason, cancellationReason, appointmentId]
       );
 
-      const updated = updateRes.rows[0];
-      await client.query(
-        `INSERT INTO appointment_notifications (appointment_id, recipient_user_id, message)
-         VALUES ($1, $2, $3)`,
-        [
-          appointmentId,
-          recipientUserId,
-          `Appointment #${appointmentId} is now ${nextStatus}`,
-        ]
-      );
-
-      return updated;
+      return updateRes.rows[0];
     });
+
+    await NotificationEmitterService.createSafe({
+      recipientUserId,
+      actorUserId: userId,
+      sourceModule: 'academic',
+      kind: 'academic.appointment_status',
+      message: `Appointment #${appointmentId} is now ${nextStatus}`,
+      entityType: 'appointment',
+      entityId: appointmentId,
+      payload: { appointmentId, status: nextStatus },
+    });
+
+    return updated;
   }
 
   static async getNotifications(userId: number) {
-    return await query(
-      `SELECT notification_id, appointment_id, message, is_read, created_at
-       FROM appointment_notifications
-       WHERE recipient_user_id = $1
-       ORDER BY created_at DESC
-       LIMIT 50`,
+    const rows = await query<any>(
+      `
+      SELECT
+        notification_id,
+        entity_id AS appointment_id,
+        message,
+        is_read,
+        created_at
+      FROM public.notifications
+      WHERE recipient_user_id = $1
+        AND source_module = 'academic'
+      ORDER BY created_at DESC
+      LIMIT 50
+      `,
       [userId]
     );
+    return rows;
   }
 
   static async markNotificationRead(notificationId: number, userId: number) {
     await query(
-      `UPDATE appointment_notifications
-       SET is_read = true
-       WHERE notification_id = $1 AND recipient_user_id = $2`,
+      `
+      UPDATE public.notifications
+      SET is_read = true
+      WHERE notification_id = $1 AND recipient_user_id = $2
+        AND source_module = 'academic'
+      `,
       [notificationId, userId]
     );
     return { success: true };

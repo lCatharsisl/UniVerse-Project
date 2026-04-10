@@ -28,6 +28,11 @@ import EventApplicationForm from './pages/EventApplicationForm';
 import Notifications from './pages/Notifications';
 import ThemedDialogHost from './components/ThemedDialogHost';
 import JobBoard from './pages/JobBoard';
+import DiscoverFeed from './pages/DiscoverFeed';
+import Messages from './pages/Messages';
+import PostPage from './pages/PostPage';
+import { NotificationsProvider } from './context/NotificationsContext';
+import { MessagingUnreadProvider } from './context/MessagingUnreadContext';
 
 const PrivateRoute = ({ children }: { children: React.ReactElement }) => {
   const { user, isLoading } = useAuth();
@@ -52,6 +57,7 @@ function AppRoutes() {
       
       {/* Protected Routes with MainLayout */}
       <Route path="/feed" element={<PrivateRoute><MainLayout><SocialFeed /></MainLayout></PrivateRoute>} />
+      <Route path="/post/:postId" element={<PrivateRoute><MainLayout><PostPage /></MainLayout></PrivateRoute>} />
       <Route path="/lost-found" element={<PrivateRoute><MainLayout><LostFoundFeed /></MainLayout></PrivateRoute>} />
       <Route path="/create-item" element={<PrivateRoute><MainLayout><CreateItem /></MainLayout></PrivateRoute>} />
       <Route path="/edit-item/:type/:id" element={<PrivateRoute><MainLayout><CreateItem /></MainLayout></PrivateRoute>} />
@@ -71,6 +77,8 @@ function AppRoutes() {
       <Route path="/job-board" element={<PrivateRoute><MainLayout><JobBoard /></MainLayout></PrivateRoute>} />
       <Route path="/grade-calculator" element={<PrivateRoute><MainLayout><GradeCalculator /></MainLayout></PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute><MainLayout><Notifications /></MainLayout></PrivateRoute>} />
+      <Route path="/discover" element={<PrivateRoute><MainLayout><DiscoverFeed /></MainLayout></PrivateRoute>} />
+      <Route path="/messages" element={<PrivateRoute><MainLayout><Messages /></MainLayout></PrivateRoute>} />
       <Route path="/explore" element={<PrivateRoute><MainLayout><CommunityFair /></MainLayout></PrivateRoute>} />
       <Route path="/community/:communityId" element={<PrivateRoute><MainLayout><CommunityProfile /></MainLayout></PrivateRoute>} />
       <Route path="/community/:communityId/admin" element={<PrivateRoute><MainLayout><CommunityAdminPanel /></MainLayout></PrivateRoute>} />
@@ -85,8 +93,12 @@ function App() {
     <Router>
       <ThemeProvider>
         <AuthProvider>
-          <AppRoutes />
-          <ThemedDialogHost />
+          <NotificationsProvider>
+            <MessagingUnreadProvider>
+              <AppRoutes />
+              <ThemedDialogHost />
+            </MessagingUnreadProvider>
+          </NotificationsProvider>
         </AuthProvider>
       </ThemeProvider>
     </Router>
