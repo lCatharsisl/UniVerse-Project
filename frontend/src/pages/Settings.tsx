@@ -8,7 +8,7 @@ import api from '../api/client';
 import Cropper from 'react-easy-crop';
 import {
   FiUser, FiLock, FiShield, FiTrash2, FiCamera, FiPlus, FiX,
-  FiLinkedin, FiGithub, FiGlobe, FiInstagram, FiAlertTriangle,
+  FiLinkedin, FiGithub, FiGlobe, FiInstagram, FiAlertTriangle, FiBell,
   FiMonitor, FiLogOut, FiSun, FiMoon, FiArrowLeft, FiSave,
   FiEye, FiEyeOff, FiCheck
 } from 'react-icons/fi';
@@ -69,7 +69,7 @@ const CropModal = ({
 };
 
 // ─── Tab types ────────────────────────────────────────────────────────────────
-type Tab = 'profile' | 'security' | 'privacy' | 'appearance' | 'account';
+type Tab = 'profile' | 'security' | 'privacy' | 'notifications' | 'appearance' | 'account';
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 const Settings = () => {
@@ -80,6 +80,35 @@ const Settings = () => {
   const isSpace = dimension === 'space';
 
   const [activeTab, setActiveTab] = useState<Tab>('profile');
+  // ─── Notifications Preferences ─────────────────────────────────────────────
+  const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({});
+  const [notifPrefsLoading, setNotifPrefsLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'notifications') return;
+    setNotifPrefsLoading(true);
+    api
+      .get('/notifications/preferences')
+      .then((r) => setNotifPrefs((r.data?.prefs || {}) as Record<string, boolean>))
+      .catch(() => {})
+      .finally(() => setNotifPrefsLoading(false));
+  }, [activeTab]);
+
+  const setPref = (key: string, enabled: boolean) => {
+    setNotifPrefs((p) => ({ ...p, [key]: enabled }));
+  };
+
+  const saveNotifPrefs = async () => {
+    setSaving(true);
+    try {
+      await api.put('/notifications/preferences', { prefs: notifPrefs });
+      showToast('success', 'Notification preferences saved!');
+    } catch (err: any) {
+      showToast('error', err?.response?.data?.error || 'Failed to save notification preferences.');
+    } finally {
+      setSaving(false);
+    }
+  };
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -281,6 +310,7 @@ const Settings = () => {
     { key: 'profile', label: 'Profile', icon: <FiUser size={16} /> },
     { key: 'security', label: 'Security', icon: <FiLock size={16} /> },
     { key: 'privacy', label: 'Privacy', icon: <FiShield size={16} /> },
+    { key: 'notifications', label: 'Notifications', icon: <FiBell size={16} /> },
     { key: 'appearance', label: 'Appearance', icon: <FiSun size={16} /> },
     { key: 'account', label: 'Account', icon: <FiAlertTriangle size={16} /> },
   ];
@@ -615,6 +645,59 @@ const Settings = () => {
                 </>
               )}
             </>
+          )}
+
+          {/* ── NOTIFICATIONS TAB ───────────────────────────────────── */}
+          {activeTab === 'notifications' && (
+            <div className={`rounded-2xl border p-5 space-y-4 ${card}`}>
+              <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>Notification Preferences</h3>
+              <p className={`text-xs ${muted}`}>Choose which notifications you want to receive.</p>
+
+              {notifPrefsLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {[
+                    { key: 'social.like', label: 'Likes' },
+                    { key: 'social.comment', label: 'Comments' },
+                    { key: 'social.follow', label: 'Follows' },
+                    { key: 'social.repost', label: 'Reposts' },
+                    { key: 'messaging.message', label: 'Messages' },
+                    { key: 'academic.appointment_request', label: 'Appointment requests' },
+                    { key: 'academic.appointment_status', label: 'Appointment updates' },
+                    { key: 'community.job_post_created', label: 'Community job posts' },
+                    { key: 'community.event_created', label: 'Community events' },
+                  ].map((row) => {
+                    const enabled = notifPrefs[row.key] ?? true;
+                    return (
+                      <button
+                        key={row.key}
+                        type="button"
+                        onClick={() => setPref(row.key, !enabled)}
+                        className={`w-full flex items-center justify-between gap-4 p-4 rounded-2xl border transition-colors ${
+                          isSpace ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-gray-100 bg-gray-50 hover:bg-gray-100'
+                        }`}
+                      >
+                        <div className="text-left">
+                          <p className={`font-black text-sm ${text}`}>{row.label}</p>
+                          <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${muted}`}>{row.key}</p>
+                        </div>
+                        <span className={`relative w-12 h-6 rounded-full transition-colors shrink-0 ${enabled ? 'bg-primary' : 'bg-gray-300'}`}>
+                          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow ${enabled ? 'translate-x-7' : 'translate-x-1'}`} />
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <button onClick={saveNotifPrefs} disabled={saving} className="w-full uv-button py-3 font-black text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+                <FiSave size={16} />
+                {saving ? 'Saving...' : 'Save Notification Preferences'}
+              </button>
+            </div>
           )}
 
           {/* ── APPEARANCE TAB ──────────────────────────────────────── */}

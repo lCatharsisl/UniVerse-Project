@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { SocialController } from './social.controller';
 import { authenticateSession } from '../../../../middleware/auth';
-import { upload } from '../../../../middleware/upload';
+import { uploadSocialPost } from '../../../../middleware/upload';
 
 const router = Router();
 
@@ -20,8 +20,11 @@ router.post('/comments', authenticateSession, SocialController.addComment);
 router.get('/comments/:itemType/:itemId', authenticateSession, SocialController.getComments);
 
 // Feed & Posts
-router.post('/posts', authenticateSession, upload.array('images', 1), SocialController.createPost);
+router.post('/posts', authenticateSession, uploadSocialPost.array('images', 1), SocialController.createPost);
+router.get('/feed', authenticateSession, SocialController.getFeed);
+router.get('/discover', authenticateSession, SocialController.getDiscover);
 router.get('/posts', authenticateSession, SocialController.getFeed);
+router.get('/posts/:id', authenticateSession, SocialController.getPost);
 router.delete('/posts/:id', authenticateSession, SocialController.deletePost);
 
 // Interactions

@@ -133,7 +133,7 @@ const RightSidebar: React.FC = () => {
                 <p className="text-sm font-bold text-uv-black">{t('rightSidebar.libraryHub')}</p>
             </div>
 
-            {/* Grade Calculator Widget */}
+            {/* Grade Calculator — sole shortcut in this panel */}
             <div
                 onClick={() => navigate('/grade-calculator')}
                 className="uv-card p-4 hover:border-primary/30 uv-card-hover group cursor-pointer"
@@ -143,18 +143,6 @@ const RightSidebar: React.FC = () => {
                 </div>
                 <p className="text-xs font-black uppercase tracking-widest text-uv-gray mb-1">{t('rightSidebar.tools')}</p>
                 <p className="text-sm font-bold text-uv-black">{t('rightSidebar.gradeCalculator')}</p>
-            </div>
-
-            {/* Grade Calculator Widget */}
-            <div
-                onClick={() => navigate('/grade-calculator')}
-                className="uv-card p-4 hover:border-primary/30 uv-card-hover group cursor-pointer"
-            >
-                <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                    <FiPercent size={20} />
-                </div>
-                <p className="text-xs font-black uppercase tracking-widest text-uv-gray mb-1">Tools</p>
-                <p className="text-sm font-bold text-uv-black">Grade Calculator</p>
             </div>
         </div>
 
@@ -186,21 +174,21 @@ const RightSidebar: React.FC = () => {
                     <p className="font-medium text-uv-black text-xs leading-tight">{formatMenuLine((tDinner ?? todaysMenu?.dinner)!)}</p>
                   </div>
                 )}
-                {todaysMenu.notices && todaysMenu.notices.length > 0 && (
+                {todaysMenu?.notices && todaysMenu.notices.length > 0 && (
                   <div className="pt-1.5 border-t border-uv-border/50 space-y-0.5">
                     {todaysMenu.notices.map((n, i) => (
                       <p key={i} className="text-[10px] font-medium text-uv-gray">{n}</p>
                     ))}
                   </div>
                 )}
-                {todaysMenu.pricing && todaysMenu.pricing.length > 0 && (
+                {todaysMenu?.pricing && todaysMenu.pricing.length > 0 && (
                   <div className="flex flex-wrap gap-x-2 gap-y-0.5">
                     {parsePricingSummary(todaysMenu.pricing).slice(0, 4).map((p, i) => (
                       <span key={i} className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded">{p}</span>
                     ))}
                   </div>
                 )}
-                {todaysMenu.allergenWarning && (
+                {todaysMenu?.allergenWarning && (
                   <p className="text-[9px] text-uv-gray/80 leading-tight line-clamp-2" title={todaysMenu.allergenWarning}>
                     {todaysMenu.allergenWarning.substring(0, 80)}…
                   </p>

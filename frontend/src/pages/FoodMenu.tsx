@@ -16,8 +16,8 @@ import { useTranslatedStrings } from '../hooks/useTranslatedStrings';
 import { formatPeriodLabel } from '../utils/translate';
 
 interface DayMenu {
-  date: string;
-  weekday: string;
+  date?: string;
+  weekday?: string;
   soup?: string;
   main?: string;
   side?: string;
@@ -115,7 +115,8 @@ function MenuCard({
         <div className="grid grid-cols-1 gap-2 sm:gap-3">
           {MENU_ITEM_KEYS.map(
             (key) => {
-              const val = sanitizeDisplay(menu[key]);
+              const raw = menu[key];
+              const val = typeof raw === 'string' ? sanitizeDisplay(raw) : '';
               if (!val) return null;
               return (
                 <div
@@ -177,8 +178,10 @@ const FoodMenu: React.FC = () => {
         const lunchSection = sections.find((s) => s.type === 'lunch');
         const days = lunchSection?.days || [];
         if (days.length > 0) {
-          const dates = days.map((d) => d.date).sort();
-          setDateRange({ min: dates[0], max: dates[dates.length - 1] });
+          const dates = days.map((d) => d.date).filter((x): x is string => Boolean(x)).sort();
+          if (dates.length > 0) {
+            setDateRange({ min: dates[0], max: dates[dates.length - 1] });
+          }
         }
         setData(dateRes.data);
       } catch (e: unknown) {

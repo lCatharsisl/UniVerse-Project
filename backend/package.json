@@ -8,6 +8,10 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "messages:migrate": "node scripts/apply-messaging-migration.js",
+    "notifications:migrate": "cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 node scripts/apply-notifications-migration.js",
     "menu:verify": "tsx scripts/verify-menu-pdf.ts",
     "menu:refresh": "tsx scripts/refresh-cache-from-pdf.ts",
     "calendar:parse": "tsx scripts/parse-academic-calendar.ts"
@@ -47,6 +51,7 @@
     "@types/uuid": "^9.0.7",
     "cross-env": "^10.1.0",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^2.1.9"
   }
 }
