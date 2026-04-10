@@ -12,6 +12,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
 import PostDetailModal from '../components/PostDetailModal';
+import { themedAlert } from '../utils/themedDialog';
 
 // ─── Follow List Modal ────────────────────────────────────────────────────────
 interface FollowUser { user_id: number; email: string; name: string; surname: string; avatar_url?: string; }
@@ -195,7 +196,7 @@ const Profile = () => {
       const typeMap: any = { posts: 'user_posts', likes: 'user_likes', reposts: 'user_reposts' };
       const res = await api.get(`/social/users/${targetUserId}/activities/${typeMap[activeTab]}`);
       setActivities(res.data.items || []);
-    } catch (err) { console.error('Failed to fetch activities'); }
+    } catch { console.error('Failed to fetch activities'); }
   };
 
   const fetchMyItems = async () => {
@@ -207,7 +208,7 @@ const Profile = () => {
       const l = (lostRes.data.items || []).filter((i: any) => i.user_id === targetUserId).map((i: any) => ({ ...i, __type: 'lost' }));
       const f = (foundRes.data.items || []).filter((i: any) => i.user_id === targetUserId).map((i: any) => ({ ...i, __type: 'found' }));
       setItems([...l, ...f]);
-    } catch (err) { console.error('Failed to fetch items'); }
+    } catch { console.error('Failed to fetch items'); }
   };
 
   const handleToggleFollow = async () => {
@@ -217,7 +218,9 @@ const Profile = () => {
       const followed = res.data.action === 'followed';
       setIsFollowing(followed);
       setStats(prev => ({ ...prev, followers: prev.followers + (followed ? 1 : -1) }));
-    } catch (err) { alert('Failed to update follow status'); }
+    } catch {
+      await themedAlert('Failed to update follow status');
+    }
   };
 
   const formatDate = (dateString: string) =>
@@ -231,8 +234,8 @@ const Profile = () => {
       setOpenProfileMenu(false);
       setReportSuccessMessage('Report submitted successfully.');
       setUserReportStatus({ has_reported: true, my_report_type: reportType });
-    } catch (err) {
-      alert('Failed to submit report');
+    } catch {
+      await themedAlert('Failed to submit report');
     }
   };
 
@@ -255,8 +258,8 @@ const Profile = () => {
       setWarningPanel(false);
       setOpenProfileMenu(false);
       fetchProfileData();
-    } catch (err) {
-      alert('Failed to apply warning');
+    } catch {
+      await themedAlert('Failed to apply warning');
     }
   };
 
@@ -272,8 +275,8 @@ const Profile = () => {
       else if (action === 'unban') await api.patch(`/social/users/${targetUserId}/warning`, { action: 'unban' });
       setWarningManageOpen(false);
       fetchProfileData();
-    } catch (err) {
-      alert('Failed to update');
+    } catch {
+      await themedAlert('Failed to update');
     }
   };
 
@@ -283,7 +286,9 @@ const Profile = () => {
       await api.delete(`/social/posts/${postId}`);
       setActivities(activities.filter(p => p.post_id !== postId));
       setOpenMenu(null);
-    } catch (err) { alert('Failed to delete post'); }
+    } catch {
+      await themedAlert('Failed to delete post');
+    }
   };
 
   if (loading) return (
@@ -473,7 +478,9 @@ const Profile = () => {
                                   const res = await api.post(`/auth/block/${targetUserId}`);
                                   if (res.data?.action === 'blocked') navigate('/feed');
                                   setOpenProfileMenu(false);
-                                } catch {}
+                                } catch {
+                                  return;
+                                }
                               }}
                               className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-orange-500 hover:bg-orange-500/10 flex items-center gap-2"
                             >
@@ -684,11 +691,14 @@ const Profile = () => {
                             e.stopPropagation();
                             try {
                               await api.post(`/social/posts/${post.post_id}/like`);
-                              setActivities(prev => prev.map(p => p.post_id === post.post_id
-                                ? { ...p, has_liked: !p.has_liked, likes_count: p.has_liked ? p.likes_count - 1 : p.likes_count + 1 }
-                                : p
-                              ));
-                            } catch {}
+                              setActivities(prev => prev.map(p => {
+                                if (p.post_id !== post.post_id) return p;
+                                const n = Number(p.likes_count) || 0;
+                                return { ...p, has_liked: !p.has_liked, likes_count: p.has_liked ? n - 1 : n + 1 };
+                              }));
+                            } catch {
+                              return;
+                            }
                           }}
                           className={`flex items-center gap-0.5 ${post.has_liked ? 'text-pink-500' : 'hover:text-pink-500 transition-colors'}`}
                         >

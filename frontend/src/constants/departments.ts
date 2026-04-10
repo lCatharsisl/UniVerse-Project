@@ -66,8 +66,5 @@ export const DEPARTMENTS_DATA = {
     { id: 44, name: "Turizm ve Otel İşletmeciliği" },
     { id: 45, name: "Deniz ve Liman İşletmeciliği" },
     { id: 46, name: "Marina ve Yat İşletmeciliği" }
-  ],
-  "Lisansüstü Eğitim Enstitüsü": [
-    { id: 47, name: "Lisansüstü Eğitim Programları (Yüksek Lisans ve Doktora)" }
   ]
 };

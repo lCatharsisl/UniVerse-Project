@@ -1,8 +1,14 @@
 import bcrypt from 'bcryptjs';
+import { PoolClient } from 'pg';
 import { randomBytes } from 'crypto';
 import { query, queryOne, transaction } from '../../../config/db';
 import { AppError } from '../../../shared/core/errors';
 import { Result } from '../../../shared/core/result';
+import {
+  buildCorporateEmailLocalCandidates,
+  extractYasarStaffLocalPart,
+  normalizeStaffRegistrationEmail,
+} from './yasarStaffEmailCandidates';
 
 export class IdentityService {
   private static readonly SALT_ROUNDS = 10;
@@ -10,42 +16,111 @@ export class IdentityService {
 
   static async register(data: any) {
     try {
-      // Email format validation
-      const email = data.email.toLowerCase();
-      
+      const normalizedEmail = normalizeStaffRegistrationEmail(data.email);
+
       if (data.role === 'student' || data.role === 'community') {
-        if (!email.endsWith('@stu.yasar.edu.tr')) {
+        if (!normalizedEmail.endsWith('@stu.yasar.edu.tr')) {
           throw AppError.badRequest('Student/Society accounts must use @stu.yasar.edu.tr email');
         }
-        
+
         if (data.role === 'student') {
-          const emailPrefix = email.split('@')[0];
+          const emailPrefix = normalizedEmail.split('@')[0];
           if (emailPrefix !== data.studentNumber.toString()) {
             throw AppError.badRequest('Email prefix must match student number');
           }
         }
       } else if (data.role === 'staff') {
-        if (!email.endsWith('@yasar.edu.tr') || email.endsWith('@stu.yasar.edu.tr')) {
+        if (!normalizedEmail.endsWith('@yasar.edu.tr') || normalizedEmail.endsWith('@stu.yasar.edu.tr')) {
           throw AppError.badRequest('Academic staff accounts must use @yasar.edu.tr email');
         }
       }
 
       return await transaction(async (client) => {
-        // Check if email already exists
-        const existingUser = await client.query('SELECT user_id FROM users WHERE email = $1', [data.email]);
+        const existingUser = await client.query('SELECT user_id FROM users WHERE email = $1', [normalizedEmail]);
         if (existingUser.rows.length > 0) throw AppError.badRequest('Email already registered');
 
-        // Hash password
         const passwordHash = await bcrypt.hash(data.password, this.SALT_ROUNDS);
 
-        // Create user
+        if (data.role === 'staff') {
+          const localPart = extractYasarStaffLocalPart(normalizedEmail);
+          if (localPart) {
+            const staffRows = await client.query(
+              `SELECT s.user_id, s.staff_name, s.staff_surname, s.department_id
+               FROM staff s
+               INNER JOIN users u ON u.user_id = s.user_id
+               WHERE u.role = 'staff' AND COALESCE(u.is_active, true) = true`
+            );
+
+            type StaffMatch = { user_id: number; department_id: number | null };
+            const matches: StaffMatch[] = [];
+            for (const row of staffRows.rows) {
+              const cands = buildCorporateEmailLocalCandidates(
+                String(row.staff_name ?? ''),
+                String(row.staff_surname ?? '')
+              );
+              if (cands.includes(localPart)) {
+                matches.push({ user_id: row.user_id, department_id: row.department_id });
+              }
+            }
+
+            let claimUserId: number | null = null;
+            if (matches.length === 1) {
+              claimUserId = matches[0].user_id;
+            } else if (matches.length > 1) {
+              const depId = parseInt(String(data.departmentId), 10);
+              const byDep = matches.filter((m) => m.department_id === depId);
+              if (byDep.length === 1) {
+                claimUserId = byDep[0].user_id;
+              } else if (byDep.length > 1) {
+                throw AppError.badRequest(
+                  'Multiple directory profiles match this email and department; contact support to link your account.'
+                );
+              } else {
+                throw AppError.badRequest(
+                  'Multiple directory profiles match this name pattern; choose the department that matches the university directory or contact support.'
+                );
+              }
+            }
+
+            if (claimUserId != null) {
+              const upd = await client.query(
+                `UPDATE users
+                 SET email = $1, password_hash = $2, is_email_verified = false
+                 WHERE user_id = $3 AND role = 'staff' AND COALESCE(is_active, true) = true
+                 RETURNING user_id`,
+                [normalizedEmail, passwordHash, claimUserId]
+              );
+              if (upd.rowCount === 0) {
+                throw AppError.badRequest('Could not link to staff profile; contact support.');
+              }
+
+              await client.query(
+                `UPDATE staff SET staff_name = $1, staff_surname = $2, department_id = $3 WHERE user_id = $4`,
+                [data.staffName, data.staffSurname, data.departmentId, claimUserId]
+              );
+
+              await client.query(`DELETE FROM email_verification_tokens WHERE user_id = $1 AND is_used = false`, [
+                claimUserId,
+              ]);
+
+              const emailToken = randomBytes(32).toString('hex');
+              const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+              await client.query(
+                'INSERT INTO email_verification_tokens (user_id, token, expires_at, is_used) VALUES ($1, $2, $3, false)',
+                [claimUserId, emailToken, expiresAt]
+              );
+
+              return Result.ok({ userId: claimUserId, emailToken });
+            }
+          }
+        }
+
         const userResult = await client.query(
           'INSERT INTO users (email, password_hash, role, is_email_verified, is_active) VALUES ($1, $2, $3, false, true) RETURNING user_id',
-          [data.email, passwordHash, data.role]
+          [normalizedEmail, passwordHash, data.role]
         );
         const userId = userResult.rows[0].user_id;
 
-        // Create role-specific record
         if (data.role === 'student') {
           await client.query(
             'INSERT INTO students (user_id, student_number, student_name, student_surname, department_id) VALUES ($1, $2, $3, $4, $5)',
@@ -62,15 +137,23 @@ export class IdentityService {
             [userId, data.adminName, data.adminSurname]
           );
         } else if (data.role === 'community') {
-          await client.query(
-            'INSERT INTO communities (user_id, community_name, description, contact_email) VALUES ($1, $2, $3, $4)',
-            [userId, data.communityName, data.description, data.email]
+          const comm = await client.query(
+            'INSERT INTO communities (user_id, community_name, description, contact_email) VALUES ($1, $2, $3, $4) RETURNING community_id',
+            [userId, data.communityName, data.description, normalizedEmail]
           );
+          const communityId = comm.rows[0]?.community_id;
+          if (communityId) {
+            await client.query(
+              `INSERT INTO community_members (community_id, member_user_id, role, is_active)
+               VALUES ($1, $2, 'admin', true)
+               ON CONFLICT (community_id, member_user_id) DO UPDATE SET role='admin', is_active=true`,
+              [communityId, userId]
+            );
+          }
         }
 
-        // Generate email verification token
         const emailToken = randomBytes(32).toString('hex');
-        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
         await client.query(
           'INSERT INTO email_verification_tokens (user_id, token, expires_at, is_used) VALUES ($1, $2, $3, false)',
           [userId, emailToken, expiresAt]
@@ -100,12 +183,7 @@ export class IdentityService {
         return Result.fail('Invalid credentials');
       }
 
-      const sessionToken = randomBytes(32).toString('hex');
-      const expiresAt = new Date(Date.now() + this.SESSION_DURATION_MS);
-      await query(
-        'INSERT INTO user_sessions (user_id, session_token, expires_at, user_agent, ip_address, last_active_at) VALUES ($1, $2, $3, $4, $5, NOW())',
-        [user.user_id, sessionToken, expiresAt, userAgent || null, ipAddress || null]
-      );
+      const sessionToken = await this.createSession(query, user.user_id, userAgent, ipAddress);
 
       return Result.ok({
         token: sessionToken,
@@ -121,8 +199,176 @@ export class IdentityService {
     }
   }
 
+  static async loginWithMicrosoft(
+    data: {
+      email: string;
+      microsoftOid: string;
+      microsoftTid: string;
+      inferredRole: 'student' | 'staff' | null;
+      firstName: string;
+      lastName: string;
+      displayName?: string;
+    },
+    userAgent?: string,
+    ipAddress?: string
+  ) {
+    try {
+      return await transaction(async (client) => {
+        const normalizedEmail = data.email.toLowerCase();
+        const linkedUserResult = await client.query(
+          `SELECT * FROM users
+           WHERE microsoft_tid = $1
+             AND microsoft_oid = $2
+           LIMIT 1`,
+          [data.microsoftTid, data.microsoftOid]
+        );
+
+        let user = linkedUserResult.rows[0] || null;
+
+        if (!user) {
+          const existingByEmailResult = await client.query(
+            'SELECT * FROM users WHERE email = $1 LIMIT 1',
+            [normalizedEmail]
+          );
+          const existingByEmail = existingByEmailResult.rows[0] || null;
+
+          if (existingByEmail) {
+            if (!existingByEmail.is_active) {
+              throw AppError.badRequest('Account is deactivated');
+            }
+
+            if (
+              existingByEmail.microsoft_tid &&
+              existingByEmail.microsoft_oid &&
+              (
+                existingByEmail.microsoft_tid !== data.microsoftTid ||
+                existingByEmail.microsoft_oid !== data.microsoftOid
+              )
+            ) {
+              throw AppError.badRequest('This account is already linked to another Microsoft identity');
+            }
+
+            const updatedUserResult = await client.query(
+              `UPDATE users
+               SET microsoft_tid = $1,
+                   microsoft_oid = $2,
+                   is_email_verified = true
+               WHERE user_id = $3
+               RETURNING *`,
+              [data.microsoftTid, data.microsoftOid, existingByEmail.user_id]
+            );
+
+            user = updatedUserResult.rows[0];
+          } else {
+            if (!data.inferredRole) {
+              throw AppError.badRequest('Only Yaşar University Microsoft accounts can sign in');
+            }
+
+            const generatedPassword = randomBytes(48).toString('hex');
+            const passwordHash = await bcrypt.hash(generatedPassword, this.SALT_ROUNDS);
+            const createdUserResult = await client.query(
+              `INSERT INTO users (
+                email,
+                password_hash,
+                role,
+                is_email_verified,
+                is_active,
+                microsoft_tid,
+                microsoft_oid
+              )
+              VALUES ($1, $2, $3, true, true, $4, $5)
+              RETURNING *`,
+              [normalizedEmail, passwordHash, data.inferredRole, data.microsoftTid, data.microsoftOid]
+            );
+
+            user = createdUserResult.rows[0];
+
+            if (data.inferredRole === 'student') {
+              const studentNumber = normalizedEmail.split('@')[0];
+              await client.query(
+                `INSERT INTO students (
+                  user_id,
+                  student_number,
+                  student_name,
+                  student_surname,
+                  department_id
+                )
+                VALUES ($1, $2, $3, $4, $5)`,
+                [
+                  user.user_id,
+                  studentNumber,
+                  data.firstName || studentNumber,
+                  data.lastName || '',
+                  null,
+                ]
+              );
+            } else {
+              await client.query(
+                `INSERT INTO staff (
+                  user_id,
+                  staff_name,
+                  staff_surname,
+                  department_id
+                )
+                VALUES ($1, $2, $3, $4)`,
+                [
+                  user.user_id,
+                  data.firstName || data.displayName || normalizedEmail.split('@')[0],
+                  data.lastName || '',
+                  null,
+                ]
+              );
+            }
+          }
+        }
+
+        if (!user.is_active) {
+          throw AppError.badRequest('Account is deactivated');
+        }
+
+        const sessionToken = await this.createSession(client, user.user_id, userAgent, ipAddress);
+
+        return Result.ok({
+          token: sessionToken,
+          user: {
+            id: user.user_id,
+            email: user.email,
+            role: user.role,
+          },
+        });
+      });
+    } catch (error: any) {
+      console.error('Microsoft Login Error:', error);
+      return Result.fail(error.message || 'Microsoft sign-in failed');
+    }
+  }
+
   static async logout(sessionToken: string): Promise<void> {
     await query('DELETE FROM user_sessions WHERE session_token = $1', [sessionToken]);
+  }
+
+  private static async createSession(
+    executor: Pick<PoolClient, 'query'> | typeof query,
+    userId: number,
+    userAgent?: string,
+    ipAddress?: string
+  ): Promise<string> {
+    const sessionToken = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + this.SESSION_DURATION_MS);
+
+    if (typeof executor === 'function') {
+      await executor(
+        'INSERT INTO user_sessions (user_id, session_token, expires_at, user_agent, ip_address, last_active_at) VALUES ($1, $2, $3, $4, $5, NOW())',
+        [userId, sessionToken, expiresAt, userAgent || null, ipAddress || null]
+      );
+    } else {
+      await executor.query(
+        'INSERT INTO user_sessions (user_id, session_token, expires_at, user_agent, ip_address, last_active_at) VALUES ($1, $2, $3, $4, $5, NOW())',
+        [userId, sessionToken, expiresAt, userAgent || null, ipAddress || null]
+      );
+    }
+
+    return sessionToken;
   }
 
   static async getCurrentUser(userId: number) {

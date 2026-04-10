@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, isAcademic } from '../context/AuthContext';
 import api from '../api/client';
 import { FiAlertTriangle, FiTrash2, FiChevronDown, FiX } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
+import { themedAlert } from '../utils/themedDialog';
 
 interface ReportedPost {
   post_id: number;
@@ -113,8 +114,8 @@ const Reported = () => {
     try {
       await api.delete(`/social/posts/${postId}`);
       setReportedPosts((prev) => prev.filter((p) => p.post_id !== postId));
-    } catch (err) {
-      alert('Failed to delete post');
+    } catch {
+      await themedAlert('Failed to delete post');
     }
   };
 
@@ -125,15 +126,13 @@ const Reported = () => {
       const endpoint = type === 'post' ? `/social/posts/${id}/reporters` : `/social/users/${id}/reporters`;
       const res = await api.get(endpoint);
       setReportersModal((prev) => (prev ? { ...prev, list: res.data || [] } : null));
-    } catch (err) {
+    } catch {
       setReportersModal(null);
     } finally {
       setLoadingReporters(false);
     }
   };
 
-  const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   const formatPostDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase();
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
 import { FiHeart, FiRepeat, FiMessageCircle, FiImage, FiTrash2, FiMoreHorizontal, FiSend, FiNavigation, FiX, FiUser, FiAlertTriangle } from 'react-icons/fi';
@@ -7,6 +8,7 @@ import { isAcademic } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../context/ThemeContext';
+import { themedAlert } from '../utils/themedDialog';
 
 interface Post {
     post_id: number;
@@ -37,6 +39,7 @@ interface Post {
 }
 
 const SocialFeed = () => {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const navigate = useNavigate();
     const [posts, setPosts] = useState<Post[]>([]);
@@ -114,12 +117,12 @@ const SocialFeed = () => {
 
     const handleDeletePost = async (postId: number) => {
         if (!window.confirm('Are you sure you want to delete this transmission?')) return;
-        try {
-            await api.delete(`/social/posts/${postId}`);
-            setPosts(posts.filter(p => p.post_id !== postId));
-            setOpenMenu(null);
-        } catch (err) {
-            alert('Failed to delete post');
+    try {
+        await api.delete(`/social/posts/${postId}`);
+        setPosts(posts.filter(p => p.post_id !== postId));
+        setOpenMenu(null);
+        } catch {
+            await themedAlert(t('socialFeed.deleteFailed'));
         }
     };
 
@@ -149,8 +152,8 @@ const SocialFeed = () => {
             setContent('');
             setSelectedImage(null);
             fetchPosts();
-        } catch (err) {
-            alert('Failed to create post');
+        } catch {
+            await themedAlert(t('socialFeed.createFailed'));
         } finally {
             setSubmitting(false);
         }
@@ -169,7 +172,7 @@ const SocialFeed = () => {
             }
             return post;
         }));
-        try { await api.post(`/social/posts/${postId}/like`); } catch (err) { fetchPosts(); }
+        try { await api.post(`/social/posts/${postId}/like`); } catch { fetchPosts(); }
     };
 
     const toggleRepost = async (postId: number) => {
@@ -188,7 +191,7 @@ const SocialFeed = () => {
         try { 
             await api.post(`/social/posts/${postId}/repost`);
             fetchPosts();
-        } catch (err) { fetchPosts(); }
+        } catch { fetchPosts(); }
     };
 
     const formatDate = (dateString: string) => {
@@ -225,7 +228,7 @@ const SocialFeed = () => {
         try {
             const res = await api.get(`/social/posts/${postId}/comments`);
             setPosts(prev => prev.map(p => p.post_id === postId ? { ...p, comments: res.data, loadingComments: false } : p));
-        } catch (err) {
+        } catch {
             setPosts(prev => prev.map(p => p.post_id === postId ? { ...p, loadingComments: false } : p));
         }
     };
@@ -238,8 +241,8 @@ const SocialFeed = () => {
             setNewComment({ ...newComment, [postId]: '' });
             handleFetchComments(postId);
             setPosts(prev => prev.map(p => p.post_id === postId ? { ...p, comments_count: String(parseInt(p.comments_count) + 1) } : p));
-        } catch (err) {
-            alert('Failed to add comment');
+        } catch {
+            await themedAlert(t('socialFeed.commentFailed'));
         }
     };
 
@@ -291,7 +294,7 @@ const SocialFeed = () => {
         try {
             const res = await api.get(`/social/posts/${postId}/likes`);
             setLikeModal(prev => ({ ...prev, users: res.data }));
-        } catch (err) {
+        } catch {
             console.error('Failed to fetch likes');
         } finally {
             setLoadingLikes(false);

@@ -13,10 +13,16 @@ import {
   FiPlus,
   FiLogOut,
   FiAlertTriangle,
-  FiSettings
+  FiSettings,
+  FiCalendar,
+  FiBriefcase,
+  FiCompass
 } from 'react-icons/fi';
 import { useAuth, isAcademic } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useNotifications } from '../context/NotificationsContext';
+import { useMessagingUnread } from '../context/MessagingUnreadContext';
+import { NavIconBadge } from './NavIconBadge';
 
 interface SidebarProps {
   onPostClick: () => void;
@@ -25,6 +31,8 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
+  const { unreadCount } = useNotifications();
+  const { messagesUnreadCount } = useMessagingUnread();
   const { dimension } = useTheme();
   const isSpace = dimension === 'space';
   const navigate = useNavigate();
@@ -45,10 +53,31 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
   const baseMenuItems = [
     { icon: <FiHome />, label: t('sidebar.hub'), path: '/feed' },
     { icon: <FiBox />, label: t('sidebar.lostFound'), path: '/lost-found' },
-    { icon: <FiSearch />, label: t('sidebar.discover'), path: '/explore' },
-    { icon: <FiBell />, label: t('sidebar.alerts'), path: '/notifications' },
-    { icon: <FiMessageSquare />, label: t('sidebar.chats'), path: '/messages' },
+    { icon: <FiSearch />, label: t('sidebar.discover'), path: '/discover' },
+    { icon: <FiCompass />, label: t('sidebar.communityFair'), path: '/explore' },
+    {
+      icon: (
+        <span className="relative inline-flex items-center justify-center min-w-[1.75rem] overflow-visible py-0.5 pr-1">
+          <FiBell />
+          <NavIconBadge count={unreadCount} tone="alerts" />
+        </span>
+      ),
+      label: t('sidebar.alerts'),
+      path: '/notifications',
+    },
+    {
+      icon: (
+        <span className="relative inline-flex items-center justify-center min-w-[1.75rem] overflow-visible py-0.5 pr-1">
+          <FiMessageSquare />
+          <NavIconBadge count={messagesUnreadCount} tone="messages" />
+        </span>
+      ),
+      label: t('sidebar.chats'),
+      path: '/messages',
+    },
     { icon: <FiMap />, label: t('sidebar.campusMap'), path: '/campus-map' },
+    { icon: <FiCalendar />, label: t('sidebar.appointments'), path: '/appointments' },
+    { icon: <FiBriefcase />, label: t('sidebar.jobBoard'), path: '/job-board' },
     ...(isAcademic(user?.role || '') ? [{ icon: <FiAlertTriangle />, label: t('sidebar.reported'), path: '/reported', red: true }] : []),
     { icon: <FiUser />, label: t('sidebar.mySpace'), path: '/profile' },
     { icon: <FiSettings />, label: t('sidebar.settings'), path: '/settings' },
@@ -72,7 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
       </div>
 
       {/* Nav Menu */}
-      <nav className="flex flex-col gap-1 mb-6 flex-1 overflow-y-auto min-h-0 pr-1">
+      <nav className="flex flex-col gap-1 mb-6 flex-1 overflow-y-auto min-h-0 pr-2 md:pr-3">
         {menuItems.map((item) => (
           <NavLink
             key={item.label}

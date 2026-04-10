@@ -4,6 +4,7 @@ import { LoginHandler } from '../../application/commands/login.handler';
 import { UpdateProfileHandler } from '../../application/commands/update-profile.handler';
 import { authenticateSession, AuthenticatedRequest } from '../../../../middleware/auth';
 import { IdentityService } from '../../infrastructure/identity.service';
+import { MicrosoftAuthService } from '../../infrastructure/microsoftAuth.service';
 
 export class IdentityController {
   static async register(req: Request, res: Response) {
@@ -29,6 +30,35 @@ export class IdentityController {
   }
 
   static auth = authenticateSession;
+
+  static async getProviders(_req: Request, res: Response) {
+    return res.json(MicrosoftAuthService.getProviderStatus());
+  }
+
+  static async beginMicrosoftLogin(req: Request, res: Response) {
+    if (!MicrosoftAuthService.isEnabled()) {
+      return res.status(503).json({ error: 'Microsoft sign-in is not configured' });
+    }
+
+    const returnTo = typeof req.query.returnTo === 'string' ? req.query.returnTo : undefined;
+    const url = await MicrosoftAuthService.getAuthorizationUrl(returnTo);
+    return res.redirect(url);
+  }
+
+  static async handleMicrosoftCallback(req: Request, res: Response) {
+    const userAgent = req.headers['user-agent'] || '';
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+      || req.socket.remoteAddress
+      || '';
+
+    const redirectUrl = await MicrosoftAuthService.handleCallback(
+      req.query as Record<string, unknown>,
+      userAgent,
+      ipAddress
+    );
+
+    return res.redirect(redirectUrl);
+  }
 
   static async getMe(req: AuthenticatedRequest, res: Response) {
     try {

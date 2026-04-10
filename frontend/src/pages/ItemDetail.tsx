@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { FiMapPin, FiClock, FiCheckCircle, FiArrowLeft, FiMoreHorizontal } from 'react-icons/fi';
+import { themedAlert } from '../utils/themedDialog';
 
 interface Comment {
     comment_id: number;
@@ -85,8 +86,8 @@ const ItemDetail = () => {
             const endpoint = type === 'lost' ? `/services/lost-items/${id}` : `/services/found-items/${id}`;
             await api.delete(endpoint);
             navigate('/lost-found');
-        } catch (err) {
-            alert('Failed to delete report');
+        } catch {
+            await themedAlert('Failed to delete report');
         }
     };
 
