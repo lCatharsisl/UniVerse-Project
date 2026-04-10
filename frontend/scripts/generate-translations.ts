@@ -12,7 +12,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LANG_PAIR = 'en|tr';
 const CACHE_FILE = path.join(__dirname, '.translation-cache.json');
 
-type JsonValue = string | Record<string, JsonValue> | JsonValue[];
 type FlatRecord = Record<string, string>;
 
 function flatten(obj: Record<string, unknown>, prefix = ''): FlatRecord {

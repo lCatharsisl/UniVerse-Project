@@ -21,6 +21,16 @@ const envSchema = z.object({
 
   // Security
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
+
+  // Public URLs
+  FRONTEND_URL: z.string().url().optional().default('http://localhost:5173'),
+  BACKEND_PUBLIC_URL: z.string().url().optional(),
+
+  // Microsoft Entra ID
+  MICROSOFT_CLIENT_ID: z.string().optional(),
+  MICROSOFT_CLIENT_SECRET: z.string().optional(),
+  MICROSOFT_TENANT_ID: z.string().optional(),
+  MICROSOFT_REDIRECT_URI: z.string().url().optional(),
 });
 
 type Env = z.infer<typeof envSchema>;
@@ -41,5 +51,4 @@ try {
 }
 
 export default env;
-
 

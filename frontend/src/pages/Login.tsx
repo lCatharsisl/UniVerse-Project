@@ -6,6 +6,12 @@ import api from '../api/client';
 import { useNavigate, Link } from 'react-router-dom';
 import { FiEye, FiEyeOff, FiNavigation, FiGlobe, FiCloud } from 'react-icons/fi';
 
+type AuthProvidersResponse = {
+    microsoft?: {
+        enabled?: boolean;
+    };
+};
+
 const Login = () => {
     const { t } = useTranslation();
     const [email, setEmail] = useState('');
@@ -13,6 +19,8 @@ const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [microsoftEnabled, setMicrosoftEnabled] = useState(false);
+    const [microsoftLoading, setMicrosoftLoading] = useState(true);
     const { login } = useAuth();
     const navigate = useNavigate();
     const { dimension, toggleDimension } = useTheme();
@@ -57,6 +65,56 @@ const Login = () => {
         return () => clearTimeout(timer);
     }, [displayText, isDeleting, currentSloganIndex]);
 
+    useEffect(() => {
+        api.get<AuthProvidersResponse>('/auth/providers')
+            .then((res) => setMicrosoftEnabled(Boolean(res.data?.microsoft?.enabled)))
+            .catch(() => setMicrosoftEnabled(false))
+            .finally(() => setMicrosoftLoading(false));
+    }, []);
+
+    useEffect(() => {
+        const hash = window.location.hash.startsWith('#')
+            ? window.location.hash.slice(1)
+            : window.location.hash;
+
+        if (!hash) {
+            return;
+        }
+
+        const params = new URLSearchParams(hash);
+        const sessionToken = params.get('sessionToken');
+        const authError = params.get('authError');
+        const returnTo = params.get('returnTo') || '/feed';
+
+        if (!sessionToken && !authError) {
+            return;
+        }
+
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+
+        if (authError) {
+            setError(authError);
+            return;
+        }
+
+        if (!sessionToken) {
+            return;
+        }
+
+        setLoading(true);
+        localStorage.setItem('sessionToken', sessionToken);
+        api.get('/auth/me')
+            .then((meRes) => {
+                login(sessionToken, meRes.data);
+                navigate(returnTo, { replace: true });
+            })
+            .catch((err: any) => {
+                localStorage.removeItem('sessionToken');
+                setError(err.response?.data?.error || t('login.error'));
+            })
+            .finally(() => setLoading(false));
+    }, [login, navigate, t]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -74,6 +132,10 @@ const Login = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleMicrosoftLogin = () => {
+        window.location.href = '/api/auth/microsoft/start?returnTo=%2Ffeed';
     };
 
     return (
@@ -267,6 +329,21 @@ const Login = () => {
                                 {loading ? t('login.syncing') : <><FiNavigation className="rotate-45" /> {t('login.initializeLink')}</>}
                             </span>
                         </button>
+
+                        <button
+                            type="button"
+                            disabled={loading || microsoftLoading || !microsoftEnabled}
+                            onClick={handleMicrosoftLogin}
+                            className={`w-full font-black py-3 md:py-3.5 rounded-tl-3xl rounded-br-3xl transition-all flex items-center justify-center gap-2 border ${
+                                isSpace
+                                    ? 'bg-[#111827]/80 text-white border-white/10 hover:border-white/30 hover:bg-white/10'
+                                    : 'bg-white/70 text-uv-black border-uv-border hover:border-primary/40 hover:bg-white'
+                            } disabled:opacity-50`}
+                        >
+                            <span className="text-[10px] md:text-[12px] uppercase tracking-widest">
+                                {microsoftLoading ? t('common.loading') : t('login.signInWithMicrosoft')}
+                            </span>
+                        </button>
                     </form>
 
                     <div className={`mt-4 pt-3 md:mt-6 md:pt-6 border-t flex flex-col gap-2 md:gap-3 ${isSpace ? 'border-white/10' : 'border-gray-100'}`}>
@@ -283,4 +360,3 @@ const Login = () => {
 };
 
 export default Login;
-

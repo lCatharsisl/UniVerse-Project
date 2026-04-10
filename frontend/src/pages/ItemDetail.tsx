@@ -86,7 +86,7 @@ const ItemDetail = () => {
             const endpoint = type === 'lost' ? `/services/lost-items/${id}` : `/services/found-items/${id}`;
             await api.delete(endpoint);
             navigate('/lost-found');
-        } catch (err) {
+        } catch {
             await themedAlert('Failed to delete report');
         }
     };

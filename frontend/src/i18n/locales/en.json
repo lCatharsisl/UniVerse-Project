@@ -63,9 +63,67 @@
     "securityKey": "Security Key",
     "initializeLink": "INITIALIZE LINK",
     "syncing": "SYNCING...",
+    "signInWithMicrosoft": "SIGN IN WITH YAŞAR MAIL",
     "newToSystem": "New to the system?",
     "generateAccount": "GENERATE ACCOUNT",
     "error": "Authentication failure. Check your node."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "See who did what without opening the feed.",
+    "personalTitle": "Personal",
+    "academicTitle": "Academic",
+    "communityTitle": "Community",
+    "loading": "Loading notifications...",
+    "empty": "No notifications yet",
+    "emptyHint": "Alerts, messages and updates will appear here.",
+    "loadedOfTotal": "{{loaded}} of {{total}} loaded",
+    "markTabRead": "Mark tab read",
+    "markAllRead": "Mark all read",
+    "deleteRead": "Delete read",
+    "deleteAllInTab": "Delete all",
+    "deleteAllInTabConfirm": "Delete all notifications in this tab?",
+    "markRead": "Mark read",
+    "view": "Open",
+    "loadMore": "Load more",
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago",
+    "sources": {
+      "messaging": "Message",
+      "community": "Community",
+      "academic": "Academic",
+      "social": "Social",
+      "system": "System",
+      "default": "Notification"
+    },
+    "summary": {
+      "default": "New notification",
+      "messaging": {
+        "message": "{{actor}} sent you a message",
+        "default": "New message"
+      },
+      "social": {
+        "like": "{{actor}} liked your post",
+        "likeAnonymous": "Someone liked your post",
+        "comment": "{{actor}} commented on your post",
+        "commentAnonymous": "Someone commented on your post",
+        "follow": "{{actor}} started following you",
+        "followAnonymous": "Someone started following you",
+        "repost": "{{actor}} reposted your post",
+        "repostAnonymous": "Someone reposted your post"
+      },
+      "community": {
+        "default": "Community update"
+      },
+      "academic": {
+        "default": "Academic update"
+      },
+      "system": {
+        "default": "System notification"
+      }
+    }
   },
   "register": {
     "title": "New Node.",

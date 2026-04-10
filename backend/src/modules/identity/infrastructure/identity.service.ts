@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { PoolClient } from 'pg';
 import { randomBytes } from 'crypto';
 import { query, queryOne, transaction } from '../../../config/db';
 import { AppError } from '../../../shared/core/errors';
@@ -182,12 +183,7 @@ export class IdentityService {
         return Result.fail('Invalid credentials');
       }
 
-      const sessionToken = randomBytes(32).toString('hex');
-      const expiresAt = new Date(Date.now() + this.SESSION_DURATION_MS);
-      await query(
-        'INSERT INTO user_sessions (user_id, session_token, expires_at, user_agent, ip_address, last_active_at) VALUES ($1, $2, $3, $4, $5, NOW())',
-        [user.user_id, sessionToken, expiresAt, userAgent || null, ipAddress || null]
-      );
+      const sessionToken = await this.createSession(query, user.user_id, userAgent, ipAddress);
 
       return Result.ok({
         token: sessionToken,
@@ -203,8 +199,176 @@ export class IdentityService {
     }
   }
 
+  static async loginWithMicrosoft(
+    data: {
+      email: string;
+      microsoftOid: string;
+      microsoftTid: string;
+      inferredRole: 'student' | 'staff' | null;
+      firstName: string;
+      lastName: string;
+      displayName?: string;
+    },
+    userAgent?: string,
+    ipAddress?: string
+  ) {
+    try {
+      return await transaction(async (client) => {
+        const normalizedEmail = data.email.toLowerCase();
+        const linkedUserResult = await client.query(
+          `SELECT * FROM users
+           WHERE microsoft_tid = $1
+             AND microsoft_oid = $2
+           LIMIT 1`,
+          [data.microsoftTid, data.microsoftOid]
+        );
+
+        let user = linkedUserResult.rows[0] || null;
+
+        if (!user) {
+          const existingByEmailResult = await client.query(
+            'SELECT * FROM users WHERE email = $1 LIMIT 1',
+            [normalizedEmail]
+          );
+          const existingByEmail = existingByEmailResult.rows[0] || null;
+
+          if (existingByEmail) {
+            if (!existingByEmail.is_active) {
+              throw AppError.badRequest('Account is deactivated');
+            }
+
+            if (
+              existingByEmail.microsoft_tid &&
+              existingByEmail.microsoft_oid &&
+              (
+                existingByEmail.microsoft_tid !== data.microsoftTid ||
+                existingByEmail.microsoft_oid !== data.microsoftOid
+              )
+            ) {
+              throw AppError.badRequest('This account is already linked to another Microsoft identity');
+            }
+
+            const updatedUserResult = await client.query(
+              `UPDATE users
+               SET microsoft_tid = $1,
+                   microsoft_oid = $2,
+                   is_email_verified = true
+               WHERE user_id = $3
+               RETURNING *`,
+              [data.microsoftTid, data.microsoftOid, existingByEmail.user_id]
+            );
+
+            user = updatedUserResult.rows[0];
+          } else {
+            if (!data.inferredRole) {
+              throw AppError.badRequest('Only Yaşar University Microsoft accounts can sign in');
+            }
+
+            const generatedPassword = randomBytes(48).toString('hex');
+            const passwordHash = await bcrypt.hash(generatedPassword, this.SALT_ROUNDS);
+            const createdUserResult = await client.query(
+              `INSERT INTO users (
+                email,
+                password_hash,
+                role,
+                is_email_verified,
+                is_active,
+                microsoft_tid,
+                microsoft_oid
+              )
+              VALUES ($1, $2, $3, true, true, $4, $5)
+              RETURNING *`,
+              [normalizedEmail, passwordHash, data.inferredRole, data.microsoftTid, data.microsoftOid]
+            );
+
+            user = createdUserResult.rows[0];
+
+            if (data.inferredRole === 'student') {
+              const studentNumber = normalizedEmail.split('@')[0];
+              await client.query(
+                `INSERT INTO students (
+                  user_id,
+                  student_number,
+                  student_name,
+                  student_surname,
+                  department_id
+                )
+                VALUES ($1, $2, $3, $4, $5)`,
+                [
+                  user.user_id,
+                  studentNumber,
+                  data.firstName || studentNumber,
+                  data.lastName || '',
+                  null,
+                ]
+              );
+            } else {
+              await client.query(
+                `INSERT INTO staff (
+                  user_id,
+                  staff_name,
+                  staff_surname,
+                  department_id
+                )
+                VALUES ($1, $2, $3, $4)`,
+                [
+                  user.user_id,
+                  data.firstName || data.displayName || normalizedEmail.split('@')[0],
+                  data.lastName || '',
+                  null,
+                ]
+              );
+            }
+          }
+        }
+
+        if (!user.is_active) {
+          throw AppError.badRequest('Account is deactivated');
+        }
+
+        const sessionToken = await this.createSession(client, user.user_id, userAgent, ipAddress);
+
+        return Result.ok({
+          token: sessionToken,
+          user: {
+            id: user.user_id,
+            email: user.email,
+            role: user.role,
+          },
+        });
+      });
+    } catch (error: any) {
+      console.error('Microsoft Login Error:', error);
+      return Result.fail(error.message || 'Microsoft sign-in failed');
+    }
+  }
+
   static async logout(sessionToken: string): Promise<void> {
     await query('DELETE FROM user_sessions WHERE session_token = $1', [sessionToken]);
+  }
+
+  private static async createSession(
+    executor: Pick<PoolClient, 'query'> | typeof query,
+    userId: number,
+    userAgent?: string,
+    ipAddress?: string
+  ): Promise<string> {
+    const sessionToken = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + this.SESSION_DURATION_MS);
+
+    if (typeof executor === 'function') {
+      await executor(
+        'INSERT INTO user_sessions (user_id, session_token, expires_at, user_agent, ip_address, last_active_at) VALUES ($1, $2, $3, $4, $5, NOW())',
+        [userId, sessionToken, expiresAt, userAgent || null, ipAddress || null]
+      );
+    } else {
+      await executor.query(
+        'INSERT INTO user_sessions (user_id, session_token, expires_at, user_agent, ip_address, last_active_at) VALUES ($1, $2, $3, $4, $5, NOW())',
+        [userId, sessionToken, expiresAt, userAgent || null, ipAddress || null]
+      );
+    }
+
+    return sessionToken;
   }
 
   static async getCurrentUser(userId: number) {

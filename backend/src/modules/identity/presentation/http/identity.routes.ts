@@ -6,8 +6,11 @@ import { authenticateSession } from '../../../../middleware/auth';
 const router = Router();
 
 // ─── Public Routes ────────────────────────────────────────────────────────────
+router.get('/providers', IdentityController.getProviders);
 router.post('/register', IdentityController.register);
 router.post('/login', IdentityController.login);
+router.get('/microsoft/start', IdentityController.beginMicrosoftLogin);
+router.get('/microsoft/callback', IdentityController.handleMicrosoftCallback);
 router.post('/logout', authenticateSession, IdentityController.logout);
 
 // ─── Current User ─────────────────────────────────────────────────────────────

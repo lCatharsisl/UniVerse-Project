@@ -221,7 +221,7 @@ const Profile = () => {
       const typeMap: any = { posts: 'user_posts', likes: 'user_likes', reposts: 'user_reposts' };
       const res = await api.get(`/social/users/${targetUserId}/activities/${typeMap[activeTab]}`);
       setActivities(res.data.items || []);
-    } catch (err) { console.error('Failed to fetch activities'); }
+    } catch { console.error('Failed to fetch activities'); }
   };
 
   const fetchMyItems = async () => {
@@ -233,7 +233,7 @@ const Profile = () => {
       const l = (lostRes.data.items || []).filter((i: any) => i.user_id === targetUserId).map((i: any) => ({ ...i, __type: 'lost' }));
       const f = (foundRes.data.items || []).filter((i: any) => i.user_id === targetUserId).map((i: any) => ({ ...i, __type: 'found' }));
       setItems([...l, ...f]);
-    } catch (err) { console.error('Failed to fetch items'); }
+    } catch { console.error('Failed to fetch items'); }
   };
 
   const handleToggleFollow = async () => {
@@ -243,7 +243,7 @@ const Profile = () => {
       const followed = res.data.action === 'followed';
       setIsFollowing(followed);
       setStats(prev => ({ ...prev, followers: prev.followers + (followed ? 1 : -1) }));
-    } catch (err) {
+    } catch {
       await themedAlert('Failed to update follow status');
     }
   };
@@ -259,7 +259,7 @@ const Profile = () => {
       setOpenProfileMenu(false);
       setReportSuccessMessage('Report submitted successfully.');
       setUserReportStatus({ has_reported: true, my_report_type: reportType });
-    } catch (err) {
+    } catch {
       await themedAlert('Failed to submit report');
     }
   };
@@ -283,7 +283,7 @@ const Profile = () => {
       setWarningPanel(false);
       setOpenProfileMenu(false);
       fetchProfileData();
-    } catch (err) {
+    } catch {
       await themedAlert('Failed to apply warning');
     }
   };
@@ -300,7 +300,7 @@ const Profile = () => {
       else if (action === 'unban') await api.patch(`/social/users/${targetUserId}/warning`, { action: 'unban' });
       setWarningManageOpen(false);
       fetchProfileData();
-    } catch (err) {
+    } catch {
       await themedAlert('Failed to update');
     }
   };
@@ -311,7 +311,7 @@ const Profile = () => {
       await api.delete(`/social/posts/${postId}`);
       setActivities(activities.filter(p => p.post_id !== postId));
       setOpenMenu(null);
-    } catch (err) {
+    } catch {
       await themedAlert('Failed to delete post');
     }
   };
@@ -538,7 +538,9 @@ const Profile = () => {
                                   const res = await api.post(`/auth/block/${targetUserId}`);
                                   if (res.data?.action === 'blocked') navigate('/feed');
                                   setOpenProfileMenu(false);
-                                } catch {}
+                                } catch {
+                                  return;
+                                }
                               }}
                               className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-orange-500 hover:bg-orange-500/10 flex items-center gap-2"
                             >
@@ -825,7 +827,9 @@ const Profile = () => {
                                 const n = Number(p.likes_count) || 0;
                                 return { ...p, has_liked: !p.has_liked, likes_count: p.has_liked ? n - 1 : n + 1 };
                               }));
-                            } catch {}
+                            } catch {
+                              return;
+                            }
                           }}
                           className={`flex items-center gap-0.5 ${post.has_liked ? 'text-pink-500' : 'hover:text-pink-500 transition-colors'}`}
                         >

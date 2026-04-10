@@ -62,9 +62,67 @@
     "securityKey": "Güvenlik Anahtarı",
     "initializeLink": "BAĞLANTIYI BAŞLAT",
     "syncing": "Senkronize ediliyor...",
+    "signInWithMicrosoft": "YAŞAR MAİL İLE GİRİŞ YAP",
     "newToSystem": "Sistemde yeni misiniz?",
     "generateAccount": "HESAP OLUŞTUR",
     "error": "Kimlik doğrulama hatası. Düğümünü kontrol et."
+  },
+  "notifications": {
+    "title": "Bildirimler",
+    "subtitle": "Kim ne yaptı, tek bakışta görün.",
+    "personalTitle": "Kişisel",
+    "academicTitle": "Akademik",
+    "communityTitle": "Topluluk",
+    "loading": "Bildirimler yükleniyor...",
+    "empty": "Henüz bildirim yok",
+    "emptyHint": "Uyarılar, mesajlar ve güncellemeler burada görünecek.",
+    "loadedOfTotal": "{{loaded}} / {{total}} yüklendi",
+    "markTabRead": "Sekmeyi okundu işaretle",
+    "markAllRead": "Tümünü okundu işaretle",
+    "deleteRead": "Okunanları sil",
+    "deleteAllInTab": "Hepsini sil",
+    "deleteAllInTabConfirm": "Bu sekmedeki tüm bildirimler silinsin mi?",
+    "markRead": "Okundu işaretle",
+    "view": "Aç",
+    "loadMore": "Daha fazla yükle",
+    "justNow": "Az önce",
+    "minutesAgo": "{{count}} dk önce",
+    "hoursAgo": "{{count}} sa önce",
+    "daysAgo": "{{count}} gün önce",
+    "sources": {
+      "messaging": "Mesaj",
+      "community": "Topluluk",
+      "academic": "Akademik",
+      "social": "Sosyal",
+      "system": "Sistem",
+      "default": "Bildirim"
+    },
+    "summary": {
+      "default": "Yeni bildirim",
+      "messaging": {
+        "message": "{{actor}} sana mesaj gönderdi",
+        "default": "Yeni mesaj"
+      },
+      "social": {
+        "like": "{{actor}} gönderini beğendi",
+        "likeAnonymous": "Birisi gönderini beğendi",
+        "comment": "{{actor}} gönderine yorum yaptı",
+        "commentAnonymous": "Birisi gönderine yorum yaptı",
+        "follow": "{{actor}} seni takip etmeye başladı",
+        "followAnonymous": "Birisi seni takip etmeye başladı",
+        "repost": "{{actor}} gönderini yeniden paylaştı",
+        "repostAnonymous": "Birisi gönderini yeniden paylaştı"
+      },
+      "community": {
+        "default": "Topluluk güncellemesi"
+      },
+      "academic": {
+        "default": "Akademik güncelleme"
+      },
+      "system": {
+        "default": "Sistem bildirimi"
+      }
+    }
   },
   "register": {
     "title": "Yeni Düğüm.",

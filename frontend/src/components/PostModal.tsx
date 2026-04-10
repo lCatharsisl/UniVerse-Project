@@ -62,10 +62,9 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
       await api.post('/social/posts', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-
       onClose();
       window.location.reload();
-    } catch (error) {
+    } catch {
       await themedAlert(t('postModal.transmissionFailed'));
     } finally {
       setSubmitting(false);
