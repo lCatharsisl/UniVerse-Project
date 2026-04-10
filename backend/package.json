@@ -7,6 +7,7 @@
     "dev": "cross-env NODE_TLS_REJECT_UNAUTHORIZED=0 tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "lint": "tsc --noEmit",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
