@@ -79,18 +79,22 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
         {/* Content Column */}
         <main className={`${isMap ? 'flex-1 min-w-0' : 'flex-shrink-0 w-full max-w-[650px]'} transition-all duration-500 ease-in-out border-x ${isSpace ? 'border-white/5 bg-[#0a0a1a]/40' : 'border-gray-100 bg-white/80'} backdrop-blur-[4px] min-h-screen relative shadow-[0_0_50px_rgba(0,0,0,0.02)]`}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.02 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className={isMap ? 'h-full flex flex-col' : ''}
-            >
-              {children}
-            </motion.div>
-          </AnimatePresence>
+          {location.pathname === '/messages' ? (
+            <div className={`min-h-0 h-full ${isMap ? 'h-full flex flex-col' : ''}`}>{children}</div>
+          ) : (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.02 }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+                className={isMap ? 'h-full flex flex-col' : ''}
+              >
+                {children}
+              </motion.div>
+            </AnimatePresence>
+          )}
         </main>
 
         {/* Placeholder to balance flex layout */}
@@ -102,17 +106,21 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <main
           className={`w-full min-h-screen ${isSpace ? 'bg-[#0a0a1a]/40' : 'bg-white/80'} pb-20`}
         >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-            >
-              {children}
-            </motion.div>
-          </AnimatePresence>
+          {location.pathname === '/messages' ? (
+            <div className="w-full">{children}</div>
+          ) : (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+              >
+                {children}
+              </motion.div>
+            </AnimatePresence>
+          )}
         </main>
       </div>
 
@@ -141,12 +149,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         )}
       </AnimatePresence>
 
-      {/* Global Post Interface */}
-      <AnimatePresence>
-        {isPostModalOpen && (
-          <PostModal onClose={() => setIsPostModalOpen(false)} />
-        )}
-      </AnimatePresence>
+      {/* Global Post Interface — portaled to document.body inside PostModal */}
+      {isPostModalOpen && <PostModal onClose={() => setIsPostModalOpen(false)} />}
     </div>
   );
 };

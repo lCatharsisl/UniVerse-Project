@@ -30,6 +30,12 @@ interface TodaysMenu {
   sourceUrl?: string;
 }
 
+interface RecentItem {
+  lost_item_id: number;
+  lost_item_name: string;
+  location: string;
+}
+
 function formatMenuLine(menu: DayMenu): string {
   const parts = [menu.soup, menu.main, menu.side, menu.salad, menu.dessert, menu.fruit].filter(Boolean);
   return parts.slice(0, 3).join(' · ');
@@ -52,8 +58,19 @@ function parsePricingSummary(pricing: string[]): string[] {
 const RightSidebar: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [recentItem, setRecentItem] = useState<any>(null);
+  const [recentItem, setRecentItem] = useState<RecentItem | null>(null);
   const [todaysMenu, setTodaysMenu] = useState<TodaysMenu | null>(null);
+
+  const fetchRecentItem = async () => {
+    try {
+      const res = await api.get<{ items?: RecentItem[] }>('/services/lost-items', { params: { limit: 1 } });
+      if (res.data.items && res.data.items.length > 0) {
+        setRecentItem(res.data.items[0]);
+      }
+    } catch {
+      console.error('Failed to fetch recent item');
+    }
+  };
 
   useEffect(() => {
     fetchRecentItem();
@@ -67,17 +84,11 @@ const RightSidebar: React.FC = () => {
     todaysMenu?.lunch,
     todaysMenu?.dinner
   );
-
-  const fetchRecentItem = async () => {
-    try {
-      const res = await api.get('/services/lost-items', { params: { limit: 1 } });
-      if (res.data.items && res.data.items.length > 0) {
-        setRecentItem(res.data.items[0]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch recent item');
-    }
-  };
+  const displayLunch = tLunch ?? todaysMenu?.lunch;
+  const displayDinner = tDinner ?? todaysMenu?.dinner;
+  const menuNotices = todaysMenu?.notices ?? [];
+  const menuPricing = todaysMenu?.pricing ?? [];
+  const allergenWarning = todaysMenu?.allergenWarning;
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 overflow-y-auto flex-1 min-h-0">
@@ -133,7 +144,7 @@ const RightSidebar: React.FC = () => {
                 <p className="text-sm font-bold text-uv-black">{t('rightSidebar.libraryHub')}</p>
             </div>
 
-            {/* Grade Calculator Widget */}
+            {/* Grade Calculator — sole shortcut in this panel */}
             <div
                 onClick={() => navigate('/grade-calculator')}
                 className="uv-card p-4 hover:border-primary/30 uv-card-hover group cursor-pointer"
@@ -143,18 +154,6 @@ const RightSidebar: React.FC = () => {
                 </div>
                 <p className="text-xs font-black uppercase tracking-widest text-uv-gray mb-1">{t('rightSidebar.tools')}</p>
                 <p className="text-sm font-bold text-uv-black">{t('rightSidebar.gradeCalculator')}</p>
-            </div>
-
-            {/* Grade Calculator Widget */}
-            <div
-                onClick={() => navigate('/grade-calculator')}
-                className="uv-card p-4 hover:border-primary/30 uv-card-hover group cursor-pointer"
-            >
-                <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                    <FiPercent size={20} />
-                </div>
-                <p className="text-xs font-black uppercase tracking-widest text-uv-gray mb-1">Tools</p>
-                <p className="text-sm font-bold text-uv-black">Grade Calculator</p>
             </div>
         </div>
 
@@ -174,35 +173,35 @@ const RightSidebar: React.FC = () => {
                   )}
                 </div>
             </div>
-            {(tLunch ?? todaysMenu?.lunch) ? (
+            {displayLunch ? (
               <div className="space-y-2.5">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-uv-gray mb-0.5">{t('foodMenu.lunch')}</p>
-                  <p className="font-bold text-uv-black text-sm leading-tight">{formatMenuLine((tLunch ?? todaysMenu?.lunch)!)}</p>
+                  <p className="font-bold text-uv-black text-sm leading-tight">{formatMenuLine(displayLunch)}</p>
                 </div>
-                {(tDinner ?? todaysMenu?.dinner) && (
+                {displayDinner && (
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-uv-gray mb-0.5">{t('foodMenu.dinner')}</p>
-                    <p className="font-medium text-uv-black text-xs leading-tight">{formatMenuLine((tDinner ?? todaysMenu?.dinner)!)}</p>
+                    <p className="font-medium text-uv-black text-xs leading-tight">{formatMenuLine(displayDinner)}</p>
                   </div>
                 )}
-                {todaysMenu.notices && todaysMenu.notices.length > 0 && (
+                {menuNotices.length > 0 && (
                   <div className="pt-1.5 border-t border-uv-border/50 space-y-0.5">
-                    {todaysMenu.notices.map((n, i) => (
+                    {menuNotices.map((n, i) => (
                       <p key={i} className="text-[10px] font-medium text-uv-gray">{n}</p>
                     ))}
                   </div>
                 )}
-                {todaysMenu.pricing && todaysMenu.pricing.length > 0 && (
+                {menuPricing.length > 0 && (
                   <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-                    {parsePricingSummary(todaysMenu.pricing).slice(0, 4).map((p, i) => (
+                    {parsePricingSummary(menuPricing).slice(0, 4).map((p, i) => (
                       <span key={i} className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded">{p}</span>
                     ))}
                   </div>
                 )}
-                {todaysMenu.allergenWarning && (
-                  <p className="text-[9px] text-uv-gray/80 leading-tight line-clamp-2" title={todaysMenu.allergenWarning}>
-                    {todaysMenu.allergenWarning.substring(0, 80)}…
+                {allergenWarning && (
+                  <p className="text-[9px] text-uv-gray/80 leading-tight line-clamp-2" title={allergenWarning}>
+                    {allergenWarning.substring(0, 80)}…
                   </p>
                 )}
                 <p className="text-[9px] text-uv-gray/60">{t('foodMenu.clickForDetails')}</p>

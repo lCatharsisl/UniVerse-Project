@@ -20,13 +20,23 @@ const storage = multer.diskStorage({
     },
 });
 
-const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+const imageMimeTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
 
-    if (allowedTypes.includes(file.mimetype)) {
+const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+    if (imageMimeTypes.includes(file.mimetype)) {
         cb(null, true);
     } else {
         cb(new AppError('Only image files are allowed!', 400));
+    }
+};
+
+/** Social posts: images + MP4 (larger limit for short clips). */
+const socialPostFileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+    const allowed = [...imageMimeTypes, 'video/mp4'];
+    if (allowed.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new AppError('Only images (JPEG, PNG, WebP) or MP4 video are allowed.', 400));
     }
 };
 
@@ -35,5 +45,13 @@ export const upload = multer({
     fileFilter: fileFilter,
     limits: {
         fileSize: 5 * 1024 * 1024, // 5MB limit
+    }
+});
+
+export const uploadSocialPost = multer({
+    storage: storage,
+    fileFilter: socialPostFileFilter,
+    limits: {
+        fileSize: 80 * 1024 * 1024, // 80MB for MP4
     }
 });

@@ -1,6 +1,7 @@
 import { query, queryOne, transaction } from '../../../config/db';
 import { AppError } from '../../../shared/core/errors';
 import { IdentityService } from '../../identity/infrastructure/identity.service';
+import { NotificationEmitterService } from '../../notifications/infrastructure/notificationEmitter.service';
 
 type ConversationMember = {
   userId: number;
@@ -58,20 +59,61 @@ export class MessagingService {
 
     if (!isGroup) {
       const targetId = cleanIds[0];
-      const existing = await queryOne<{ conversation_id: number }>(
-        `
-        SELECT cp1.conversation_id
-        FROM conversation_participants cp1
-        JOIN conversation_participants cp2 ON cp1.conversation_id = cp2.conversation_id
-        JOIN conversations c ON c.conversation_id = cp1.conversation_id
-        WHERE c.is_group = false
-          AND cp1.user_id = $1 AND cp1.is_active = true
-          AND cp2.user_id = $2 AND cp2.is_active = true
-        LIMIT 1
-        `,
-        [currentUserId, targetId]
-      );
-      if (existing) return this.getConversationById(existing.conversation_id, currentUserId);
+      const dmConversationId = await transaction(async (client) => {
+        await client.query(
+          `SELECT pg_advisory_xact_lock(LEAST($1::int, $2::int), GREATEST($1::int, $2::int))`,
+          [currentUserId, targetId]
+        );
+
+        const existingRes = await client.query<{ conversation_id: number }>(
+          `
+          SELECT cp1.conversation_id
+          FROM conversation_participants cp1
+          JOIN conversation_participants cp2 ON cp1.conversation_id = cp2.conversation_id
+          JOIN conversations c ON c.conversation_id = cp1.conversation_id
+          WHERE c.is_group = false
+            AND cp1.user_id = $1 AND cp1.is_active = true
+            AND cp2.user_id = $2 AND cp2.is_active = true
+          ORDER BY c.conversation_id ASC
+          LIMIT 1
+          `,
+          [currentUserId, targetId]
+        );
+
+        if (existingRes.rows[0]) {
+          return existingRes.rows[0].conversation_id as number;
+        }
+
+        const conversation = await client.query(
+          `
+          INSERT INTO conversations (is_group, title, created_by_user_id)
+          VALUES ($1, $2, $3)
+          RETURNING conversation_id
+          `,
+          [false, title || null, currentUserId]
+        );
+        const conversationId = conversation.rows[0].conversation_id as number;
+
+        const members: ConversationMember[] = [
+          { userId: currentUserId, role: 'owner' },
+          { userId: targetId, role: 'member' },
+        ];
+        for (const member of members) {
+          await client.query(
+            `
+            INSERT INTO conversation_participants (conversation_id, user_id, role, is_active)
+            VALUES ($1, $2, $3, true)
+            ON CONFLICT (conversation_id, user_id)
+            DO UPDATE SET is_active = true, left_at = NULL
+            `,
+            [conversationId, member.userId, member.role || 'member']
+          );
+        }
+
+        return conversationId;
+      });
+
+      return this.getConversationById(dmConversationId, currentUserId);
     }
 
     const createdConversationId = await transaction(async (client) => {
@@ -161,10 +203,29 @@ export class MessagingService {
         )
       : [];
 
-    return rows.map((row) => ({
+    const enriched = rows.map((row) => ({
       ...row,
       members: members.filter((m) => m.conversation_id === row.conversation_id),
     }));
+
+    const deduped: typeof enriched = [];
+    const dmPeerSeen = new Set<number>();
+    for (const c of enriched) {
+      if (c.is_group) {
+        deduped.push(c);
+        continue;
+      }
+      const otherUserId = c.members.find((m: { user_id: number }) => m.user_id !== userId)?.user_id;
+      if (otherUserId == null) {
+        deduped.push(c);
+        continue;
+      }
+      if (dmPeerSeen.has(otherUserId)) continue;
+      dmPeerSeen.add(otherUserId);
+      deduped.push(c);
+    }
+
+    return deduped;
   }
 
   static async getConversationMessages(conversationId: number, userId: number, limit = 50, offset = 0) {
@@ -273,7 +334,32 @@ export class MessagingService {
       return messageId;
     });
 
-    return this.getMessageById(createdMessageId, participant.user_id);
+    const recipients = await query<{ user_id: number }>(
+      `
+      SELECT user_id
+      FROM conversation_participants
+      WHERE conversation_id = $1 AND is_active = true AND user_id <> $2
+      `,
+      [conversationId, senderUserId]
+    );
+
+    const messagePayload = await this.getMessageById(createdMessageId, participant.user_id);
+
+    const recipientIds = recipients.map((r) => r.user_id);
+    setImmediate(() => {
+      NotificationEmitterService.createForRecipientsBulkSafe({
+        recipientUserIds: recipientIds,
+        actorUserId: senderUserId,
+        sourceModule: 'messaging',
+        kind: 'messaging.message',
+        message: 'New message',
+        entityType: 'conversation',
+        entityId: conversationId,
+        payload: { conversationId, messageId: createdMessageId },
+      }).catch((err) => console.error('[messaging] notification emit failed', err));
+    });
+
+    return messagePayload;
   }
 
   static async markConversationRead(conversationId: number, userId: number, lastReadMessageId?: number) {

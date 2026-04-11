@@ -40,6 +40,31 @@ Ana dizindeyken (root) şu komutu kullanarak hem Frontend'i hem de Backend'i ayn
 npm run dev
 ```
 
+### 4. CI Kontrollerini Localde Doğrulayın
+
+ GitHub Actions üzerinde çalışan temel CI hattı, backend için `build + test`, frontend için `lint + build` kontrollerini koşturur. Push atmadan önce aynı kontrolleri localde ana dizinden şu komutla çalıştırabilirsiniz:
+
+```bash
+npm run ci
+```
+
+Not: Bu komutun sağlıklı çalışması için önce `backend` ve `frontend` bağımlılıklarının kurulmuş olması gerekir. İlk kurulum için `npm run install:all` yeterlidir.
+
+## Microsoft Login Setup
+
+Yaşar Üniversitesi Microsoft hesabı ile giriş için backend tarafında aşağıdaki environment variable'lar tanımlanmalıdır:
+
+```env
+FRONTEND_URL=http://localhost:5173
+BACKEND_PUBLIC_URL=http://localhost:3000
+MICROSOFT_CLIENT_ID=...
+MICROSOFT_CLIENT_SECRET=...
+MICROSOFT_TENANT_ID=...
+MICROSOFT_REDIRECT_URI=http://localhost:3000/api/auth/microsoft/callback
+```
+
+Microsoft Entra ID tarafında app registration açılırken callback olarak `MICROSOFT_REDIRECT_URI` değeri tanımlanmalıdır.
+
 ---
 
 ## 🛰 Teknolojiler

@@ -113,11 +113,6 @@ export function parseMenuText(raw: string): ParsedMenu {
   if (pricing.length) notices.push('Set menü: 179 TL. Ayrıntılı fiyatlar listelenmiştir.');
   if (allergenWarning) notices.push('Alerjen bilgisi: Yemekhanede tüm yemekler alerjen içerebilir.');
 
-  const dateRegex = new RegExp(
-    `(\\d{1,2})\\s+(${MONTHS.join('|')})(?:\\s+(\\d{4}))?\\s*(${WEEKDAYS.join('|')})?`,
-    'gi'
-  );
-
   for (const sectionMarker of SECTION_MARKERS) {
     const idx = text.indexOf(sectionMarker);
     if (idx === -1) continue;
@@ -187,7 +182,7 @@ export function parseMenuText(raw: string): ParsedMenu {
             const idxFood = row * numDays + col;
             if (idxFood < slice.length && dayMenus[dayOffset + col]) {
               const v = sanitizeMenuValue(slice[idxFood]);
-              (dayMenus[dayOffset + col] as Record<string, string>)[key] = v;
+              ((dayMenus[dayOffset + col] as unknown) as Record<string, string>)[key] = v;
             }
           }
         }

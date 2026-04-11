@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api from '../api/client';
 import { FiHeart, FiMessageCircle, FiRepeat, FiRefreshCcw } from 'react-icons/fi';
 import { useTranslation } from 'react-i18next';
+import PostAttachment from '../components/PostAttachment';
 
 type DiscoverPost = {
   post_id: number;
@@ -23,23 +24,6 @@ const DiscoverFeed: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-
-  const resolveImageUrl = (raw?: string | null) => {
-    if (!raw) return '';
-    const value = raw.trim();
-    if (!value) return '';
-    if (/^https?:\/\//i.test(value)) return value;
-    // Normalize possible API-prefixed paths.
-    const normalized = value.startsWith('/api/uploads/')
-      ? value.replace('/api/uploads/', '/uploads/')
-      : value.startsWith('api/uploads/')
-      ? value.replace('api/uploads/', '/uploads/')
-      : value.startsWith('uploads/')
-      ? `/${value}`
-      : value;
-    const backendOrigin = `${window.location.protocol}//${window.location.hostname}:3000`;
-    return `${backendOrigin}${normalized.startsWith('/') ? normalized : `/${normalized}`}`;
-  };
 
   const fetchDiscover = async (silent = false) => {
     try {
@@ -104,14 +88,10 @@ const DiscoverFeed: React.FC = () => {
           </div>
           {post.content && <p className="text-sm text-uv-black whitespace-pre-wrap">{post.content}</p>}
           {post.image_url && (
-            <img
-              src={resolveImageUrl(post.image_url)}
-              alt="discover"
-              className="mt-3 w-full max-h-[420px] object-cover rounded-xl border border-uv-border"
-              onError={(e) => {
-                // Hide broken image element instead of showing broken icon.
-                (e.currentTarget as HTMLImageElement).style.display = 'none';
-              }}
+            <PostAttachment
+              path={post.image_url}
+              className="mt-3 rounded-xl border border-uv-border overflow-hidden"
+              mediaClassName="w-full max-h-[420px] object-cover"
             />
           )}
           <div className="mt-3 text-xs text-uv-gray flex items-center gap-4">

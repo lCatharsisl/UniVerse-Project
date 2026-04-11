@@ -12,14 +12,17 @@ const ThemedDialogHost = () => {
   const [promptValue, setPromptValue] = useState('');
 
   useEffect(() => {
-    registerDialogListener((req) => {
-      setPromptValue(req.defaultValue ?? '');
-      setRequest(req);
+    registerDialogListener((nextRequest) => {
+      setPromptValue(nextRequest.defaultValue ?? '');
+      setRequest(nextRequest);
     });
+
     return () => registerDialogListener(null);
   }, []);
 
-  if (!request) return null;
+  if (!request) {
+    return null;
+  }
 
   const closeAlert = () => {
     request.resolve(undefined);
@@ -43,9 +46,13 @@ const ThemedDialogHost = () => {
         aria-label="Close dialog"
         className={`absolute inset-0 ${isSpace ? 'bg-black/70' : 'bg-black/45'}`}
         onClick={() => {
-          if (request.type === 'alert') closeAlert();
-          else if (request.type === 'confirm') closeConfirm(false);
-          else closePrompt(null);
+          if (request.type === 'alert') {
+            closeAlert();
+          } else if (request.type === 'confirm') {
+            closeConfirm(false);
+          } else {
+            closePrompt(null);
+          }
         }}
       />
       <div
@@ -69,7 +76,7 @@ const ThemedDialogHost = () => {
         ) : null}
 
         <div className="mt-4 flex gap-2 justify-end">
-          {request.type !== 'alert' && (
+          {request.type !== 'alert' ? (
             <button
               type="button"
               onClick={() => (request.type === 'confirm' ? closeConfirm(false) : closePrompt(null))}
@@ -79,13 +86,17 @@ const ThemedDialogHost = () => {
             >
               {t('common.cancel')}
             </button>
-          )}
+          ) : null}
           <button
             type="button"
             onClick={() => {
-              if (request.type === 'alert') closeAlert();
-              else if (request.type === 'confirm') closeConfirm(true);
-              else closePrompt(promptValue);
+              if (request.type === 'alert') {
+                closeAlert();
+              } else if (request.type === 'confirm') {
+                closeConfirm(true);
+              } else {
+                closePrompt(promptValue);
+              }
             }}
             className="px-4 py-2 rounded-2xl bg-primary text-white font-black hover:brightness-95 transition-all"
           >
@@ -98,4 +109,3 @@ const ThemedDialogHost = () => {
 };
 
 export default ThemedDialogHost;
-

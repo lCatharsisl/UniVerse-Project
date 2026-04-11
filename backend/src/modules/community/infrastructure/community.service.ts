@@ -1,9 +1,6 @@
 import { query, queryOne } from '../../../config/db';
 import { AppError } from '../../../shared/core/errors';
-
-type UpdateCategoriesInput = {
-  categories: string[];
-};
+import { NotificationEmitterService } from '../../notifications/infrastructure/notificationEmitter.service';
 
 type CreateEventInput = {
   title: string;
@@ -929,25 +926,30 @@ export class CommunityService {
       throw AppError.forbidden('Deadline has passed');
     }
 
-    const existing = await queryOne<any>(
-      `
+    const loadApplicationRow = () =>
+      queryOne<any>(
+        `
       SELECT job_application_id, status
       FROM public.community_job_applications
       WHERE job_post_id=$1 AND applicant_user_id=$2
       `,
-      [jobPostId, applicantUserId]
-    );
+        [jobPostId, applicantUserId]
+      );
+
+    let existing = await loadApplicationRow();
 
     if (existing?.status && ['approved', 'rejected'].includes(existing.status)) {
       return { jobApplicationId: existing.job_application_id, status: existing.status, isLocked: true };
     }
 
-    let applicationId: number;
-    if (existing) {
-      if (existing.status === 'pending') {
-        return { jobApplicationId: existing.job_application_id, status: existing.status };
-      }
+    if (existing?.status === 'pending') {
+      return { jobApplicationId: existing.job_application_id, status: existing.status };
+    }
 
+    let applicationId: number;
+    let notifyCreator = false;
+
+    if (existing) {
       const updated = await queryOne<any>(
         `
         UPDATE public.community_job_applications
@@ -968,20 +970,57 @@ export class CommunityService {
         [existing.job_application_id]
       );
       applicationId = updated.job_application_id;
+      notifyCreator = true;
     } else {
       const inserted = await queryOne<any>(
         `
         INSERT INTO public.community_job_applications
           (job_post_id, community_id, applicant_user_id)
         VALUES ($1, $2, $3)
+        ON CONFLICT (job_post_id, applicant_user_id) DO NOTHING
         RETURNING job_application_id
         `,
         [jobPostId, job.community_id, applicantUserId]
       );
-      applicationId = inserted.job_application_id;
+      if (inserted) {
+        applicationId = inserted.job_application_id;
+        notifyCreator = true;
+      } else {
+        existing = await loadApplicationRow();
+        if (!existing) {
+          throw AppError.internal('Job application row missing after insert conflict');
+        }
+        if (existing.status === 'pending') {
+          return { jobApplicationId: existing.job_application_id, status: existing.status };
+        }
+        if (['approved', 'rejected'].includes(existing.status)) {
+          return { jobApplicationId: existing.job_application_id, status: existing.status, isLocked: true };
+        }
+        const updated = await queryOne<any>(
+          `
+          UPDATE public.community_job_applications
+          SET 
+            status = 'pending',
+            is_submitted = false,
+            submitted_at = NULL,
+            phone_number = NULL,
+            cv_file_url = NULL,
+            cover_letter = NULL,
+            reason = NULL,
+            decision_by_user_id = NULL,
+            decision_note = NULL,
+            created_at = NOW()
+          WHERE job_application_id=$1
+          RETURNING job_application_id
+          `,
+          [existing.job_application_id]
+        );
+        applicationId = updated.job_application_id;
+        notifyCreator = true;
+      }
     }
 
-    if (job.created_by_user_id) {
+    if (notifyCreator && job.created_by_user_id) {
       await this.createNotificationForUser(job.created_by_user_id, {
         communityId: null,
         kind: 'job_application_pending',
@@ -1288,38 +1327,39 @@ export class CommunityService {
     const rows = await query<any>(
       `
       SELECT
-        notification_id,
-        recipient_user_id,
-        community_id,
-        kind,
-        title,
-        message,
-        entity_type,
-        entity_id,
-        payload,
-        is_read,
-        created_at
-      FROM public.community_notifications cn
-      WHERE cn.recipient_user_id=$1
+        n.notification_id,
+        n.recipient_user_id,
+        n.community_id,
+        n.kind,
+        n.title,
+        n.message,
+        n.entity_type,
+        n.entity_id,
+        n.payload,
+        n.is_read,
+        n.created_at
+      FROM public.notifications n
+      WHERE n.recipient_user_id = $1
+        AND n.source_module = 'community'
         AND (
-          cn.community_id IS NULL
+          n.community_id IS NULL
           OR EXISTS (
             SELECT 1
             FROM public.communities c
-            WHERE c.community_id = cn.community_id
+            WHERE c.community_id = n.community_id
               AND (
                 c.user_id = $1
                 OR EXISTS (
                   SELECT 1
                   FROM public.community_members cm
-                  WHERE cm.community_id = cn.community_id
+                  WHERE cm.community_id = n.community_id
                     AND cm.member_user_id = $1
                     AND cm.is_active = true
                 )
               )
           )
         )
-      ORDER BY created_at DESC
+      ORDER BY n.created_at DESC
       LIMIT 50
       `,
       [userId]
@@ -1330,9 +1370,10 @@ export class CommunityService {
   static async markNotificationRead(notificationId: number, userId: number) {
     const updated = await queryOne<any>(
       `
-      UPDATE public.community_notifications
+      UPDATE public.notifications
       SET is_read=true
       WHERE notification_id=$1 AND recipient_user_id=$2
+        AND source_module='community'
       RETURNING notification_id
       `,
       [notificationId, userId]
@@ -1348,117 +1389,79 @@ export class CommunityService {
     communityId: number,
     input: { kind: string; title: string; entityType: string; entityId: number; payload: any }
   ) {
-    await query(
+    const recipients = await query<{ user_id: number }>(
       `
-      INSERT INTO public.community_notifications
-        (recipient_user_id, community_id, kind, title, message, entity_type, entity_id, payload)
-      SELECT
-        recipients.user_id,
-        $1::int,
-        $2::varchar,
-        $3::text,
-        NULL::text,
-        $4::varchar,
-        $5::int,
-        $6::jsonb
-      FROM (
-        SELECT member_user_id AS user_id
-        FROM public.community_members
-        WHERE community_id = $1 AND is_active = true
-
-        UNION
-
-        SELECT user_id AS user_id
-        FROM public.communities
-        WHERE community_id = $1
-      ) recipients
+      SELECT member_user_id AS user_id
+      FROM public.community_members
+      WHERE community_id = $1 AND is_active = true
+      UNION
+      SELECT user_id AS user_id
+      FROM public.communities
+      WHERE community_id = $1
       `,
-      [communityId, input.kind, input.title, input.entityType, input.entityId, JSON.stringify(input.payload || {})]
+      [communityId]
     );
+
+    await NotificationEmitterService.createForRecipientsBulkSafe({
+      recipientUserIds: recipients.map((r) => r.user_id),
+      actorUserId: null,
+      communityId,
+      sourceModule: 'community',
+      kind: `community.${input.kind}`,
+      title: input.title,
+      message: null,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      payload: input.payload || {},
+    });
   }
 
   private static async createNotificationForUser(
     recipientUserId: number,
     input: { communityId: number | null; kind: string; title: string; entityType: string; entityId: number; payload: any }
   ) {
-    await query(
-      `
-      INSERT INTO public.community_notifications
-        (recipient_user_id, community_id, kind, title, message, entity_type, entity_id, payload)
-      VALUES
-        ($1, $2, $3, $4, NULL, $5, $6, $7::jsonb)
-      `,
-      [
-        recipientUserId,
-        input.communityId,
-        input.kind,
-        input.title,
-        input.entityType,
-        input.entityId,
-        JSON.stringify(input.payload || {}),
-      ]
-    );
+    await NotificationEmitterService.createSafe({
+      recipientUserId,
+      actorUserId: null,
+      communityId: input.communityId,
+      sourceModule: 'community',
+      kind: `community.${input.kind}`,
+      title: input.title,
+      message: null,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      payload: input.payload || {},
+    });
   }
 
   private static async upsertNotificationForUser(
     recipientUserId: number,
     input: { communityId: number | null; kind: string; title: string; entityType: string; entityId: number; payload: any }
   ) {
-    const existing = await queryOne<{ notification_id: number }>(
-      `
-      SELECT notification_id
-      FROM public.community_notifications
-      WHERE recipient_user_id = $1
-        AND kind = $2
-        AND entity_type = $3
-        AND entity_id = $4
-      ORDER BY created_at DESC
-      LIMIT 1
-      `,
-      [recipientUserId, input.kind, input.entityType, input.entityId]
-    );
-
-    if (existing) {
-      await query(
-        `
-        UPDATE public.community_notifications
-        SET
-          community_id = $1,
-          title = $2,
-          payload = $3::jsonb,
-          is_read = false,
-          created_at = NOW()
-        WHERE notification_id = $4
-        `,
-        [input.communityId, input.title, JSON.stringify(input.payload || {}), existing.notification_id]
-      );
-      return;
-    }
-
+    // Unified notifications: keep simple (no upsert), emit a new notification each time.
     await this.createNotificationForUser(recipientUserId, input);
   }
 
   private static async notifyAllStudents(
     input: { communityId: number; kind: string; title: string; entityType: string; entityId: number; payload: any }
   ) {
-    await query(
-      `
-      INSERT INTO public.community_notifications
-        (recipient_user_id, community_id, kind, title, message, entity_type, entity_id, payload)
-      SELECT
-        u.user_id,
-        NULL::int,
-        $1::varchar,
-        $2::text,
-        NULL::text,
-        $3::varchar,
-        $4::int,
-        $5::jsonb
-      FROM public.users u
-      WHERE u.role = 'student'
-      `,
-      [input.kind, input.title, input.entityType, input.entityId, JSON.stringify(input.payload || {})]
+    const recipients = await query<{ user_id: number }>(
+      `SELECT user_id FROM public.users WHERE role = 'student'`,
+      []
     );
+
+    await NotificationEmitterService.createForRecipientsBulkSafe({
+      recipientUserIds: recipients.map((r) => r.user_id),
+      actorUserId: null,
+      communityId: input.communityId ?? null,
+      sourceModule: 'community',
+      kind: `community.${input.kind}`,
+      title: input.title,
+      message: null,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      payload: input.payload || {},
+    });
   }
 }
 

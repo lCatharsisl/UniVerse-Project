@@ -5,7 +5,7 @@ import {
   FiHeart, FiRepeat, FiMessageCircle, FiArrowLeft, FiCalendar,
   FiMapPin, FiLink, FiEdit, FiUserPlus, FiUserCheck,
   FiGrid, FiMoreVertical, FiMoreHorizontal, FiTrash2, FiX, FiUsers,
-  FiLinkedin, FiGithub, FiGlobe, FiInstagram, FiSettings, FiLock
+  FiLinkedin, FiGithub, FiGlobe, FiInstagram, FiSettings, FiLock, FiMessageSquare
 } from 'react-icons/fi';
 import api from '../api/client';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
 import PostDetailModal from '../components/PostDetailModal';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
+import CommunityMySpace from './CommunityMySpace';
 
 // ─── Follow List Modal ────────────────────────────────────────────────────────
 interface FollowUser { user_id: number; email: string; name: string; surname: string; avatar_url?: string; }
@@ -220,7 +221,7 @@ const Profile = () => {
       const typeMap: any = { posts: 'user_posts', likes: 'user_likes', reposts: 'user_reposts' };
       const res = await api.get(`/social/users/${targetUserId}/activities/${typeMap[activeTab]}`);
       setActivities(res.data.items || []);
-    } catch (err) { console.error('Failed to fetch activities'); }
+    } catch { console.error('Failed to fetch activities'); }
   };
 
   const fetchMyItems = async () => {
@@ -232,7 +233,7 @@ const Profile = () => {
       const l = (lostRes.data.items || []).filter((i: any) => i.user_id === targetUserId).map((i: any) => ({ ...i, __type: 'lost' }));
       const f = (foundRes.data.items || []).filter((i: any) => i.user_id === targetUserId).map((i: any) => ({ ...i, __type: 'found' }));
       setItems([...l, ...f]);
-    } catch (err) { console.error('Failed to fetch items'); }
+    } catch { console.error('Failed to fetch items'); }
   };
 
   const handleToggleFollow = async () => {
@@ -242,7 +243,7 @@ const Profile = () => {
       const followed = res.data.action === 'followed';
       setIsFollowing(followed);
       setStats(prev => ({ ...prev, followers: prev.followers + (followed ? 1 : -1) }));
-    } catch (err) {
+    } catch {
       await themedAlert('Failed to update follow status');
     }
   };
@@ -258,7 +259,7 @@ const Profile = () => {
       setOpenProfileMenu(false);
       setReportSuccessMessage('Report submitted successfully.');
       setUserReportStatus({ has_reported: true, my_report_type: reportType });
-    } catch (err) {
+    } catch {
       await themedAlert('Failed to submit report');
     }
   };
@@ -282,7 +283,7 @@ const Profile = () => {
       setWarningPanel(false);
       setOpenProfileMenu(false);
       fetchProfileData();
-    } catch (err) {
+    } catch {
       await themedAlert('Failed to apply warning');
     }
   };
@@ -299,7 +300,7 @@ const Profile = () => {
       else if (action === 'unban') await api.patch(`/social/users/${targetUserId}/warning`, { action: 'unban' });
       setWarningManageOpen(false);
       fetchProfileData();
-    } catch (err) {
+    } catch {
       await themedAlert('Failed to update');
     }
   };
@@ -310,7 +311,7 @@ const Profile = () => {
       await api.delete(`/social/posts/${postId}`);
       setActivities(activities.filter(p => p.post_id !== postId));
       setOpenMenu(null);
-    } catch (err) {
+    } catch {
       await themedAlert('Failed to delete post');
     }
   };
@@ -328,6 +329,10 @@ const Profile = () => {
       <button onClick={() => navigate(-1)} className="uv-button mt-2">{t('common.return')}</button>
     </div>
   );
+
+  if (currentUser?.role === 'community' && isOwnProfile) {
+    return <CommunityMySpace />;
+  }
 
   const coverSrc = profile.coverUrl || '';
   const avatarSrc = profile.avatarUrl || '';
@@ -440,15 +445,38 @@ const Profile = () => {
             {!isOwnProfile && (
               <button
                 onClick={handleToggleFollow}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl font-black text-xs transition-all ${isFollowing ? 'bg-gray-100 text-uv-black hover:bg-red-50 hover:text-red-500' : 'bg-primary text-white shadow-lg shadow-primary/25 hover:brightness-110'}`}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl font-black text-xs transition-all ${
+                  isFollowing
+                    ? isSpace
+                      ? 'bg-white/10 text-white border border-white/15 hover:bg-red-500/15 hover:text-red-400 hover:border-red-400/40'
+                      : 'bg-gray-100 text-gray-900 hover:bg-red-50 hover:text-red-600'
+                    : 'bg-primary text-white shadow-lg shadow-primary/25 hover:brightness-110'
+                }`}
               >
                 {isFollowing ? <><FiUserCheck size={13} /> {t('profile.followingActive')}</> : <><FiUserPlus size={13} /> {t('profile.follow')}</>}
+              </button>
+            )}
+            {!isOwnProfile && (
+              <button
+                type="button"
+                onClick={() => navigate(`/messages?dm=${targetUserId}`)}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl font-black text-xs transition-all ${
+                  isSpace
+                    ? 'bg-white/10 text-white border border-white/15 hover:bg-white/15'
+                    : 'bg-white border border-uv-border text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                <FiMessageSquare size={13} /> {t('profile.message')}
               </button>
             )}
             {!isOwnProfile && profile.role === 'staff' && (
               <button
                 onClick={() => navigate(`/appointments?staff=${targetUserId}`)}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl font-black text-xs bg-uv-black text-white hover:opacity-90 transition-all"
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl font-black text-xs transition-all ${
+                  isSpace
+                    ? 'bg-white/15 text-white border border-white/20 hover:bg-white/25'
+                    : 'bg-uv-black text-white hover:opacity-90'
+                }`}
               >
                 <FiCalendar size={13} /> {t('profile.bookAppointment')}
               </button>
@@ -467,7 +495,7 @@ const Profile = () => {
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
-                    className={`absolute left-0 sm:left-auto sm:right-0 mt-2 w-48 py-2 rounded-xl shadow-xl z-20 ${isSpace ? 'bg-[#0d0d1a] border border-white/10' : 'bg-white border border-uv-border'}`}
+                    className={`absolute right-0 left-auto mt-2 w-48 max-w-[min(12rem,calc(100vw-1.5rem))] py-2 rounded-xl shadow-xl z-20 ${isSpace ? 'bg-[#0d0d1a] border border-white/10' : 'bg-white border border-uv-border'}`}
                   >
                     <button
                       onClick={() => { navigator.clipboard.writeText(window.location.href); setOpenProfileMenu(false); }}
@@ -510,7 +538,9 @@ const Profile = () => {
                                   const res = await api.post(`/auth/block/${targetUserId}`);
                                   if (res.data?.action === 'blocked') navigate('/feed');
                                   setOpenProfileMenu(false);
-                                } catch {}
+                                } catch {
+                                  return;
+                                }
                               }}
                               className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-orange-500 hover:bg-orange-500/10 flex items-center gap-2"
                             >
@@ -792,11 +822,14 @@ const Profile = () => {
                             e.stopPropagation();
                             try {
                               await api.post(`/social/posts/${post.post_id}/like`);
-                              setActivities(prev => prev.map(p => p.post_id === post.post_id
-                                ? { ...p, has_liked: !p.has_liked, likes_count: p.has_liked ? p.likes_count - 1 : p.likes_count + 1 }
-                                : p
-                              ));
-                            } catch {}
+                              setActivities(prev => prev.map(p => {
+                                if (p.post_id !== post.post_id) return p;
+                                const n = Number(p.likes_count) || 0;
+                                return { ...p, has_liked: !p.has_liked, likes_count: p.has_liked ? n - 1 : n + 1 };
+                              }));
+                            } catch {
+                              return;
+                            }
                           }}
                           className={`flex items-center gap-0.5 ${post.has_liked ? 'text-pink-500' : 'hover:text-pink-500 transition-colors'}`}
                         >
