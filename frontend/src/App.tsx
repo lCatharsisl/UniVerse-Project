@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import ThemedDialogHost from './components/ThemedDialogHost';
+import FullPageLoader from './components/FullPageLoader';
+import RouteDocumentTitle from './components/RouteDocumentTitle';
 import { NotificationsProvider } from './context/NotificationsContext';
 import { MessagingUnreadProvider } from './context/MessagingUnreadContext';
 
@@ -39,11 +41,7 @@ const PrivateRoute = ({ children }: { children: React.ReactElement }) => {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
+    return <FullPageLoader />;
   }
 
   return user ? children : <Navigate to="/login" />;
@@ -51,13 +49,7 @@ const PrivateRoute = ({ children }: { children: React.ReactElement }) => {
 
 function AppRoutes() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-        </div>
-      }
-    >
+    <Suspense fallback={<FullPageLoader />}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -98,6 +90,7 @@ function AppRoutes() {
 function App() {
   return (
     <Router>
+      <RouteDocumentTitle />
       <ThemeProvider>
         <AuthProvider>
           <NotificationsProvider>
