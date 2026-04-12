@@ -12,8 +12,10 @@ router.get('/conversations', authenticateSession, MessagingController.listConver
 router.post('/conversations', authenticateSession, MessagingController.createConversation);
 router.post('/conversations/:id/participants', authenticateSession, MessagingController.addParticipants);
 router.post('/conversations/:id/leave', authenticateSession, MessagingController.leaveConversation);
+router.delete('/conversations/:id', authenticateSession, MessagingController.deleteConversation);
 
 router.get('/conversations/:id/messages', authenticateSession, MessagingController.getMessages);
+router.delete('/conversations/:id/messages/:messageId', authenticateSession, MessagingController.unsendMessage);
 router.post(
   '/conversations/:id/messages',
   authenticateSession,

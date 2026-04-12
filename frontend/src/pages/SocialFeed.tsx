@@ -11,6 +11,7 @@ import { useTheme } from '../context/ThemeContext';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
 import PostAttachment from '../components/PostAttachment';
 import { resolveMediaUrl } from '../utils/resolveMediaUrl';
+import { getAuthUserAvatarUrl, getAuthUserInitials } from '../utils/authUserDisplay';
 
 interface Post {
     post_id: number;
@@ -102,6 +103,9 @@ const SocialFeed = () => {
     }, [warningDropdown]);
     const isSpace = dimension === 'space';
 
+    const meAvatarUrl = getAuthUserAvatarUrl(user);
+    const meInitials = getAuthUserInitials(user);
+
     useEffect(() => {
         fetchPosts();
     }, []);
@@ -117,7 +121,9 @@ const SocialFeed = () => {
             return first[0].toUpperCase();
         }
 
-        return email?.trim()?.[0]?.toUpperCase() || '?';
+        const local = email?.split('@')[0] || '';
+        const letter = local.match(/\p{L}/u);
+        return letter ? letter[0].toUpperCase() : '?';
     };
 
     const composerPreviewUrl = useMemo(
@@ -359,8 +365,12 @@ const SocialFeed = () => {
             <div className="p-2 md:p-6 pb-1 border-b border-uv-border/10">
                 <div className="p-2 md:p-5">
                     <div className="flex gap-2 md:gap-4">
-                        <div className="w-8 h-8 md:w-12 md:h-12 bg-primary/5 rounded-tl-lg rounded-br-lg md:rounded-tl-xl md:rounded-br-xl flex items-center justify-center text-primary font-black border border-primary/10 shrink-0 text-xs md:text-base">
-                            {user?.email[0].toUpperCase()}
+                        <div className="w-8 h-8 md:w-12 md:h-12 bg-primary/5 rounded-tl-lg rounded-br-lg md:rounded-tl-xl md:rounded-br-xl flex items-center justify-center text-primary font-black border border-primary/10 shrink-0 text-xs md:text-base overflow-hidden">
+                            {meAvatarUrl ? (
+                                <img src={meAvatarUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                                meInitials
+                            )}
                         </div>
                         <form onSubmit={handleCreatePost} className="flex-1 min-w-0">
                             <textarea
@@ -594,8 +604,12 @@ const SocialFeed = () => {
                                         <div className="hidden md:block">
                                             <div className="mt-2 pt-2 md:mt-6 md:pt-6 border-t border-uv-border space-y-2 md:space-y-4">
                                             <div className="flex gap-2.5 sm:gap-3">
-                                                <div className="w-7 h-7 sm:w-8 sm:h-8 bg-primary/5 rounded-lg flex items-center justify-center text-primary font-black text-[10px] sm:text-xs shrink-0">
-                                                    {user?.email[0].toUpperCase()}
+                                                <div className="w-7 h-7 sm:w-8 sm:h-8 bg-primary/5 rounded-lg flex items-center justify-center text-primary font-black text-[10px] sm:text-xs shrink-0 overflow-hidden">
+                                                    {meAvatarUrl ? (
+                                                        <img src={meAvatarUrl} alt="" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        meInitials
+                                                    )}
                                                 </div>
                                                 <div className="flex-1 relative">
                                                     <input 
@@ -618,7 +632,7 @@ const SocialFeed = () => {
                                                         <div key={comment.comment_id} className="flex gap-2 md:gap-3 opacity-90">
                                                             <div 
                                                                 onClick={() => navigate(`/profile/${comment.user_id}`)}
-                                                                className="w-5 h-5 md:w-7 md:h-7 bg-gray-100 rounded-md md:rounded-lg flex items-center justify-center text-uv-gray text-[8px] font-black shrink-0 cursor-pointer"
+                                                                className="w-5 h-5 md:w-7 md:h-7 bg-gray-100 rounded-md md:rounded-lg flex items-center justify-center text-uv-gray text-[8px] font-black shrink-0 cursor-pointer overflow-hidden"
                                                             >
                                                                 {comment.avatar_url ? (
                                                                     <img src={resolveMediaUrl(comment.avatar_url)} className="w-full h-full object-cover rounded-md md:rounded-lg" alt="" />
@@ -743,7 +757,7 @@ const SocialFeed = () => {
                                                     className="flex items-center gap-5 p-4 bg-uv-border/5 hover:bg-primary/[0.05] rounded-[1.8rem] transition-all cursor-pointer group border border-transparent hover:border-primary/20 hover:shadow-xl hover:shadow-primary/5"
                                                 >
                                                     <div className="w-12 h-12 sm:w-14 sm:h-14 bg-white rounded-2xl flex items-center justify-center font-black text-xl sm:text-2xl text-primary border-2 border-uv-border group-hover:border-primary/50 group-hover:scale-105 transition-all shadow-sm shrink-0 overflow-hidden relative">
-                                                        <span className="relative z-10">{u.first_name?.[0].toUpperCase() || u.email[0].toUpperCase()}</span>
+                                                        <span className="relative z-10">{getInitials(u.first_name, u.last_name, u.email)}</span>
                                                         <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
@@ -827,7 +841,7 @@ const SocialFeed = () => {
                                     ) : (
                                         commentSheet.post.comments?.map(comment => (
                                             <div key={comment.comment_id} className="flex gap-3">
-                                                <div className="w-8 h-8 bg-primary/5 rounded-lg flex items-center justify-center text-primary font-black text-xs shrink-0">
+                                                <div className="w-8 h-8 bg-primary/5 rounded-lg flex items-center justify-center text-primary font-black text-xs shrink-0 overflow-hidden">
                                                     {comment.avatar_url ? (
                                                         <img src={resolveMediaUrl(comment.avatar_url)} className="w-full h-full object-cover rounded-lg" alt="" />
                                                     ) : (

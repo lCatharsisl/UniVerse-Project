@@ -6,6 +6,7 @@ interface User {
     email: string;
     role: 'student' | 'staff' | 'admin' | 'community';
     profile?: any;
+    profileImageUrl?: string;
     warningTier?: number;
     isBanned?: boolean;
 }
