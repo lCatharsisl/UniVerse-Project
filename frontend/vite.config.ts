@@ -29,6 +29,48 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return undefined
+          }
+
+          if (id.includes('react-icons')) return 'icons'
+          if (id.includes('framer-motion')) return 'motion'
+          if (
+            id.includes('i18next') ||
+            id.includes('react-i18next')
+          ) {
+            return 'i18n'
+          }
+          if (
+            id.includes('react-router') ||
+            id.includes('@remix-run')
+          ) {
+            return 'router'
+          }
+          if (
+            id.includes('formik') ||
+            id.includes('yup') ||
+            id.includes('react-easy-crop')
+          ) {
+            return 'forms'
+          }
+          if (id.includes('axios')) return 'api'
+          if (
+            id.includes('react') ||
+            id.includes('scheduler')
+          ) {
+            return 'react-vendor'
+          }
+
+          return 'vendor'
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': {

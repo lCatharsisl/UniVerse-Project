@@ -21,6 +21,18 @@ const isJobDeadlinePassed = (raw: string) => {
   return new Date(`${d}T23:59:59`).getTime() < Date.now();
 };
 
+const getInitials = (firstName?: string, lastName?: string, email?: string) => {
+  const first = firstName?.trim() || '';
+  const last = lastName?.trim() || '';
+  if (first && last) return `${first[0]}${last[0]}`.toUpperCase();
+  if (first) {
+    const words = first.split(/\s+/).filter(Boolean);
+    if (words.length >= 2) return `${words[0][0]}${words[1][0]}`.toUpperCase();
+    return first[0].toUpperCase();
+  }
+  return email?.trim()?.[0]?.toUpperCase() || '?';
+};
+
 const CommunityProfile = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -448,6 +460,19 @@ const CommunityProfile = () => {
                   isSpace ? 'border-white/10 bg-white/5' : 'border-uv-border bg-white'
                 }`}
               >
+                <div className="mb-2">
+                  {m.avatar_url ? (
+                    <img
+                      src={resolveMediaUrl(m.avatar_url)}
+                      alt=""
+                      className="w-9 h-9 rounded-xl object-cover border border-white/20"
+                    />
+                  ) : (
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-[10px] border ${isSpace ? 'bg-white/10 text-white border-white/20' : 'bg-primary/10 text-primary border-primary/20'}`}>
+                      {getInitials(m.first_name, m.last_name, m.email)}
+                    </div>
+                  )}
+                </div>
                 <div className={`text-xs font-black uppercase tracking-widest ${isSpace ? 'text-white/60' : 'text-uv-gray'} truncate`}>
                   {m.membership_role === 'admin' ? t('communityProfile.admin') : t('communityProfile.member')}
                 </div>
@@ -600,6 +625,19 @@ const CommunityProfile = () => {
                       key={`${m.user_id}-${idx}`}
                       className={`rounded-2xl p-3 border ${isSpace ? 'border-white/10 bg-white/5' : 'border-uv-border bg-gray-50'}`}
                     >
+                      <div className="mb-2">
+                        {m.avatar_url ? (
+                          <img
+                            src={resolveMediaUrl(m.avatar_url)}
+                            alt=""
+                            className="w-10 h-10 rounded-xl object-cover border border-white/20"
+                          />
+                        ) : (
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs border ${isSpace ? 'bg-white/10 text-white border-white/20' : 'bg-primary/10 text-primary border-primary/20'}`}>
+                            {getInitials(m.first_name, m.last_name, m.email)}
+                          </div>
+                        )}
+                      </div>
                       <div className={`text-[10px] font-black uppercase tracking-widest ${isSpace ? 'text-white/50' : 'text-uv-gray'}`}>
                         {m.membership_role === 'admin' ? t('communityProfile.admin') : t('communityProfile.member')}
                       </div>

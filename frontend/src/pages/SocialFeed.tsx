@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
 import { FiHeart, FiRepeat, FiMessageCircle, FiImage, FiTrash2, FiMoreHorizontal, FiSend, FiNavigation, FiX, FiUser, FiAlertTriangle } from 'react-icons/fi';
@@ -8,7 +9,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../context/ThemeContext';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
-import { useTranslation } from 'react-i18next';
 import PostAttachment from '../components/PostAttachment';
 import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 import { getAuthUserAvatarUrl, getAuthUserInitials } from '../utils/authUserDisplay';
@@ -31,7 +31,7 @@ interface Post {
     reposter_name?: string;
     reposter_email?: string;
     reposter_id?: number;
-    avatar_url?: string;
+    avatar_url?: string | null;
     reports_count?: number;
     has_reported?: boolean;
     my_report_type?: string | null;
@@ -153,7 +153,7 @@ const SocialFeed = () => {
             await api.delete(`/social/posts/${postId}`);
             setPosts(posts.filter(p => p.post_id !== postId));
             setOpenMenu(null);
-        } catch (err) {
+        } catch {
             await themedAlert(t('socialFeed.deleteFailed'));
         }
     };
@@ -184,7 +184,7 @@ const SocialFeed = () => {
             setContent('');
             setSelectedImage(null);
             fetchPosts();
-        } catch (err) {
+        } catch {
             await themedAlert(t('socialFeed.createFailed'));
         } finally {
             setSubmitting(false);
@@ -204,7 +204,7 @@ const SocialFeed = () => {
             }
             return post;
         }));
-        try { await api.post(`/social/posts/${postId}/like`); } catch (err) { fetchPosts(); }
+        try { await api.post(`/social/posts/${postId}/like`); } catch { fetchPosts(); }
     };
 
     const toggleRepost = async (postId: number) => {
@@ -223,7 +223,7 @@ const SocialFeed = () => {
         try { 
             await api.post(`/social/posts/${postId}/repost`);
             fetchPosts();
-        } catch (err) { fetchPosts(); }
+        } catch { fetchPosts(); }
     };
 
     const formatDate = (dateString: string) => {
@@ -260,7 +260,7 @@ const SocialFeed = () => {
         try {
             const res = await api.get(`/social/posts/${postId}/comments`);
             setPosts(prev => prev.map(p => p.post_id === postId ? { ...p, comments: res.data, loadingComments: false } : p));
-        } catch (err) {
+        } catch {
             setPosts(prev => prev.map(p => p.post_id === postId ? { ...p, loadingComments: false } : p));
         }
     };
@@ -273,7 +273,7 @@ const SocialFeed = () => {
             setNewComment({ ...newComment, [postId]: '' });
             handleFetchComments(postId);
             setPosts(prev => prev.map(p => p.post_id === postId ? { ...p, comments_count: String(parseInt(p.comments_count) + 1) } : p));
-        } catch (err) {
+        } catch {
             await themedAlert(t('socialFeed.commentFailed'));
         }
     };
@@ -326,7 +326,7 @@ const SocialFeed = () => {
         try {
             const res = await api.get(`/social/posts/${postId}/likes`);
             setLikeModal(prev => ({ ...prev, users: res.data }));
-        } catch (err) {
+        } catch {
             console.error('Failed to fetch likes');
         } finally {
             setLoadingLikes(false);

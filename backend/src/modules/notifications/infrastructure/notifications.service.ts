@@ -7,6 +7,10 @@ export type NotificationRow = {
   notification_id: number;
   recipient_user_id: number;
   actor_user_id: number | null;
+  actor_email: string | null;
+  actor_name: string | null;
+  actor_surname: string | null;
+  actor_avatar_url: string | null;
   community_id: number | null;
   source_module: string;
   kind: string;
@@ -24,22 +28,31 @@ export class NotificationsService {
     const items = await query<NotificationRow>(
       `
       SELECT
-        notification_id,
-        recipient_user_id,
-        actor_user_id,
-        community_id,
-        source_module,
-        kind,
-        title,
-        message,
-        entity_type,
-        entity_id,
-        payload,
-        is_read,
-        created_at
-      FROM public.notifications
-      WHERE recipient_user_id = $1
-      ORDER BY created_at DESC, notification_id DESC
+        n.notification_id,
+        n.recipient_user_id,
+        n.actor_user_id,
+        u.email AS actor_email,
+        COALESCE(st.student_name, sf.staff_name, a.admin_name, c.community_name) AS actor_name,
+        COALESCE(st.student_surname, sf.staff_surname, a.admin_surname, '') AS actor_surname,
+        COALESCE(st.avatar_url, sf.avatar_url, a.avatar_url, c.avatar_url) AS actor_avatar_url,
+        n.community_id,
+        n.source_module,
+        n.kind,
+        n.title,
+        n.message,
+        n.entity_type,
+        n.entity_id,
+        n.payload,
+        n.is_read,
+        n.created_at
+      FROM public.notifications n
+      LEFT JOIN public.users u ON u.user_id = n.actor_user_id
+      LEFT JOIN public.students st ON st.user_id = u.user_id
+      LEFT JOIN public.staff sf ON sf.user_id = u.user_id
+      LEFT JOIN public.admins a ON a.user_id = u.user_id
+      LEFT JOIN public.communities c ON c.user_id = u.user_id
+      WHERE n.recipient_user_id = $1
+      ORDER BY n.created_at DESC, n.notification_id DESC
       LIMIT $2 OFFSET $3
       `,
       [userId, opts.limit, opts.offset]
