@@ -421,6 +421,71 @@ export class MessagingService {
     return { success: true };
   }
 
+  /** Soft-delete a message you sent ("unsend"). Updates conversation last_message_id when needed. */
+  static async unsendMessage(conversationId: number, messageId: number, userId: number) {
+    await this.ensureParticipant(conversationId, userId);
+    const msg = await queryOne<{
+      message_id: number;
+      conversation_id: number;
+      sender_user_id: number;
+    }>(
+      `
+      SELECT message_id, conversation_id, sender_user_id
+      FROM messages
+      WHERE message_id = $1 AND deleted_at IS NULL
+      `,
+      [messageId]
+    );
+    if (!msg) throw AppError.notFound('Message not found');
+    if (msg.conversation_id !== conversationId) throw AppError.badRequest('Message does not belong to this conversation');
+    if (msg.sender_user_id !== userId) throw AppError.forbidden('You can only unsend your own messages');
+
+    const readRow = await queryOne<{ cnt: string }>(
+      `
+      SELECT COUNT(*)::text AS cnt
+      FROM conversation_participants
+      WHERE conversation_id = $1
+        AND user_id <> $2
+        AND is_active = true
+        AND last_read_message_id IS NOT NULL
+        AND last_read_message_id >= $3
+      `,
+      [conversationId, userId, messageId]
+    );
+    if (readRow && parseInt(readRow.cnt, 10) > 0) {
+      throw AppError.badRequest('Cannot unsend a message that was already read');
+    }
+
+    await transaction(async (client) => {
+      const lastConv = await client.query<{ last_message_id: number | null }>(
+        `SELECT last_message_id FROM conversations WHERE conversation_id = $1`,
+        [conversationId]
+      );
+      const lastId = lastConv.rows[0]?.last_message_id ?? null;
+
+      await client.query(`UPDATE messages SET deleted_at = NOW() WHERE message_id = $1`, [messageId]);
+
+      if (lastId === messageId) {
+        const prev = await client.query<{ message_id: number }>(
+          `
+          SELECT message_id FROM messages
+          WHERE conversation_id = $1 AND deleted_at IS NULL
+          ORDER BY message_id DESC
+          LIMIT 1
+          `,
+          [conversationId]
+        );
+        const newLast = prev.rows[0]?.message_id ?? null;
+        await client.query(
+          `UPDATE conversations SET last_message_id = $1, updated_at = NOW() WHERE conversation_id = $2`,
+          [newLast, conversationId]
+        );
+      }
+    });
+
+    return { success: true };
+  }
+
   private static async ensureParticipant(conversationId: number, userId: number) {
     const participant = await queryOne<{ user_id: number; role: 'owner' | 'admin' | 'member' }>(
       `

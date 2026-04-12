@@ -4,6 +4,9 @@ import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useMessagingUnread } from '../context/MessagingUnreadContext';
 import { useTranslation } from 'react-i18next';
+import { FiMoreHorizontal, FiTrash2 } from 'react-icons/fi';
+import { themedAlert, themedConfirm } from '../utils/themedDialog';
+import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 
 type UserSearchRow = {
   user_id: number;
@@ -80,6 +83,21 @@ const Messages: React.FC = () => {
   const activeConversationIdRef = useRef<number | null>(null);
   activeConversationIdRef.current = activeConversationId;
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [messageMenuOpenId, setMessageMenuOpenId] = useState<number | null>(null);
+
+  useEffect(() => {
+    setMessageMenuOpenId(null);
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    if (messageMenuOpenId == null) return;
+    const close = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (!t.closest('[data-message-menu-root]')) setMessageMenuOpenId(null);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [messageMenuOpenId]);
 
   const formatTime = (value?: string | null) => {
     if (!value) return '';
@@ -255,6 +273,13 @@ const Messages: React.FC = () => {
     return readBy > 0 ? t('messagesPage.read') : t('messagesPage.sent');
   };
 
+  /** True if any other participant has read up to this message (same rule as “read” label). */
+  const isMessageReadByOthers = (messageId: number) => {
+    if (!activeConversation || !user) return false;
+    const others = activeConversation.members.filter((m) => m.user_id !== user.userId);
+    return others.some((m) => (m.last_read_message_id || 0) >= messageId);
+  };
+
   const handleSearch = async (q: string) => {
     setSearchText(q);
     if (!q.trim()) return setSearchResults([]);
@@ -283,6 +308,53 @@ const Messages: React.FC = () => {
       if (conversationId) setActiveConversationId(conversationId);
     } catch (e: any) {
       setError((e?.response?.data?.error as string) || t('messagesPage.startChatFailed'));
+    }
+  };
+
+  const deleteConversation = async (c: Conversation, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!(await themedConfirm(t('messagesPage.deleteChatConfirm')))) return;
+    try {
+      await api.delete(`/messages/conversations/${c.conversation_id}`);
+      if (activeConversationId === c.conversation_id) {
+        setActiveConversationId(null);
+        setMessages([]);
+      }
+      await fetchConversations();
+      void refreshMessagesUnreadCount();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } };
+      await themedAlert(e?.response?.data?.error || t('messagesPage.deleteChatFailed'));
+    }
+  };
+
+  const deleteActiveConversation = async () => {
+    if (!activeConversation) return;
+    if (!(await themedConfirm(t('messagesPage.deleteChatConfirm')))) return;
+    try {
+      await api.delete(`/messages/conversations/${activeConversation.conversation_id}`);
+      setActiveConversationId(null);
+      setMessages([]);
+      await fetchConversations();
+      void refreshMessagesUnreadCount();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } };
+      await themedAlert(e?.response?.data?.error || t('messagesPage.deleteChatFailed'));
+    }
+  };
+
+  const unsendMessage = async (messageId: number, confirmKey: 'unsendConfirm' | 'deleteMessageConfirm' = 'unsendConfirm') => {
+    if (!activeConversationId) return;
+    if (!(await themedConfirm(t(`messagesPage.${confirmKey}`)))) return;
+    try {
+      await api.delete(`/messages/conversations/${activeConversationId}/messages/${messageId}`);
+      setMessageMenuOpenId(null);
+      setMessages((prev) => prev.filter((m) => m.message_id !== messageId));
+      await fetchConversations();
+      void refreshMessagesUnreadCount();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } };
+      await themedAlert(e?.response?.data?.error || t('messagesPage.unsendFailed'));
     }
   };
 
@@ -378,42 +450,54 @@ const Messages: React.FC = () => {
             const { url: avUrl, letter: avLetter } = conversationListAvatar(c);
             const unreadN = Number(c.unread_count) || 0;
             return (
-              <button
+              <div
                 key={c.conversation_id}
-                type="button"
-                onClick={() => {
-                  setActiveConversationId(c.conversation_id);
-                  setMobilePane('chat');
-                }}
-                className={`w-full text-left rounded-xl border px-2.5 py-2 flex gap-3 items-start ${c.conversation_id === activeConversationId ? 'border-primary bg-primary/10' : 'border-uv-border'}`}
+                className={`w-full rounded-xl border flex gap-1 items-stretch group ${c.conversation_id === activeConversationId ? 'border-primary bg-primary/10' : 'border-uv-border'}`}
               >
-                <div className="shrink-0 w-11 h-11 rounded-full overflow-hidden bg-primary/10 border border-uv-border flex items-center justify-center text-sm font-black text-primary">
-                  {avUrl ? (
-                    <img src={avUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    avLetter
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="text-sm font-bold truncate">{conversationTitle(c)}</div>
-                    <div className="text-[10px] text-uv-gray shrink-0">{formatTime(c.last_message_created_at)}</div>
-                  </div>
-                  <div className="mt-1 text-xs text-uv-gray truncate">
-                    {c.last_message_content || t('messagesPage.noMessagesYet')}
-                  </div>
-                  <div className="mt-1 flex items-center justify-between gap-2">
-                    <div className="text-[11px] text-uv-gray">
-                      {unreadN > 0 ? t('messagesPage.newMessages') : t('messagesPage.upToDate')}
-                    </div>
-                    {unreadN > 0 && (
-                      <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary text-white text-[10px] font-black">
-                        {unreadN}
-                      </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveConversationId(c.conversation_id);
+                    setMobilePane('chat');
+                  }}
+                  className="flex-1 min-w-0 text-left px-2.5 py-2 flex gap-3 items-start"
+                >
+                  <div className="shrink-0 w-11 h-11 rounded-full overflow-hidden bg-primary/10 border border-uv-border flex items-center justify-center text-sm font-black text-primary">
+                    {avUrl ? (
+                      <img src={avUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      avLetter
                     )}
                   </div>
-                </div>
-              </button>
+                  <div className="min-w-0 flex-1 pr-6">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-sm font-bold truncate">{conversationTitle(c)}</div>
+                      <div className="text-[10px] text-uv-gray shrink-0">{formatTime(c.last_message_created_at)}</div>
+                    </div>
+                    <div className="mt-1 text-xs text-uv-gray truncate">
+                      {c.last_message_content || t('messagesPage.noMessagesYet')}
+                    </div>
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <div className="text-[11px] text-uv-gray">
+                        {unreadN > 0 ? t('messagesPage.newMessages') : t('messagesPage.upToDate')}
+                      </div>
+                      {unreadN > 0 && (
+                        <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary text-white text-[10px] font-black">
+                          {unreadN}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  title={t('messagesPage.deleteChat')}
+                  className="shrink-0 self-stretch px-2 rounded-r-xl text-uv-gray hover:text-red-600 hover:bg-red-50 opacity-70 group-hover:opacity-100"
+                  onClick={(e) => deleteConversation(c, e)}
+                >
+                  <FiTrash2 size={16} className="mx-auto" />
+                </button>
+              </div>
             );
           })}
         </div>
@@ -441,7 +525,15 @@ const Messages: React.FC = () => {
                     activeHeaderAvatar.letter
                   )}
                 </div>
-                <span className="truncate">{conversationTitle(activeConversation)}</span>
+                <span className="truncate flex-1 min-w-0">{conversationTitle(activeConversation)}</span>
+                <button
+                  type="button"
+                  title={t('messagesPage.deleteChat')}
+                  className="shrink-0 p-2 rounded-xl text-uv-gray hover:text-red-600 hover:bg-red-50"
+                  onClick={() => deleteActiveConversation().catch(() => {})}
+                >
+                  <FiTrash2 size={18} />
+                </button>
               </>
             ) : (
               <span className="truncate text-uv-gray">{t('messagesPage.selectConversation')}</span>
@@ -458,6 +550,7 @@ const Messages: React.FC = () => {
               {messages.map((m) => {
                 const mine = !!user && m.sender_user_id === user.userId;
                 const readLabel = getReadLabel(m.message_id, m.sender_user_id);
+                const canUnsend = mine && !isMessageReadByOthers(m.message_id);
                 return (
                   <div key={m.message_id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                     <div
@@ -469,16 +562,68 @@ const Messages: React.FC = () => {
                           {m.attachments.map((a) => (
                             <img
                               key={a.attachment_id}
-                              src={a.file_url}
+                              src={resolveMediaUrl(a.file_url)}
                               alt="attachment"
                               className="w-full h-28 object-cover rounded-lg"
                             />
                           ))}
                         </div>
                       )}
-                      <div className="text-[11px] text-uv-gray mt-1 flex items-center justify-between gap-2">
+                      <div className="text-[11px] text-uv-gray mt-1 flex items-center justify-between gap-2 flex-wrap">
                         <span>{new Date(m.created_at).toLocaleString()}</span>
-                        {readLabel && <span className="font-bold text-primary">{readLabel}</span>}
+                        <span className="flex items-center gap-1.5 shrink-0">
+                          {readLabel && <span className="font-bold text-primary">{readLabel}</span>}
+                          {mine && (
+                            <div className="relative" data-message-menu-root>
+                              <button
+                                type="button"
+                                aria-expanded={messageMenuOpenId === m.message_id}
+                                aria-haspopup="menu"
+                                aria-label={t('messagesPage.messageActionsMenu')}
+                                className="p-0.5 rounded-md text-uv-gray/45 hover:text-uv-gray hover:bg-black/5 opacity-60 hover:opacity-100 transition-opacity"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMessageMenuOpenId((id) => (id === m.message_id ? null : m.message_id));
+                                }}
+                              >
+                                <FiMoreHorizontal size={16} strokeWidth={2.25} />
+                              </button>
+                              {messageMenuOpenId === m.message_id && (
+                                <div
+                                  role="menu"
+                                  className="absolute right-0 bottom-full mb-1 z-30 min-w-[9.5rem] rounded-xl border border-uv-border bg-white py-1 shadow-lg"
+                                >
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    disabled={!canUnsend}
+                                    title={canUnsend ? undefined : t('messagesPage.unsendDisabledRead')}
+                                    className="w-full text-left px-3 py-1.5 text-xs font-semibold text-uv-black hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    onClick={() => {
+                                      if (!canUnsend) return;
+                                      unsendMessage(m.message_id, 'unsendConfirm').catch(() => {});
+                                    }}
+                                  >
+                                    {t('messagesPage.menuUnsend')}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    disabled={!canUnsend}
+                                    title={canUnsend ? undefined : t('messagesPage.unsendDisabledRead')}
+                                    className="w-full text-left px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    onClick={() => {
+                                      if (!canUnsend) return;
+                                      unsendMessage(m.message_id, 'deleteMessageConfirm').catch(() => {});
+                                    }}
+                                  >
+                                    {t('messagesPage.menuDelete')}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </span>
                       </div>
                     </div>
                   </div>

@@ -13,12 +13,15 @@ export function getPool(): Pool {
         ssl: { rejectUnauthorized: false },
       };
     } else {
+      const useSsl =
+        typeof env.DB_HOST === 'string' && env.DB_HOST.includes('supabase');
       config = {
         host: env.DB_HOST,
         port: env.DB_PORT,
         database: env.DB_NAME,
         user: env.DB_USER,
         password: env.DB_PASSWORD,
+        ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
       };
     }
 

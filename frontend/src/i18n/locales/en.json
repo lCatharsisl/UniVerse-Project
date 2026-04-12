@@ -67,6 +67,63 @@
     "generateAccount": "GENERATE ACCOUNT",
     "error": "Authentication failure. Check your node."
   },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Community updates and application results",
+    "personalTitle": "Personal Notifications",
+    "academicTitle": "Academic Notifications",
+    "communityTitle": "Community Notifications",
+    "loading": "Loading notifications...",
+    "empty": "No notifications",
+    "emptyHint": "Notifications go to the account that owns the post or receives the message. Open this page while logged in as that user. If nothing appears after likes from another account, run DB migration 014_unified_notifications.sql on your PostgreSQL database and restart the API.",
+    "loadedOfTotal": "{{loaded}} of {{total}} loaded",
+    "markTabRead": "Mark tab read",
+    "markAllRead": "Mark all read",
+    "deleteRead": "Delete read",
+    "deleteAllInTab": "Delete all in tab",
+    "deleteAllInTabConfirm": "Delete every notification in this tab? This cannot be undone.",
+    "markRead": "Mark as read",
+    "view": "View",
+    "loadMore": "Load more",
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago",
+    "sources": {
+      "messaging": "Message",
+      "community": "Community",
+      "academic": "Academic",
+      "social": "Social",
+      "system": "System",
+      "default": "Notification"
+    },
+    "summary": {
+      "default": "New notification",
+      "messaging": {
+        "message": "{{actor}} sent you a message",
+        "default": "New message"
+      },
+      "social": {
+        "like": "{{actor}} liked your post",
+        "likeAnonymous": "Someone liked your post",
+        "comment": "{{actor}} commented on your post",
+        "commentAnonymous": "Someone commented on your post",
+        "follow": "{{actor}} started following you",
+        "followAnonymous": "Someone started following you",
+        "repost": "{{actor}} reposted your post",
+        "repostAnonymous": "Someone reposted your post"
+      },
+      "community": {
+        "default": "Community update"
+      },
+      "academic": {
+        "default": "Academic update"
+      },
+      "system": {
+        "default": "System notification"
+      }
+    }
+  },
   "register": {
     "title": "New Node.",
     "subtitle": "Expand the UniVerse. Select your campus role to begin.",
@@ -446,25 +503,6 @@
     "event_application_decision": "Event application decision",
     "job_application_decision": "Job application decision"
   },
-  "notifications": {
-    "loading": "Loading notifications...",
-    "title": "Notifications",
-    "subtitle": "Community updates and application results",
-    "empty": "No notifications",
-    "emptyHint": "Notifications go to the account that owns the post or receives the message. Open this page while logged in as that user. If nothing appears after likes from another account, run DB migration 014_unified_notifications.sql on your PostgreSQL database and restart the API.",
-    "markRead": "Mark as read",
-    "markTabRead": "Mark tab read",
-    "markAllRead": "Mark all read",
-    "loadMore": "Load more",
-    "deleteRead": "Delete read",
-    "deleteAllInTab": "Delete all in tab",
-    "deleteAllInTabConfirm": "Delete every notification in this tab? This cannot be undone.",
-    "loadedOfTotal": "{{loaded}} of {{total}} loaded",
-    "view": "View",
-    "communityTitle": "Community Notifications",
-    "personalTitle": "Personal Notifications",
-    "academicTitle": "Academic Notifications"
-  },
   "postPage": {
     "notFound": "This post is unavailable or was removed.",
     "backToHub": "Back to Hub"
@@ -589,7 +627,8 @@
     "other": "Other",
     "reporters": "Reporters",
     "dismiss": "Dismiss",
-    "noReports": "No reports"
+    "noReports": "No reports",
+    "postContentNotification": "Notification"
   },
   "discoverPage": {
     "title": "Discover",
@@ -622,7 +661,18 @@
     "selectAtLeastOneUser": "Select at least one user.",
     "startChatFailed": "Failed to start chat.",
     "sendFailed": "Failed to send message.",
-    "dmOpenFailed": "Could not open this conversation."
+    "dmOpenFailed": "Could not open this conversation.",
+    "deleteChat": "Delete chat",
+    "deleteChatConfirm": "Remove this chat from your list? You can start a new conversation with the same person later.",
+    "deleteChatFailed": "Could not delete the chat.",
+    "unsend": "Unsend",
+    "unsendConfirm": "Remove this message for everyone in the chat?",
+    "unsendFailed": "Could not unsend the message.",
+    "unsendDisabledRead": "You can't unsend after someone has read this message.",
+    "messageActionsMenu": "Message actions",
+    "menuUnsend": "Unsend",
+    "menuDelete": "Delete",
+    "deleteMessageConfirm": "Delete this message for everyone in the chat?"
   },
   "socialFeed": {
     "title": "The Hub",

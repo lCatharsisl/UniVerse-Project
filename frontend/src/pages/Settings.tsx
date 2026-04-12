@@ -74,7 +74,7 @@ type Tab = 'profile' | 'security' | 'privacy' | 'notifications' | 'appearance' |
 // ─── Main Component ────────────────────────────────────────────────────────────
 const Settings = () => {
   const { t } = useTranslation();
-  const { user, logout } = useAuth();
+  const { user, logout, checkAuth } = useAuth();
   const navigate = useNavigate();
   const { dimension, toggleDimension } = useTheme();
   const isSpace = dimension === 'space';
@@ -198,6 +198,7 @@ const Settings = () => {
       await api.patch('/auth/profile', fd);
       setAvatarFile(null);
       setCoverFile(null);
+      await checkAuth();
       showToast('success', 'Profile saved successfully!');
     } catch (err: any) {
       showToast('error', err?.response?.data?.error || 'Failed to save profile.');

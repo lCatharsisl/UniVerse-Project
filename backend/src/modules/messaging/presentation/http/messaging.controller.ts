@@ -74,6 +74,36 @@ export class MessagingController {
     }
   }
 
+  /** Remove chat from your list (same as leave). */
+  static async deleteConversation(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.userId!;
+      const conversationId = parseInt(req.params.id, 10);
+      if (Number.isNaN(conversationId)) return res.status(400).json({ error: 'Invalid conversation id' });
+      const out = await MessagingService.leaveConversation(conversationId, userId);
+      return res.json(out);
+    } catch (error: any) {
+      const status = error?.statusCode || 400;
+      return res.status(status).json({ error: error.message || 'Failed to delete conversation' });
+    }
+  }
+
+  static async unsendMessage(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.userId!;
+      const conversationId = parseInt(req.params.id, 10);
+      const messageId = parseInt(req.params.messageId, 10);
+      if (Number.isNaN(conversationId) || Number.isNaN(messageId)) {
+        return res.status(400).json({ error: 'Invalid id' });
+      }
+      const out = await MessagingService.unsendMessage(conversationId, messageId, userId);
+      return res.json(out);
+    } catch (error: any) {
+      const status = error?.statusCode || 400;
+      return res.status(status).json({ error: error.message || 'Failed to unsend message' });
+    }
+  }
+
   static async getMessages(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.userId!;

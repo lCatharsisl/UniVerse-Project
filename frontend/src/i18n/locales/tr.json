@@ -66,6 +66,63 @@
     "generateAccount": "HESAP OLUŞTUR",
     "error": "Kimlik doğrulama hatası. Düğümünü kontrol et."
   },
+  "notifications": {
+    "title": "Bildirimler",
+    "subtitle": "Topluluk güncellemeleri ve başvuru sonuçları",
+    "personalTitle": "Kişisel bildirimler",
+    "academicTitle": "Akademik bildirimler",
+    "communityTitle": "Topluluk bildirimleri",
+    "loading": "Bildirimler yükleniyor...",
+    "empty": "Bildirim yok",
+    "emptyHint": "Bildirimler gönderinin sahibi veya mesajın alıcısı olan hesaba düşer. Beğeniyi başka hesaptan attıysanız, bu sayfayı gönderiyi atan hesapla açın. Yine de boşsa PostgreSQL üzerinde migrations/014_unified_notifications.sql dosyasını çalıştırıp API’yi yeniden başlatın.",
+    "loadedOfTotal": "{{loaded}} / {{total}} yüklendi",
+    "markTabRead": "Bu sekmeyi okundu işaretle",
+    "markAllRead": "Tümünü okundu işaretle",
+    "deleteRead": "Okunanları sil",
+    "deleteAllInTab": "Sekmedeki tümünü sil",
+    "deleteAllInTabConfirm": "Bu sekmedeki tüm bildirimler silinsin mi? Bu geri alınamaz.",
+    "markRead": "Okundu işaretle",
+    "view": "Görüntüle",
+    "loadMore": "Daha fazla yükle",
+    "justNow": "Az önce",
+    "minutesAgo": "{{count}} dk önce",
+    "hoursAgo": "{{count}} sa önce",
+    "daysAgo": "{{count}} gün önce",
+    "sources": {
+      "messaging": "Mesaj",
+      "community": "Topluluk",
+      "academic": "Akademik",
+      "social": "Sosyal",
+      "system": "Sistem",
+      "default": "Bildirim"
+    },
+    "summary": {
+      "default": "Yeni bildirim",
+      "messaging": {
+        "message": "{{actor}} sana mesaj gönderdi",
+        "default": "Yeni mesaj"
+      },
+      "social": {
+        "like": "{{actor}} gönderini beğendi",
+        "likeAnonymous": "Birisi gönderini beğendi",
+        "comment": "{{actor}} gönderine yorum yaptı",
+        "commentAnonymous": "Birisi gönderine yorum yaptı",
+        "follow": "{{actor}} seni takip etmeye başladı",
+        "followAnonymous": "Birisi seni takip etmeye başladı",
+        "repost": "{{actor}} gönderini yeniden paylaştı",
+        "repostAnonymous": "Birisi gönderini yeniden paylaştı"
+      },
+      "community": {
+        "default": "Topluluk güncellemesi"
+      },
+      "academic": {
+        "default": "Akademik güncelleme"
+      },
+      "system": {
+        "default": "Sistem bildirimi"
+      }
+    }
+  },
   "register": {
     "title": "Yeni Düğüm.",
     "subtitle": "UniVerse'i genişletin. Başlamak için kampüs rolünüzü seçin.",
@@ -446,25 +503,6 @@
     "event_application_decision": "Etkinlik başvurusu kararı",
     "job_application_decision": "İlan başvurusu kararı"
   },
-  "notifications": {
-    "loading": "Bildirimler yükleniyor...",
-    "title": "Bildirimler",
-    "subtitle": "Topluluk güncellemeleri ve başvuru sonuçları",
-    "empty": "Bildirim yok",
-    "emptyHint": "Bildirimler gönderinin sahibi veya mesajın alıcısı olan hesaba düşer. Beğeniyi başka hesaptan attıysanız, bu sayfayı gönderiyi atan hesapla açın. Yine de boşsa PostgreSQL üzerinde migrations/014_unified_notifications.sql dosyasını çalıştırıp API’yi yeniden başlatın.",
-    "markRead": "Okundu işaretle",
-    "markTabRead": "Bu sekmeyi okundu işaretle",
-    "markAllRead": "Tümünü okundu işaretle",
-    "loadMore": "Daha fazla yükle",
-    "deleteRead": "Okunanları sil",
-    "deleteAllInTab": "Sekmedeki tümünü sil",
-    "deleteAllInTabConfirm": "Bu sekmedeki tüm bildirimler silinsin mi? Bu geri alınamaz.",
-    "loadedOfTotal": "{{loaded}} / {{total}} yüklendi",
-    "view": "Görüntüle",
-    "communityTitle": "Topluluk Bildirimleri",
-    "personalTitle": "Kişisel Bildirimler",
-    "academicTitle": "Akademik Bildirimler"
-  },
   "postPage": {
     "notFound": "Bu gönderi yok veya kaldırıldı.",
     "backToHub": "Hub'a dön"
@@ -589,7 +627,8 @@
     "other": "Diğer",
     "reporters": "Bildirenler",
     "dismiss": "Kaldır",
-    "noReports": "Rapor yok"
+    "noReports": "Rapor yok",
+    "postContentNotification": "Bildirim"
   },
   "discoverPage": {
     "title": "Keşfet",
@@ -622,7 +661,18 @@
     "selectAtLeastOneUser": "En az bir kullanıcı seç.",
     "startChatFailed": "Sohbet başlatılamadı.",
     "sendFailed": "Mesaj gönderilemedi.",
-    "dmOpenFailed": "Bu sohbet açılamadı."
+    "dmOpenFailed": "Bu sohbet açılamadı.",
+    "deleteChat": "Sohbeti sil",
+    "deleteChatConfirm": "Bu sohbeti listeden kaldırmak istiyor musun? İstersen aynı kişiyle sonra yeni sohbet başlatabilirsin.",
+    "deleteChatFailed": "Sohbet silinemedi.",
+    "unsend": "Geri al",
+    "unsendConfirm": "Bu mesaj sohbetteki herkes için kaldırılsın mı?",
+    "unsendFailed": "Mesaj geri alınamadı.",
+    "unsendDisabledRead": "Mesaj okunduktan sonra geri alınamaz.",
+    "messageActionsMenu": "Mesaj işlemleri",
+    "menuUnsend": "Geri al",
+    "menuDelete": "Sil",
+    "deleteMessageConfirm": "Bu mesaj sohbetteki herkes için silinsin mi?"
   },
   "socialFeed": {
     "title": "Merkez",
