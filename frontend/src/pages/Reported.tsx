@@ -9,7 +9,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
 import PostAttachment from '../components/PostAttachment';
-import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 
 interface ReportedPost {
   post_id: number;
@@ -61,7 +60,7 @@ function ModerationAvatar({
     >
       {showImg ? (
         <img
-          src={resolveMediaUrl(avatarUrl)}
+          src={avatarUrl!.startsWith('http') ? avatarUrl! : `http://localhost:3000${avatarUrl}`}
           alt=""
           className="w-full h-full object-cover"
           onError={() => setFailed(true)}

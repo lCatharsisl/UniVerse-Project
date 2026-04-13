@@ -14,7 +14,6 @@ import { useTheme } from '../context/ThemeContext';
 import PostDetailModal from '../components/PostDetailModal';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
 import CommunityMySpace from './CommunityMySpace';
-import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 
 // ─── Follow List Modal ────────────────────────────────────────────────────────
 interface FollowUser { user_id: number; email: string; name: string; surname: string; avatar_url?: string; }
@@ -351,7 +350,7 @@ const Profile = () => {
       {/* ── Cover Photo ─────────────────────────────────── */}
       <div className="relative h-36 md:h-56 w-full bg-uv-black overflow-hidden">
         {coverSrc ? (
-          <img src={resolveMediaUrl(coverSrc)} className="w-full h-full object-cover" alt="Cover" />
+          <img src={coverSrc.startsWith('http') ? coverSrc : `http://localhost:3000${coverSrc}`} className="w-full h-full object-cover" alt="Cover" />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/60 to-accent opacity-70" />
         )}
@@ -383,7 +382,7 @@ const Profile = () => {
           <div className="relative shrink-0">
             <div className="w-20 h-20 md:w-28 md:h-28 rounded-2xl overflow-hidden border-4 border-white shadow-xl bg-primary/10 flex items-center justify-center text-3xl font-black text-primary">
               {avatarSrc
-                ? <img src={resolveMediaUrl(avatarSrc)} className="w-full h-full object-cover" alt="Avatar" />
+                ? <img src={avatarSrc.startsWith('http') ? avatarSrc : `http://localhost:3000${avatarSrc}`} className="w-full h-full object-cover" alt="Avatar" />
                 : <span>{profile.name?.[0]?.toUpperCase() || '?'}</span>
               }
             </div>
