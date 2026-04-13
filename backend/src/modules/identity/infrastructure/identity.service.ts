@@ -195,6 +195,18 @@ export class IdentityService {
       });
     } catch (error: any) {
       console.error('Login Error:', error);
+      const code = error?.code as string | undefined;
+      if (code === 'ECONNREFUSED' || code === 'ETIMEDOUT' || code === 'ENOTFOUND') {
+        return Result.fail(
+          'Database unavailable. Start PostgreSQL (e.g. docker compose up -d) and check DATABASE_URL or DB_* in backend/.env.'
+        );
+      }
+      // pg: şifre/URI yanlış (Supabase dashboard’dan yeni URI alın)
+      if (code === '28P01' || String(error?.message || '').includes('password authentication failed')) {
+        return Result.fail(
+          'Database connection rejected. Copy DATABASE_URL from Supabase → Settings → Database (reset DB password if needed).'
+        );
+      }
       return Result.fail(error.message || 'Login failed');
     }
   }

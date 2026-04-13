@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { FiMapPin, FiClock, FiCheckCircle, FiArrowLeft, FiMoreHorizontal } from 'react-icons/fi';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
+import { resolveMediaUrl } from '../utils/resolveMediaUrl';
+import { LostFoundPlaceholder, type LostFoundVisualKind } from '../components/lostFound/LostFoundPlaceholder';
 
 interface Comment {
     comment_id: number;
@@ -25,11 +27,28 @@ const ItemDetail = () => {
     const [activeImg, setActiveImg] = useState(0);
     const [submitting, setSubmitting] = useState(false);
     const [openMenu, setOpenMenu] = useState(false);
+    const [mainImageFailed, setMainImageFailed] = useState(false);
+    const [thumbFailed, setThumbFailed] = useState<Record<number, boolean>>({});
+
+    const resolvedImages = useMemo(() => images.map((u) => resolveMediaUrl(u)), [images]);
 
     useEffect(() => {
         fetchItem();
         fetchComments();
     }, [type, id]);
+
+    useEffect(() => {
+        setActiveImg(0);
+    }, [type, id]);
+
+    useEffect(() => {
+        setMainImageFailed(false);
+        setThumbFailed({});
+    }, [images]);
+
+    useEffect(() => {
+        setMainImageFailed(false);
+    }, [activeImg]);
 
     const fetchItem = async () => {
         try {
@@ -113,6 +132,7 @@ const ItemDetail = () => {
     const itemName = item.lost_item_name || item.found_item_name;
     const itemDate = item.lost_date || item.found_date;
     const isOwner = item.user_id === user?.userId;
+    const visualKind: LostFoundVisualKind = item.is_resolved ? 'resolved' : type === 'lost' ? 'lost' : 'found';
 
     return (
         <div className="flex flex-col min-h-screen">
@@ -180,27 +200,58 @@ const ItemDetail = () => {
                     
                     <div className="h-[1px] bg-gray-100 my-4" />
 
-                    {/* Image Viewer */}
-                    {images.length > 0 && (
-                        <div className="space-y-2">
-                            <div className="rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 aspect-video flex items-center justify-center">
-                                <img src={images[activeImg]} alt={itemName} className="max-h-full object-contain" />
+                    {/* Image Viewer — boş veya kırık URL için tür bazlı SVG */}
+                    <div className="space-y-2">
+                        {resolvedImages.length === 0 ? (
+                            <div className="flex aspect-video items-center justify-center rounded-2xl border border-gray-100 bg-gray-50 text-primary">
+                                <LostFoundPlaceholder kind={visualKind} className="scale-[1.75]" />
                             </div>
-                            {images.length > 1 && (
-                                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                                    {images.map((img, i) => (
-                                        <button 
-                                            key={i} 
-                                            onClick={() => setActiveImg(i)}
-                                            className={`w-16 h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${activeImg === i ? 'border-primary' : 'border-transparent'}`}
-                                        >
-                                            <img src={img} alt="" className="w-full h-full object-cover" />
-                                        </button>
-                                    ))}
+                        ) : (
+                            <>
+                                <div className="flex aspect-video items-center justify-center overflow-hidden rounded-2xl border border-gray-100 bg-gray-50 text-primary">
+                                    {mainImageFailed ? (
+                                        <LostFoundPlaceholder kind={visualKind} className="scale-[1.75]" />
+                                    ) : (
+                                        <img
+                                            src={resolvedImages[activeImg]}
+                                            alt={itemName}
+                                            className="max-h-full w-full object-contain"
+                                            onError={() => setMainImageFailed(true)}
+                                        />
+                                    )}
                                 </div>
-                            )}
-                        </div>
-                    )}
+                                {resolvedImages.length > 1 && (
+                                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                                        {resolvedImages.map((img, i) => (
+                                            <button
+                                                key={i}
+                                                type="button"
+                                                onClick={() => setActiveImg(i)}
+                                                className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
+                                                    activeImg === i ? 'border-primary' : 'border-transparent'
+                                                }`}
+                                            >
+                                                {thumbFailed[i] ? (
+                                                    <div className="flex h-full w-full items-center justify-center bg-gray-100 text-primary">
+                                                        <LostFoundPlaceholder kind={visualKind} />
+                                                    </div>
+                                                ) : (
+                                                    <img
+                                                        src={img}
+                                                        alt=""
+                                                        className="h-full w-full object-cover"
+                                                        onError={() =>
+                                                            setThumbFailed((prev) => ({ ...prev, [i]: true }))
+                                                        }
+                                                    />
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
 
                     {item.is_resolved && (
                         <div className="bg-green-50 text-green-700 p-4 rounded-2xl flex items-center gap-3">
