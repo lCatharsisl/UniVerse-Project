@@ -5,6 +5,7 @@ import { FiArrowLeft, FiCamera } from 'react-icons/fi';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 
 const EditProfile = () => {
   const { t } = useTranslation();
@@ -147,7 +148,7 @@ const EditProfile = () => {
         {/* Cover */}
         <div className="relative h-40 md:h-48 rounded-2xl overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5 border border-uv-border/50">
           {coverSrc ? (
-            <img src={coverSrc.startsWith('http') ? coverSrc : `http://localhost:3000${coverSrc}`} alt="Cover" className="w-full h-full object-cover" />
+            <img src={resolveMediaUrl(coverSrc)} alt="Cover" className="w-full h-full object-cover" />
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-primary/40 to-primary/20" />
           )}
@@ -162,7 +163,7 @@ const EditProfile = () => {
         <div className="flex flex-col items-center gap-4">
           <div className="relative w-24 h-24 md:w-28 md:h-28 rounded-2xl overflow-hidden border-4 border-white shadow-xl bg-primary/10 flex items-center justify-center text-3xl font-black text-primary">
             {avatarSrc ? (
-              <img src={avatarSrc.startsWith('http') ? avatarSrc : `http://localhost:3000${avatarSrc}`} alt="Avatar" className="w-full h-full object-cover" />
+              <img src={resolveMediaUrl(avatarSrc)} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
               <span>{(form.name || form.surname || '?')[0].toUpperCase()}</span>
             )}

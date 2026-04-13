@@ -32,7 +32,7 @@ export function getPool(): Pool {
       connectionTimeoutMillis: 5000,
     });
 
-    pool.on('error', (err) => {
+    pool.on('error', (err: Error) => {
       console.error('Unexpected error on idle client', err);
     });
   }

@@ -1,7 +1,13 @@
 import axios from 'axios';
 
+function apiBaseURL(): string {
+    const origin = (import.meta.env.VITE_API_ORIGIN as string | undefined)?.trim().replace(/\/$/, '');
+    if (origin) return `${origin}/api`;
+    return '/api';
+}
+
 const api = axios.create({
-    baseURL: '/api', // Proxied by Vite to localhost:3000
+    baseURL: apiBaseURL(),
 });
 
 // Request interceptor to add auth token

@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import api from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import { themedAlert } from '../utils/themedDialog';
+import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 
 const EventApplicationForm = () => {
   const { t } = useTranslation();
@@ -136,7 +137,7 @@ const EventApplicationForm = () => {
 
         {application.is_submitted && application.cv_file_url && (
           <a
-            href={`http://localhost:3000${application.cv_file_url}`}
+            href={resolveMediaUrl(application.cv_file_url)}
             target="_blank"
             rel="noreferrer"
             className={`block text-sm font-black ${isSpace ? 'text-primary/90 hover:text-primary' : 'text-primary hover:text-primary'}`}

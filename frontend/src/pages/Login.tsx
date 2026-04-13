@@ -135,7 +135,9 @@ const Login = () => {
     };
 
     const handleMicrosoftLogin = () => {
-        window.location.href = '/api/auth/microsoft/start?returnTo=%2Ffeed';
+        const origin = (import.meta.env.VITE_API_ORIGIN as string | undefined)?.trim().replace(/\/$/, '');
+        const path = '/api/auth/microsoft/start?returnTo=%2Ffeed';
+        window.location.href = origin ? `${origin}${path}` : path;
     };
 
     return (
