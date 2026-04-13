@@ -6,6 +6,7 @@ const router = Router();
 
 router.get('/free-rooms', AcademicController.getFreeRooms);
 router.get('/staff/search', authenticateSession, AcademicController.searchStaff);
+router.get('/staff/:staffUserId/availability/range', authenticateSession, AcademicController.getStaffAvailabilityRange);
 router.get('/staff/:staffUserId/availability', authenticateSession, AcademicController.getStaffAvailability);
 router.get('/staff/:staffUserId/availability/date', authenticateSession, AcademicController.getStaffAvailabilityByDate);
 router.put('/staff/availability', authenticateSession, AcademicController.updateMyAvailability);
