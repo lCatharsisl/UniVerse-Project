@@ -16,7 +16,13 @@ export class IdentityController {
   }
 
   static async login(req: Request, res: Response) {
-    const { email, password } = req.body;
+    const rawEmail = req.body?.email;
+    const password = req.body?.password;
+    const email =
+      typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : '';
+    if (!email || typeof password !== 'string' || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
     const userAgent = req.headers['user-agent'] || '';
     const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
       || req.socket.remoteAddress

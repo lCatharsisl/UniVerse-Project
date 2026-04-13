@@ -1,6 +1,60 @@
 import { query, queryOne, transaction } from '../../../config/db';
 import { NotificationEmitterService } from '../../notifications/infrastructure/notificationEmitter.service';
 
+/** Frontend `APPOINTMENT_TIME_SLOTS` ile aynı (grid ile eşleşmeli) */
+const APPOINTMENT_TIME_SLOTS: [string, string][] = [
+  ['08:40', '09:30'],
+  ['09:40', '10:30'],
+  ['10:40', '11:30'],
+  ['11:40', '12:30'],
+  ['13:30', '14:20'],
+  ['14:30', '15:20'],
+  ['15:30', '16:20'],
+  ['16:30', '17:20'],
+  ['17:40', '18:30'],
+];
+
+/** HH:MM — PG time metni 9:40:00 / 10:40:00.123 gibi gelebilir; slice(0,5) ile kırılmaz */
+function toClockHm(raw: string): string {
+  const s = (raw || '').trim();
+  if (!s) return '';
+  const m = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?/);
+  if (m) {
+    return `${m[1].padStart(2, '0')}:${m[2]}`;
+  }
+  return s.length >= 5 ? s.slice(0, 5) : s;
+}
+
+function slotGridKey(startHm: string, endHm: string): string {
+  return `${toClockHm(startHm)}|${toClockHm(endHm)}`;
+}
+
+function calendarDateKey(raw: unknown): string {
+  const s = String(raw ?? '').trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const head = s.split('T')[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(head)) return head;
+  return s.slice(0, 10);
+}
+
+function eachWeekdayBetween(fromIso: string, toIso: string): string[] {
+  const out: string[] = [];
+  const cur = new Date(`${fromIso}T12:00:00`);
+  const end = new Date(`${toIso}T12:00:00`);
+  while (cur <= end) {
+    const dow = cur.getDay();
+    if (dow >= 1 && dow <= 5) {
+      const y = cur.getFullYear();
+      const m = String(cur.getMonth() + 1).padStart(2, '0');
+      const day = String(cur.getDate()).padStart(2, '0');
+      out.push(`${y}-${m}-${day}`);
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+}
+
 export class AcademicService {
   static async getFreeRooms(params: any) {
     const { day, time, buildingName, floorNumber } = params;
@@ -52,6 +106,153 @@ export class AcademicService {
        ORDER BY d.start_time`,
       [staffUserId, date]
     );
+  }
+
+  /**
+   * Haftalık şablon (staff_availability) + tarih bazlı satırlar (staff_availability_dates) birleşik görünümü.
+   * Takvim grid’i bu listeyi bekliyor; endpoint eksik olduğunda frontend hep boş dönüyordu.
+   */
+  static async getStaffAvailabilityRange(staffUserId: number, fromIso: string, toIso: string) {
+    const weekly = await query<{
+      weekday: number;
+      start_time: string;
+      end_time: string;
+      is_active: boolean;
+    }>(
+      `SELECT weekday, start_time::text, end_time::text, COALESCE(is_active, true) AS is_active
+       FROM staff_availability
+       WHERE staff_user_id = $1`,
+      [staffUserId]
+    );
+
+    const dateRows = await query<{
+      specific_date: string;
+      start_time: string;
+      end_time: string;
+      is_active: boolean;
+      is_booked: boolean;
+    }>(
+      `SELECT d.specific_date::text AS specific_date,
+              d.start_time::text AS start_time,
+              d.end_time::text AS end_time,
+              COALESCE(d.is_active, true) AS is_active,
+              EXISTS (
+                SELECT 1 FROM appointments a
+                WHERE a.staff_user_id = d.staff_user_id
+                  AND a.appointment_date = d.specific_date
+                  AND a.start_time = d.start_time
+                  AND a.end_time = d.end_time
+                  AND a.status IN ('pending', 'approved')
+              ) AS is_booked
+       FROM staff_availability_dates d
+       WHERE d.staff_user_id = $1
+         AND d.specific_date >= $2::date
+         AND d.specific_date <= $3::date`,
+      [staffUserId, fromIso, toIso]
+    );
+
+    const dateMap = new Map<string, (typeof dateRows)[0]>();
+    for (const r of dateRows) {
+      const iso = calendarDateKey(r.specific_date);
+      const k = `${iso}|${slotGridKey(r.start_time, r.end_time)}`;
+      dateMap.set(k, { ...r, specific_date: iso });
+    }
+
+    const apptDetails = await query<{
+      appointment_date: string;
+      start_time: string;
+      end_time: string;
+      status: string;
+      student_name: string | null;
+      student_surname: string | null;
+    }>(
+      `SELECT a.appointment_date::text AS appointment_date,
+              a.start_time::text AS start_time,
+              a.end_time::text AS end_time,
+              a.status,
+              su.student_name,
+              su.student_surname
+       FROM appointments a
+       LEFT JOIN students su ON su.user_id = a.student_user_id
+       WHERE a.staff_user_id = $1
+         AND a.appointment_date >= $2::date
+         AND a.appointment_date <= $3::date
+         AND a.status IN ('pending', 'approved')`,
+      [staffUserId, fromIso, toIso]
+    );
+
+    /** Slot anahtarı → öğrenci (hoca takviminde isim her zaman API’den gelsin) */
+    const apptBySlotKey = new Map<
+      string,
+      { status: string; student_name: string | null; student_surname: string | null }
+    >();
+    for (const a of apptDetails) {
+      const dk = `${calendarDateKey(a.appointment_date)}|${slotGridKey(a.start_time, a.end_time)}`;
+      apptBySlotKey.set(dk, {
+        status: a.status,
+        student_name: a.student_name,
+        student_surname: a.student_surname,
+      });
+    }
+
+    const apptBooked = new Set(
+      apptDetails.map((a) => `${calendarDateKey(a.appointment_date)}|${slotGridKey(a.start_time, a.end_time)}`)
+    );
+
+    const weeklyByDowSlot = new Map<string, boolean>();
+    for (const w of weekly) {
+      weeklyByDowSlot.set(`${w.weekday}|${slotGridKey(w.start_time, w.end_time)}`, w.is_active !== false);
+    }
+
+    const out: Array<{
+      specific_date: string;
+      start_time: string;
+      end_time: string;
+      is_active: boolean;
+      is_booked: boolean;
+      student_name?: string | null;
+      student_surname?: string | null;
+      appointment_status?: string | null;
+    }> = [];
+
+    for (const iso of eachWeekdayBetween(fromIso, toIso)) {
+      const dow = new Date(`${iso}T12:00:00`).getDay();
+      for (const [slotStart, slotEnd] of APPOINTMENT_TIME_SLOTS) {
+        const sk = slotGridKey(slotStart, slotEnd);
+        const dk = `${iso}|${sk}`;
+        const booked = apptBooked.has(dk);
+        const detail = booked ? apptBySlotKey.get(dk) : undefined;
+        const dr = dateMap.get(dk);
+        if (dr) {
+          out.push({
+            specific_date: iso,
+            start_time: toClockHm(dr.start_time),
+            end_time: toClockHm(dr.end_time),
+            is_active: dr.is_active !== false,
+            is_booked: booked,
+            student_name: detail?.student_name ?? null,
+            student_surname: detail?.student_surname ?? null,
+            appointment_status: detail?.status ?? null,
+          });
+          continue;
+        }
+        const open = weeklyByDowSlot.get(`${dow}|${sk}`);
+        if (open) {
+          out.push({
+            specific_date: iso,
+            start_time: slotStart,
+            end_time: slotEnd,
+            is_active: true,
+            is_booked: booked,
+            student_name: detail?.student_name ?? null,
+            student_surname: detail?.student_surname ?? null,
+            appointment_status: detail?.status ?? null,
+          });
+        }
+      }
+    }
+
+    return out;
   }
 
   static async upsertStaffAvailability(staffUserId: number, slots: any[]) {
@@ -168,9 +369,13 @@ export class AcademicService {
   }
 
   static async listAppointments(userId: number, role: string, archive: boolean) {
+    /**
+     * Aktif: gelecek tarih + sadece bekleyen/onaylı (iptal/red burada olmasın).
+     * Arşiv: geçmiş tarih VEYA iptal/red (gelecekte iptal edilenler burada görünsün).
+     */
     const archiveFilter = archive
-      ? 'a.appointment_date < CURRENT_DATE'
-      : 'a.appointment_date >= CURRENT_DATE';
+      ? `(a.appointment_date < CURRENT_DATE OR a.status IN ('cancelled', 'rejected'))`
+      : `(a.appointment_date >= CURRENT_DATE AND a.status IN ('pending', 'approved'))`;
 
     const roleFilter = role === 'staff'
       ? 'a.staff_user_id = $1'
