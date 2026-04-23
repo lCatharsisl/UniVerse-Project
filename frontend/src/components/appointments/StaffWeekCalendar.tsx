@@ -132,8 +132,9 @@ export function StaffWeekCalendar({
   const dayIsos = useMemo(() => weekDayDatesFromMonday(weekMondayIso), [weekMondayIso]);
 
   const prevWeekMonday = useMemo(() => addDaysIso(weekMondayIso, -7), [weekMondayIso]);
+  const earliestNav = earliestNavWeekMondayIso;
   const prevWeekDisabled =
-    Boolean(earliestNavWeekMondayIso) && prevWeekMonday < earliestNavWeekMondayIso;
+    typeof earliestNav === 'string' && earliestNav.length > 0 && prevWeekMonday < earliestNav;
 
   const weekLabel = useMemo(() => {
     const start = new Date(`${dayIsos[0]}T12:00:00`);
