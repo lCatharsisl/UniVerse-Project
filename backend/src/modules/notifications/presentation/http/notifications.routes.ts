@@ -28,6 +28,7 @@ router.get(
     z.object({
       limit: z.string().optional(),
       offset: z.string().optional(),
+      scope: z.enum(['personal', 'academic', 'community']).optional(),
     })
   ),
   NotificationsController.list

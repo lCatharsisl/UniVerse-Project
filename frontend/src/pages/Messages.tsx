@@ -29,6 +29,7 @@ import { getAuthUserAvatarUrl, getAuthUserInitials } from '../utils/authUserDisp
 import { useMessagingUnread } from '../context/MessagingUnreadContext';
 import { useTranslation } from 'react-i18next';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
+import { NavIconBadge } from '../components/NavIconBadge';
 import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 type UserSearchRow = {
   user_id: number;
@@ -1601,11 +1602,7 @@ const Messages: React.FC = () => {
                                 )}
                               </div>
                             )}
-                            {unreadCount > 0 && (
-                              <span className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-black text-white">
-                                {unreadCount}
-                              </span>
-                            )}
+                            <NavIconBadge count={unreadCount} tone="messages" />
                           </div>
 
                           <div className="min-w-0 flex-1">

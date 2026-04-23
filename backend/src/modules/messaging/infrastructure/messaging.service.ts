@@ -2,7 +2,6 @@ import { query, queryOne, transaction } from '../../../config/db';
 import { storeMessagingImage } from '../../../integrations/messagingStorage';
 import { AppError } from '../../../shared/core/errors';
 import { IdentityService } from '../../identity/infrastructure/identity.service';
-import { NotificationEmitterService } from '../../notifications/infrastructure/notificationEmitter.service';
 
 type ConversationMember = {
   userId: number;
@@ -602,33 +601,7 @@ export class MessagingService {
       return messageId;
     });
 
-    const recipients = await query<{ user_id: number }>(
-      `
-      SELECT user_id
-      FROM conversation_participants
-      WHERE conversation_id = $1
-        AND is_active = true
-        AND user_id <> $2
-        AND COALESCE(notifications_muted, false) = false
-      `,
-      [conversationId, senderUserId]
-    );
-
     const messagePayload = await this.getMessageById(createdMessageId, participant.user_id);
-
-    const recipientIds = recipients.map((r) => r.user_id);
-    setImmediate(() => {
-      NotificationEmitterService.createForRecipientsBulkSafe({
-        recipientUserIds: recipientIds,
-        actorUserId: senderUserId,
-        sourceModule: 'messaging',
-        kind: 'messaging.message',
-        message: 'New message',
-        entityType: 'conversation',
-        entityId: conversationId,
-        payload: { conversationId, messageId: createdMessageId },
-      }).catch((err) => console.error('[messaging] notification emit failed', err));
-    });
 
     return messagePayload;
   }

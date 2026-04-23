@@ -21,16 +21,12 @@ _(Alternatif olarak her klasöre girip tek tek `npm install` yapabilirsiniz.)_
 
 ### 2. Çevre Değişkenlerini (.env) Ayarlayın
 
-Proje güvenliği için `.env` dosyaları paylaşılmamıştır. **backend** klasörü içerisinde `.env` adında bir dosya oluşturun ve ortak Supabase bilgilerimizi buraya girin:
+`.env` dosyaları repoda yoktur; kendi Supabase / oturum değerlerinizi **yerelde** tanımlayın.
 
-```env
-PORT=3000
-DB_USER=postgres
-DB_HOST=[SUPABASE_HOST_ADRESI]
-DB_NAME=postgres
-DB_PASSWORD=[ORTAK_SIFRE]
-DB_PORT=5432
-```
+1. [`backend/.env.example`](backend/.env.example) dosyasını `backend/.env` olarak kopyalayın.
+2. Supabase projenizden `DATABASE_URL` (veya `DB_*` alanları) ve en az 32 karakterlik `SESSION_SECRET` değerlerini doldurun.
+
+Ayrıntılı alan listesi için `backend/.env.example` içindeki yorumlara bakın.
 
 ### 3. Sistemi Çalıştırın
 

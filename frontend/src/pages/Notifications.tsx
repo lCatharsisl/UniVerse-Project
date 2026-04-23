@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { FiArrowRight, FiBell, FiCheck } from 'react-icons/fi';
@@ -6,6 +6,7 @@ import api from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
 import { useNotifications } from '../context/NotificationsContext';
+import { NavIconBadge } from '../components/NavIconBadge';
 import { FeedAvatarImage } from '../components/FeedAvatarImage';
 import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 import {
@@ -29,19 +30,28 @@ type UnifiedNotification = NotificationLike & {
   created_at?: string;
 };
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
 const TAB_ORDER = ['personal', 'academic', 'community'] as const;
 type NotificationTab = (typeof TAB_ORDER)[number];
-const NOTIFICATIONS_CACHE_KEY = 'notifications:first-page-cache';
+const NOTIFICATIONS_CACHE_KEY = 'notifications:first-page-cache:v4';
 
-function readNotificationsCache() {
+function readNotificationsCache(tab: NotificationTab = 'personal') {
   if (typeof window === 'undefined') return { items: [] as UnifiedNotification[], total: 0 };
   const raw = window.localStorage.getItem(NOTIFICATIONS_CACHE_KEY);
   if (!raw) return { items: [] as UnifiedNotification[], total: 0 };
   try {
-    const parsed = JSON.parse(raw) as { items?: UnifiedNotification[]; total?: number };
+    const parsed = JSON.parse(raw) as {
+      items?: UnifiedNotification[];
+      total?: number;
+      scope?: NotificationTab;
+    };
+    if (parsed.scope !== tab) return { items: [] as UnifiedNotification[], total: 0 };
+    const rawItems = Array.isArray(parsed.items) ? parsed.items : [];
+    const items = rawItems.filter(
+      (n) => String((n as UnifiedNotification).source_module || '').toLowerCase() !== 'messaging'
+    );
     return {
-      items: Array.isArray(parsed.items) ? parsed.items : [],
+      items,
       total: Number.isFinite(parsed.total) ? Number(parsed.total) : 0,
     };
   } catch {
@@ -54,8 +64,11 @@ const Notifications = () => {
   const navigate = useNavigate();
   const { dimension } = useTheme();
   const isSpace = dimension === 'space';
-  const { refreshUnreadCount } = useNotifications();
-  const [cached] = useState(() => readNotificationsCache());
+  const { refreshUnreadCount, unreadByScope } = useNotifications();
+  const [cached] = useState(() => readNotificationsCache('personal'));
+  /** Yalnızca ilk ağ fetch’inde tam sayfa spinner; loadMore sonrası loadInitial yeniden tetiklenmez. */
+  const isFirstNetworkLoadRef = useRef(true);
+  const prevTabRef = useRef<NotificationTab | null>(null);
 
   const [activeTab, setActiveTab] = useState<NotificationTab>('personal');
   const [loading, setLoading] = useState(cached.items.length === 0);
@@ -64,8 +77,10 @@ const Notifications = () => {
   const [notifications, setNotifications] = useState<UnifiedNotification[]>(cached.items);
   const [total, setTotal] = useState(cached.total);
 
-  const fetchSlice = useCallback(async (offset: number, append: boolean) => {
-    const res = await api.get('/notifications', { params: { limit: PAGE_SIZE, offset } });
+  const fetchSlice = useCallback(async (offset: number, append: boolean, scope: NotificationTab) => {
+    const res = await api.get('/notifications', {
+      params: { limit: PAGE_SIZE, offset, scope },
+    });
     const items = (res.data?.items || []) as UnifiedNotification[];
     const nextTotal = Number(res.data?.total ?? 0);
 
@@ -85,44 +100,62 @@ const Notifications = () => {
     } else {
       setNotifications(items);
       if (typeof window !== 'undefined') {
-        window.localStorage.setItem(NOTIFICATIONS_CACHE_KEY, JSON.stringify({ items, total: nextTotal }));
+        window.localStorage.setItem(
+          NOTIFICATIONS_CACHE_KEY,
+          JSON.stringify({ items, total: nextTotal, scope })
+        );
       }
     }
   }, []);
 
   const loadInitial = useCallback(async () => {
-    if (notifications.length === 0) setLoading(true);
+    if (isFirstNetworkLoadRef.current && cached.items.length === 0) {
+      setLoading(true);
+    }
     setError('');
     try {
-      await fetchSlice(0, false);
+      await fetchSlice(0, false, activeTab);
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Failed to load notifications');
     } finally {
       setLoading(false);
+      isFirstNetworkLoadRef.current = false;
     }
-  }, [fetchSlice, notifications.length]);
+  }, [fetchSlice, activeTab]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || notifications.length >= total) return;
     setLoadingMore(true);
     try {
-      await fetchSlice(notifications.length, true);
+      await fetchSlice(notifications.length, true, activeTab);
     } catch (e: any) {
       await themedAlert(e?.response?.data?.error || 'Failed to load more');
     } finally {
       setLoadingMore(false);
     }
-  }, [fetchSlice, loadingMore, notifications.length, total]);
+  }, [fetchSlice, loadingMore, notifications.length, total, activeTab]);
+
+  useEffect(() => {
+    if (prevTabRef.current !== null && prevTabRef.current !== activeTab) {
+      setNotifications([]);
+      setTotal(0);
+    }
+    prevTabRef.current = activeTab;
+  }, [activeTab]);
 
   useEffect(() => {
     loadInitial().catch(() => {});
   }, [loadInitial]);
 
+  useEffect(() => {
+    void refreshUnreadCount(true);
+  }, [refreshUnreadCount]);
+
   const sourceMatch = (notification: UnifiedNotification, tab: NotificationTab) => {
-    const source = String(notification.source_module || '');
+    const source = String(notification.source_module || '').toLowerCase();
     if (tab === 'academic') return source === 'academic';
     if (tab === 'community') return source === 'community';
-    return source !== 'academic' && source !== 'community';
+    return source !== 'academic' && source !== 'community' && source !== 'messaging';
   };
 
   const activeList = notifications.filter((notification) => sourceMatch(notification, activeTab));
@@ -132,7 +165,7 @@ const Notifications = () => {
     try {
       await api.post(`/notifications/${notificationId}/read`);
       setNotifications((prev) => prev.map((notification) => (notification.notification_id === notificationId ? { ...notification, is_read: true } : notification)));
-      await refreshUnreadCount();
+      await refreshUnreadCount(true);
     } catch (e: any) {
       await themedAlert(e?.response?.data?.error || 'Failed to mark read');
     }
@@ -142,7 +175,7 @@ const Notifications = () => {
     try {
       await api.post('/notifications/read-tab', { scope: activeTab });
       await loadInitial();
-      await refreshUnreadCount();
+      await refreshUnreadCount(true);
     } catch (e: any) {
       await themedAlert(e?.response?.data?.error || 'Failed to mark tab read');
     }
@@ -152,7 +185,7 @@ const Notifications = () => {
     try {
       await api.post('/notifications/read-all');
       await loadInitial();
-      await refreshUnreadCount();
+      await refreshUnreadCount(true);
     } catch (e: any) {
       await themedAlert(e?.response?.data?.error || 'Failed to mark all read');
     }
@@ -165,7 +198,7 @@ const Notifications = () => {
     try {
       await api.delete('/notifications', { data: { ids } });
       await loadInitial();
-      await refreshUnreadCount();
+      await refreshUnreadCount(true);
     } catch (e: any) {
       await themedAlert(e?.response?.data?.error || 'Failed to delete notifications');
     }
@@ -179,7 +212,7 @@ const Notifications = () => {
     try {
       await api.delete('/notifications', { data: { ids } });
       await loadInitial();
-      await refreshUnreadCount();
+      await refreshUnreadCount(true);
     } catch (e: any) {
       await themedAlert(e?.response?.data?.error || 'Failed to delete notifications');
     }
@@ -238,13 +271,19 @@ const Notifications = () => {
                 : tab === 'academic'
                   ? t('notifications.academicTitle')
                   : t('notifications.communityTitle');
+            const tabUnread =
+              tab === 'personal'
+                ? unreadByScope.personal
+                : tab === 'academic'
+                  ? unreadByScope.academic
+                  : unreadByScope.community;
 
             return (
               <button
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 px-3 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                className={`relative flex flex-1 min-w-0 items-center justify-center px-2 sm:px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest text-center transition-all ${
                   active
                     ? 'bg-white text-primary shadow-sm'
                     : isSpace
@@ -252,7 +291,8 @@ const Notifications = () => {
                       : 'text-uv-gray hover:text-uv-black'
                 }`}
               >
-                {label}
+                <NavIconBadge placement="boxTopLeft" count={tabUnread} tone="alerts" />
+                <span className="block min-w-0 max-w-full truncate px-1 text-center leading-tight">{label}</span>
               </button>
             );
           })}

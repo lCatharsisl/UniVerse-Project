@@ -1,10 +1,17 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import api from '../api/client';
 import { useAuth } from './AuthContext';
 
+export type UnreadByScope = {
+  personal: number;
+  academic: number;
+  community: number;
+};
+
 type NotificationsContextType = {
   unreadCount: number;
-  refreshUnreadCount: () => Promise<void>;
+  unreadByScope: UnreadByScope;
+  refreshUnreadCount: (force?: boolean) => Promise<void>;
 };
 
 const NotificationsContext = createContext<NotificationsContextType | undefined>(undefined);
@@ -12,35 +19,43 @@ const NotificationsContext = createContext<NotificationsContextType | undefined>
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadByScope, setUnreadByScope] = useState<UnreadByScope>({ personal: 0, academic: 0, community: 0 });
   const lastRefreshAtRef = useRef(0);
 
-  const refreshUnreadCount = async () => {
-    if (!user) {
+  const refreshUnreadCount = useCallback(async (force?: boolean) => {
+    if (!user?.userId) {
       setUnreadCount(0);
+      setUnreadByScope({ personal: 0, academic: 0, community: 0 });
       return;
     }
     const now = Date.now();
-    if (now - lastRefreshAtRef.current < 10000) return;
+    if (!force && now - lastRefreshAtRef.current < 10000) return;
     const res = await api.get('/notifications/unread-count');
     const count = Number(res.data?.count ?? 0);
     setUnreadCount(Number.isFinite(count) ? count : 0);
+    const b = res.data?.byScope;
+    setUnreadByScope({
+      personal: Number.isFinite(Number(b?.personal)) ? Number(b.personal) : 0,
+      academic: Number.isFinite(Number(b?.academic)) ? Number(b.academic) : 0,
+      community: Number.isFinite(Number(b?.community)) ? Number(b.community) : 0,
+    });
     lastRefreshAtRef.current = now;
-  };
-
-  useEffect(() => {
-    refreshUnreadCount().catch(() => {});
   }, [user?.userId]);
 
   useEffect(() => {
-    if (!user) return;
+    refreshUnreadCount().catch(() => {});
+  }, [refreshUnreadCount]);
+
+  useEffect(() => {
+    if (!user?.userId) return;
     const id = window.setInterval(() => {
       refreshUnreadCount().catch(() => {});
     }, 30000);
     return () => window.clearInterval(id);
-  }, [user?.userId]);
+  }, [user?.userId, refreshUnreadCount]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.userId) return;
     const onFocus = () => {
       refreshUnreadCount().catch(() => {});
     };
@@ -53,9 +68,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, [user?.userId]);
+  }, [user?.userId, refreshUnreadCount]);
 
-  const value = useMemo(() => ({ unreadCount, refreshUnreadCount }), [unreadCount]);
+  const value = useMemo(
+    () => ({ unreadCount, unreadByScope, refreshUnreadCount }),
+    [unreadCount, unreadByScope, refreshUnreadCount]
+  );
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
 }
 
