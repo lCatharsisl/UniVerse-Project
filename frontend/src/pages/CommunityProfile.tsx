@@ -241,8 +241,8 @@ const CommunityProfile = () => {
         {/* Cover */}
         <div className={`rounded-3xl overflow-hidden border ${isSpace ? 'border-white/10 bg-white/5' : 'border-uv-border bg-white'}`}>
           <div className="relative h-44 md:h-56">
-            {community.cover_url ? (
-              <img src={resolveMediaUrl(community.cover_url)} className="w-full h-full object-cover" alt={community.community_name} />
+            {coverSrc ? (
+              <img src={coverSrc} className="w-full h-full object-cover" alt={community.community_name} />
             ) : (
               <div className={`w-full h-full ${isSpace ? 'bg-primary/20' : 'bg-primary/10'}`} />
             )}
