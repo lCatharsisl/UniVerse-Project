@@ -6,6 +6,7 @@ import { useMessagingUnread } from '../context/MessagingUnreadContext';
 import { useTranslation } from 'react-i18next';
 import { FiMoreHorizontal, FiTrash2 } from 'react-icons/fi';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
+import { NavIconBadge } from '../components/NavIconBadge';
 import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 
 type UserSearchRow = {
@@ -462,12 +463,13 @@ const Messages: React.FC = () => {
                   }}
                   className="flex-1 min-w-0 text-left px-2.5 py-2 flex gap-3 items-start"
                 >
-                  <div className="shrink-0 w-11 h-11 rounded-full overflow-hidden bg-primary/10 border border-uv-border flex items-center justify-center text-sm font-black text-primary">
+                  <div className="relative shrink-0 w-11 h-11 rounded-full overflow-hidden bg-primary/10 border border-uv-border flex items-center justify-center text-sm font-black text-primary">
                     {avUrl ? (
                       <img src={avUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
                       avLetter
                     )}
+                    <NavIconBadge count={unreadN} tone="messages" />
                   </div>
                   <div className="min-w-0 flex-1 pr-6">
                     <div className="flex items-start justify-between gap-2">
@@ -481,11 +483,6 @@ const Messages: React.FC = () => {
                       <div className="text-[11px] text-uv-gray">
                         {unreadN > 0 ? t('messagesPage.newMessages') : t('messagesPage.upToDate')}
                       </div>
-                      {unreadN > 0 && (
-                        <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary text-white text-[10px] font-black">
-                          {unreadN}
-                        </span>
-                      )}
                     </div>
                   </div>
                 </button>

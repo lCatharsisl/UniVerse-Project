@@ -43,7 +43,7 @@ export class AcademicController {
     }
   }
 
-  static async getStaffAvailabilityRange(req: Request, res: Response) {
+  static async getStaffAvailabilityRange(req: AuthenticatedRequest, res: Response) {
     try {
       const staffUserId = Number(req.params.staffUserId);
       const from = String(req.query.from || '');
@@ -51,7 +51,11 @@ export class AcademicController {
       if (!from || !to) {
         return res.status(400).json({ error: 'Query params from and to are required (YYYY-MM-DD)' });
       }
-      const data = await AcademicService.getStaffAvailabilityRange(staffUserId, from, to);
+      const viewer =
+        req.userId != null && req.userRole
+          ? { userId: req.userId, role: String(req.userRole) }
+          : null;
+      const data = await AcademicService.getStaffAvailabilityRange(staffUserId, from, to, viewer);
       return res.json(data);
     } catch (error: any) {
       return res.status(400).json({ error: error.message || 'Failed to fetch availability range' });

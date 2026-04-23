@@ -20,8 +20,27 @@ export function toClockHm(raw: string): string {
 export const slotGridKey = (startHm: string, endHm: string) =>
   `${toClockHm(startHm)}|${toClockHm(endHm)}`;
 
+/**
+ * Takvim sütunu anahtarı: yalnızca YYYY-MM-DD.
+ * PG `date` bazen JSON’da ISO datetime olarak gelir; `split('T')[0]` UTC tarihine denk gelebilir.
+ * Önce düz tarih; ISO ise UTC takvim bileşenleri (backend `::text` ile birlikte çift savunma).
+ */
 export function calendarDateKey(raw: unknown): string {
-  return String(raw ?? '').split('T')[0].slice(0, 10);
+  const s = String(raw ?? '').trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+    const d = new Date(s);
+    if (!Number.isNaN(d.getTime())) {
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+  }
+  const head = s.split('T')[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(head)) return head;
+  return s.slice(0, 10);
 }
 
 export function isTruthyBooked(v: unknown): boolean {
@@ -64,6 +83,15 @@ export function startOfWeekMondayIso(d = new Date()): string {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const dayNum = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${dayNum}`;
+}
+
+/** Tarayıcı yerel takvimi; grid / “bugünden önce” kuralları `startOfWeekMondayIso` ile aynı TZ. */
+export function todayLocalIso(d = new Date()): string {
+  const date = new Date(d);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 export function addDaysIso(iso: string, days: number): string {
