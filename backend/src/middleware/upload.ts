@@ -20,6 +20,8 @@ const storage = multer.diskStorage({
     },
 });
 
+const memory = multer.memoryStorage();
+
 const imageMimeTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
 
 const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
@@ -54,4 +56,18 @@ export const uploadSocialPost = multer({
     limits: {
         fileSize: 80 * 1024 * 1024, // 80MB for MP4
     }
+});
+
+/** In-memory: use when uploading to object storage (e.g. Supabase) in the same request. */
+export const uploadImageMemory = multer({
+    storage: memory,
+    fileFilter: fileFilter,
+    limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+/** Profil avatar + kapak (aynı filtre, bellek). */
+export const uploadProfileImages = multer({
+    storage: memory,
+    fileFilter: fileFilter,
+    limits: { fileSize: 5 * 1024 * 1024 },
 });

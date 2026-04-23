@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { IdentityController } from './identity.controller';
-import { upload } from '../../../../middleware/upload';
+import { uploadProfileImages } from '../../../../middleware/upload';
 import { authenticateSession } from '../../../../middleware/auth';
 
 const router = Router();
@@ -20,7 +20,7 @@ router.get('/me', authenticateSession, IdentityController.getMe);
 router.patch(
   '/profile',
   authenticateSession,
-  upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'cover', maxCount: 1 }]),
+  uploadProfileImages.fields([{ name: 'avatar', maxCount: 1 }, { name: 'cover', maxCount: 1 }]),
   IdentityController.updateProfile
 );
 // getPublicProfile now requires auth so requesterId is available for blocking/privacy checks

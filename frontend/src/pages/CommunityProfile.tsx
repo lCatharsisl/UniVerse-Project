@@ -5,7 +5,7 @@ import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { COMMUNITY_CATEGORY_CODES, COMMUNITY_CATEGORY_LABEL_KEYS, type CommunityCategoryCode } from '../constants/communityCategories';
-import { resolveMediaUrl } from '../utils/resolveMediaUrl';
+import { toImgSrc } from '../utils/resolveMediaUrl';
 import { FiUsers, FiCalendar, FiArrowRight, FiCamera, FiBriefcase, FiX } from 'react-icons/fi';
 
 const formatDateOnly = (raw: string) => {
@@ -232,6 +232,8 @@ const CommunityProfile = () => {
   }
 
   const { community, memberCount, isMember, isAdmin, membershipStatus, membersPreview, events, jobs } = profile;
+  const coverSrc = toImgSrc(community.cover_url);
+  const groupAvatarSrc = toImgSrc(community.avatar_url);
 
   return (
     <div className={`min-h-screen p-4 md:p-6 ${isSpace ? 'bg-[#050510]' : 'bg-white'}`}>
@@ -287,9 +289,9 @@ const CommunityProfile = () => {
                   disabled={mediaSaving}
                   onChange={(e) => updateMedia({ avatarFile: e.target.files?.[0] || null }).catch(() => {})}
                 />
-                {community.avatar_url ? (
+                {groupAvatarSrc ? (
                   <img
-                    src={resolveMediaUrl(community.avatar_url)}
+                    src={groupAvatarSrc}
                     alt={community.community_name}
                     className="w-14 h-14 rounded-2xl border-2 border-white/30 object-cover bg-white"
                   />
@@ -453,7 +455,9 @@ const CommunityProfile = () => {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
-            {membersPreview.map((m: any) => (
+            {membersPreview.map((m: any) => {
+              const memSrc = toImgSrc(m.avatar_url);
+              return (
               <div
                 key={m.user_id}
                 className={`rounded-2xl p-3 border ${
@@ -461,9 +465,9 @@ const CommunityProfile = () => {
                 }`}
               >
                 <div className="mb-2">
-                  {m.avatar_url ? (
+                  {memSrc ? (
                     <img
-                      src={resolveMediaUrl(m.avatar_url)}
+                      src={memSrc}
                       alt=""
                       className="w-9 h-9 rounded-xl object-cover border border-white/20"
                     />
@@ -481,7 +485,8 @@ const CommunityProfile = () => {
                 </div>
                 <div className={`text-[10px] ${isSpace ? 'text-white/50' : 'text-uv-gray'} truncate`}>{m.email}</div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -620,15 +625,17 @@ const CommunityProfile = () => {
                 ) : fullMembers.length === 0 ? (
                   <p className={`text-sm ${isSpace ? 'text-white/60' : 'text-uv-gray'}`}>{t('communityProfile.noMembersInList')}</p>
                 ) : (
-                  fullMembers.map((m: any, idx: number) => (
+                  fullMembers.map((m: any, idx: number) => {
+                    const memSrc = toImgSrc(m.avatar_url);
+                    return (
                     <div
                       key={`${m.user_id}-${idx}`}
                       className={`rounded-2xl p-3 border ${isSpace ? 'border-white/10 bg-white/5' : 'border-uv-border bg-gray-50'}`}
                     >
                       <div className="mb-2">
-                        {m.avatar_url ? (
+                        {memSrc ? (
                           <img
-                            src={resolveMediaUrl(m.avatar_url)}
+                            src={memSrc}
                             alt=""
                             className="w-10 h-10 rounded-xl object-cover border border-white/20"
                           />
@@ -646,7 +653,8 @@ const CommunityProfile = () => {
                       </div>
                       <div className={`text-xs truncate ${isSpace ? 'text-white/50' : 'text-uv-gray'}`}>{m.email}</div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

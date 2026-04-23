@@ -71,18 +71,25 @@ function formatCalorie(numStr: string): string {
 
 function extractFoodTokens(chunk: string): string[] {
   const tokens: string[] = [];
+  // Alerjen yıldızları temizle — parse’ta yemek adından koparılmayı engeller.
+  const cleaned = chunk.replace(/\*/g, ' ').replace(/\s+/g, ' ');
   const pattern = /([A-Za-zğüşıöçĞÜŞİÖÇ0-9\.\-\+\(\)\/',\s]+?)\s+(\d{2,4}(?:\/\d{2,4})?)\s*(?=[A-Za-zğüşıöçĞÜŞİÖÇ]|$)/g;
-  const dateRegex = new RegExp(`(\\d{1,2})\\s+(${MONTHS.join('|')})`, 'i');
+  const dateRegex = new RegExp(
+    `(\\d{1,2})\\s+(${MONTHS.join('|')})|\\d{1,2}[.]\\d{1,2}[.\\s]\\d{4}`,
+    'i'
+  );
   let m: RegExpExecArray | null;
-  while ((m = pattern.exec(chunk)) !== null) {
+  while ((m = pattern.exec(cleaned)) !== null) {
     let name = m[1].replace(/\s+/g, ' ').trim();
-    name = name.replace(/^ALERJEN\s+KALORİ\s*/i, '');
-    if (!name || name === 'ALERJEN' || name === 'KALORİ' || dateRegex.test(name)) continue;
+    name = name.replace(/^ALERJEN\s+KALORİ\s*/i, '').replace(/\bALERJEN\b|\bKALORİ\b/gi, '').trim();
+    if (!name || dateRegex.test(name)) continue;
     if (name.length < 2) continue;
     const calorie = m[2] ? ` (${formatCalorie(m[2])})` : '';
     tokens.push(name + calorie);
   }
-  const trailerMatch = chunk.match(/(?:^|[^\d])(MEVSİM MEYVESİ\s*\([^)]+\))\s*(?=\d{1,2}\s+MART|$)/i);
+  const trailerMatch = cleaned.match(
+    /(?:^|[^\d])(MEVSİM MEYVESİ\s*\([^)]+\))\s*(?=\d{1,2}\s+MART|\d{1,2}[.]\d{1,2}[.\s]\d{4}|$)/i
+  );
   if (trailerMatch && !tokens.some((t) => /MEVSİM MEYVESİ/i.test(t))) {
     tokens.push(trailerMatch[1].replace(/\s+/g, ' ').trim());
   }
@@ -97,8 +104,12 @@ export function parseMenuText(raw: string): ParsedMenu {
 
   let text = raw.replace(/\s+/g, ' ').trim();
 
-  const periodMatch = text.match(/YAŞAR ÜNİVERSİTESİ\s+(\w+)\s+AYI\s/);
-  const periodLabel = periodMatch ? `${periodMatch[1]} Ayı` : undefined;
+  /**
+   * PDF bazen "YAŞAR ÜNİVERSİTESi" (küçük i) yazıyor; Türkçe \w da sorunlu.
+   * O yüzden doğrudan "{AY} AYI" ifadesini arıyoruz.
+   */
+  const periodMatch = text.match(new RegExp(`(${MONTHS.join('|')})\\s+AYI`, 'i'));
+  const periodLabel = periodMatch ? `${periodMatch[1].toLocaleUpperCase('tr-TR')} Ayı` : undefined;
 
   const pricingBlock = text.match(/MENÜ İÇERİSİNDE[\s\S]*?SU FİYATI;[\s\S]*?[\d,]+\s*TL/);
   if (pricingBlock) {
@@ -128,16 +139,39 @@ export function parseMenuText(raw: string): ParsedMenu {
 
     const dateMatches: { day: number; month: string; year?: string; weekday?: string; start: number; end: number }[] = [];
     let m: RegExpExecArray | null;
+    /**
+     * İki tarih formatı desteklenir:
+     *  - "11 MART 2026 PAZARTESİ"           (eski)
+     *  - "01.04.2026 ÇARŞAMBA" / "15.04 2026 ÇARŞAMBA"  (yeni, Nisan’dan itibaren)
+     * Regex alternatifleri tek match içinde yakalar; hangi branş tetiklendi ise
+     * ilgili gruplar dolar.
+     */
     const reg = new RegExp(
-      `(\\d{1,2})\\s+(${MONTHS.join('|')})(?:\\s+(\\d{4}))?\\s*(${WEEKDAYS.join('|')})?`,
+      `(?:(\\d{1,2})\\s+(${MONTHS.join('|')})(?:\\s+(\\d{4}))?` +
+        `|(\\d{1,2})[.](\\d{1,2})[.\\s]+(\\d{4}))` +
+        `\\s*(${WEEKDAYS.join('|')})?`,
       'gi'
     );
     while ((m = reg.exec(sectionText)) !== null) {
+      let day: number;
+      let month: string;
+      let year: string | undefined;
+      if (m[1]) {
+        day = parseInt(m[1], 10);
+        month = m[2];
+        year = m[3];
+      } else {
+        day = parseInt(m[4], 10);
+        const monthIdx = parseInt(m[5], 10) - 1;
+        if (monthIdx < 0 || monthIdx > 11) continue;
+        month = MONTHS[monthIdx];
+        year = m[6];
+      }
       dateMatches.push({
-        day: parseInt(m[1], 10),
-        month: m[2],
-        year: m[3],
-        weekday: m[4],
+        day,
+        month,
+        year,
+        weekday: m[7],
         start: m.index,
         end: m.index + m[0].length,
       });

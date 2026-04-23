@@ -31,6 +31,7 @@ const envSchema = z.object({
   MICROSOFT_CLIENT_SECRET: z.string().optional(),
   MICROSOFT_TENANT_ID: z.string().optional(),
   MICROSOFT_REDIRECT_URI: z.string().url().optional(),
+
 });
 
 type Env = z.infer<typeof envSchema>;

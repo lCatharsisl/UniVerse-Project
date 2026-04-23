@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { storeProfileImage } from '../../../../integrations/profileStorage';
 import { RegisterHandler } from '../../application/commands/register.handler';
 import { LoginHandler } from '../../application/commands/login.handler';
 import { UpdateProfileHandler } from '../../application/commands/update-profile.handler';
@@ -82,17 +83,18 @@ export class IdentityController {
   static async updateProfile(req: AuthenticatedRequest, res: Response) {
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
     const updateData = { ...req.body };
+    const uid = req.userId!;
 
     if (files) {
-      if (files['avatar'] && files['avatar'][0]) {
-        updateData.avatarUrl = `/uploads/${files['avatar'][0].filename}`;
+      if (files['avatar']?.[0]) {
+        updateData.avatarUrl = await storeProfileImage(files['avatar'][0], 'avatar', uid);
       }
-      if (files['cover'] && files['cover'][0]) {
-        updateData.coverUrl = `/uploads/${files['cover'][0].filename}`;
+      if (files['cover']?.[0]) {
+        updateData.coverUrl = await storeProfileImage(files['cover'][0], 'cover', uid);
       }
     }
 
-    const result = await UpdateProfileHandler.execute(req.userId!, updateData);
+    const result = await UpdateProfileHandler.execute(uid, updateData);
     if (!result.success) return res.status(400).json({ error: result.error });
     return res.json({ message: 'Profile updated successfully' });
   }

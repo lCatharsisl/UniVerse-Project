@@ -29,10 +29,6 @@ const LostFoundFeed = () => {
     const { dimension } = useTheme();
     const isSpace = dimension === 'space';
 
-    useEffect(() => {
-        fetchItems();
-    }, [activeTab]);
-
     const fetchItems = async () => {
         setLoading(true);
         try {
@@ -61,6 +57,10 @@ const LostFoundFeed = () => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchItems();
+    }, [activeTab]);
 
     const getItemName = (item: Item) => item.lost_item_name || item.found_item_name;
     const getItemId = (item: Item) => item.lost_item_id || item.found_item_id;

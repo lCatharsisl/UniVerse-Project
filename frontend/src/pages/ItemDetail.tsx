@@ -26,11 +26,6 @@ const ItemDetail = () => {
     const [submitting, setSubmitting] = useState(false);
     const [openMenu, setOpenMenu] = useState(false);
 
-    useEffect(() => {
-        fetchItem();
-        fetchComments();
-    }, [type, id]);
-
     const fetchItem = async () => {
         try {
             const endpoint = type === 'lost' ? '/services/lost-items' : '/services/found-items';
@@ -64,6 +59,15 @@ const ItemDetail = () => {
             console.error('Failed to fetch comments', err);
         }
     };
+
+    useEffect(() => {
+        fetchItem();
+        fetchComments();
+    }, [type, id]);
+
+    useEffect(() => {
+        setActiveImg(0);
+    }, [type, id]);
 
     const handleAddComment = async (e: React.FormEvent) => {
         e.preventDefault();

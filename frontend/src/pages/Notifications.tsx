@@ -6,6 +6,7 @@ import api from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
 import { useNotifications } from '../context/NotificationsContext';
+import { FeedAvatarImage } from '../components/FeedAvatarImage';
 import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 import {
   formatNotificationTime,
@@ -31,6 +32,22 @@ type UnifiedNotification = NotificationLike & {
 const PAGE_SIZE = 25;
 const TAB_ORDER = ['personal', 'academic', 'community'] as const;
 type NotificationTab = (typeof TAB_ORDER)[number];
+const NOTIFICATIONS_CACHE_KEY = 'notifications:first-page-cache';
+
+function readNotificationsCache() {
+  if (typeof window === 'undefined') return { items: [] as UnifiedNotification[], total: 0 };
+  const raw = window.localStorage.getItem(NOTIFICATIONS_CACHE_KEY);
+  if (!raw) return { items: [] as UnifiedNotification[], total: 0 };
+  try {
+    const parsed = JSON.parse(raw) as { items?: UnifiedNotification[]; total?: number };
+    return {
+      items: Array.isArray(parsed.items) ? parsed.items : [],
+      total: Number.isFinite(parsed.total) ? Number(parsed.total) : 0,
+    };
+  } catch {
+    return { items: [] as UnifiedNotification[], total: 0 };
+  }
+}
 
 const Notifications = () => {
   const { t } = useTranslation();
@@ -38,13 +55,14 @@ const Notifications = () => {
   const { dimension } = useTheme();
   const isSpace = dimension === 'space';
   const { refreshUnreadCount } = useNotifications();
+  const [cached] = useState(() => readNotificationsCache());
 
   const [activeTab, setActiveTab] = useState<NotificationTab>('personal');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(cached.items.length === 0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
-  const [notifications, setNotifications] = useState<UnifiedNotification[]>([]);
-  const [total, setTotal] = useState(0);
+  const [notifications, setNotifications] = useState<UnifiedNotification[]>(cached.items);
+  const [total, setTotal] = useState(cached.total);
 
   const fetchSlice = useCallback(async (offset: number, append: boolean) => {
     const res = await api.get('/notifications', { params: { limit: PAGE_SIZE, offset } });
@@ -66,11 +84,14 @@ const Notifications = () => {
       });
     } else {
       setNotifications(items);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(NOTIFICATIONS_CACHE_KEY, JSON.stringify({ items, total: nextTotal }));
+      }
     }
   }, []);
 
   const loadInitial = useCallback(async () => {
-    setLoading(true);
+    if (notifications.length === 0) setLoading(true);
     setError('');
     try {
       await fetchSlice(0, false);
@@ -79,7 +100,7 @@ const Notifications = () => {
     } finally {
       setLoading(false);
     }
-  }, [fetchSlice]);
+  }, [fetchSlice, notifications.length]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || notifications.length >= total) return;
@@ -317,7 +338,7 @@ const Notifications = () => {
                     : notification.title && notification.title.trim() && notification.title.trim() !== summary
                       ? notification.title.trim()
                       : '';
-                const avatarUrl = resolveMediaUrl(notification.actor_avatar_url);
+                const avatarUrl = resolveMediaUrl(notification.actor_avatar_url) || undefined;
 
                 return (
                   <div
@@ -339,11 +360,12 @@ const Notifications = () => {
                             isSpace ? 'border-white/10 bg-white/10' : 'border-uv-border bg-gray-100'
                           }`}
                         >
-                          {avatarUrl ? (
-                            <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className={`font-black text-sm ${isSpace ? 'text-white' : 'text-uv-black'}`}>{actorInitials}</span>
-                          )}
+                          <FeedAvatarImage
+                            src={avatarUrl}
+                            initials={actorInitials}
+                            className="font-black text-sm"
+                            imgClassName="w-full h-full object-cover"
+                          />
                           <span
                             className={`absolute -right-0.5 -bottom-0.5 w-3 h-3 rounded-full border-2 ${
                               isRead ? 'bg-uv-gray border-white' : 'bg-primary border-white'

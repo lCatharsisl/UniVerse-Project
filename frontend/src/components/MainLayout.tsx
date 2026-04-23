@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
@@ -7,6 +7,7 @@ import RightSidebar from './RightSidebar';
 import PostModal from './PostModal';
 import BottomNav from './BottomNav';
 import LanguageSwitch from './LanguageSwitch';
+import RouteContentFallback from './RouteContentFallback';
 import { useTheme } from '../context/ThemeContext';
 import SpaceBackground from './SpaceBackground';
 import { FiGlobe, FiCloud, FiActivity, FiX } from 'react-icons/fi';
@@ -22,14 +23,43 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const location = useLocation();
   const { dimension, toggleDimension } = useTheme();
   const isMap = location.pathname === '/campus-map';
+  const isMessages = location.pathname === '/messages';
+  /** Harita ve mesajlar: orta sütun tam genişlik; sağda pulse sütunu yok */
+  const isFullWidthMain = isMap || isMessages;
+  const showDockedPulse = showPulse && !isFullWidthMain;
   const isSpace = dimension === 'space';
 
+  /** Sadece giriş (wait+exit=0 tüm sütun yanıp söner); çıkış yok = boşluk/flash yok */
+  const pageEnter = {
+    initial: { opacity: 0.92, y: 4 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.18, ease: [0.25, 0.1, 0.25, 1] as const },
+  };
+
+  /** Masaüstünde campus pulse açık kalsın; sadece mobilde route değişince çekmecyi kapat */
   useEffect(() => {
-    setShowPulse(false);
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia('(max-width: 1023px)').matches) {
+      setShowPulse(false);
+    }
   }, [location.pathname]);
 
+  /** Geniş ekranda varsayılan olarak pulse sütununu aç (üçlü sütun) */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia('(min-width: 1024px)').matches) {
+      setShowPulse(true);
+    }
+  }, []);
+
   return (
-    <div className={`min-h-screen selection:bg-primary selection:text-white transition-colors duration-700 ${isSpace ? 'bg-[#050510] text-[#e1e1e6]' : 'bg-white text-uv-black'}`}>
+    <div
+      className={`selection:bg-primary selection:text-white transition-colors duration-700 ${
+        isMessages
+          ? 'flex min-h-0 h-dvh max-h-dvh flex-col overflow-hidden'
+          : 'min-h-screen md:h-dvh md:max-h-dvh md:min-h-0 md:overflow-hidden'
+      } ${isSpace ? 'bg-[#050510] text-[#e1e1e6]' : 'bg-white text-uv-black'}`}
+    >
       {isSpace && <SpaceBackground />}
 
       {/* Background Decor (Ground Only) */}
@@ -53,8 +83,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </button>
       </div>
 
-      {/* Language Switch + Pulse Toggle — mobile: above bottom nav, desktop: bottom-right */}
-      <div className="fixed z-[80] bottom-24 right-4 md:bottom-6 md:right-6 flex flex-col gap-3 items-end">
+      {/* Dil + Pulse: her zaman viewport sağ kenarında; pulse sütunu açıkken sola kaydırmıyoruz (orta feed’i kapatıyordu). */}
+      <div
+        className="fixed z-[80] bottom-[max(1.25rem,env(safe-area-inset-bottom,0px))] right-2 flex flex-col gap-3 items-end sm:right-3 md:bottom-6 md:right-3"
+      >
         <LanguageSwitch />
         <button
           onClick={() => setShowPulse(!showPulse)}
@@ -68,78 +100,171 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </button>
       </div>
 
-      {/* ── Desktop Layout (md+) ── */}
-      <div className={`hidden md:flex ${isMap ? 'max-w-[1600px]' : 'max-w-7xl'} mx-auto justify-center relative z-10 w-full`}>
-        {/* Navigation Column */}
-        <header className={`${isMap ? 'flex-shrink-0' : 'flex-grow'} flex justify-end`}>
-          <div className="w-[80px] xl:w-[280px]">
+      {/* ── Desktop Layout (md+) ──
+          Satır h-dvh: sayfa gövdesi kaymaz. Kaydırma sadece orta <main> içinde (ve pulse içi uzunsa o panelde).
+          Sol menü + sağ Campus Pulse sütunu görünürde sabit, Hub/feed alanı arada scroll olur. */}
+      <div
+        className={`hidden md:flex md:items-stretch relative z-10 w-full ${
+          isMessages
+            ? 'min-h-0 h-full max-h-full flex-1 max-w-none'
+            : isMap
+              ? 'h-dvh max-h-dvh min-h-0 w-full min-w-0 max-w-[1600px] overflow-hidden'
+              : 'h-dvh max-h-dvh min-h-0 w-full overflow-hidden'
+        }`}
+      >
+        {/* Navigation Column — her zaman sol kenarda sabit genişlik (Chats ile aynı) */}
+        <header className="flex w-[80px] flex-shrink-0 justify-start self-stretch min-h-0 overflow-y-auto xl:w-[280px]">
+          <div className="h-full w-full min-w-0 min-h-0">
             <Sidebar onPostClick={() => setIsPostModalOpen(true)} />
           </div>
         </header>
 
-        {/* Content Column */}
-        <main className={`${isMap ? 'flex-1 min-w-0' : 'flex-shrink-0 w-full max-w-[650px]'} transition-all duration-500 ease-in-out border-x ${isSpace ? 'border-white/5 bg-[#0a0a1a]/40' : 'border-gray-100 bg-white/80'} backdrop-blur-[4px] min-h-screen relative shadow-[0_0_50px_rgba(0,0,0,0.02)]`}>
-          {location.pathname === '/messages' ? (
-            <div className={`min-h-0 h-full ${isMap ? 'h-full flex flex-col' : ''}`}>{children}</div>
-          ) : (
-            <AnimatePresence mode="wait">
+        {/* Hub vb.: orta sütun flex-1; lg+ ve pulse açıksa sağda sabit Campus Pulse sütunu */}
+        {isFullWidthMain ? (
+          <main
+            className={`${
+              isMessages
+                ? 'flex h-full min-h-0 w-full min-w-0 max-h-full flex-1 flex-col overflow-hidden'
+                : 'flex min-h-0 min-w-0 flex-1 flex-col'
+            } relative border-x transition-[background-color,backdrop-filter,box-shadow,border-color] duration-200 ease-out ${
+              isSpace ? 'border-white/5 bg-[#0a0a1a]/40' : 'border-gray-100 bg-white/80'
+            } backdrop-blur-[4px] ${
+              !isMessages
+                ? isMap
+                  ? 'min-h-0 h-full flex-1 overflow-hidden'
+                  : 'min-h-0 h-full flex-1 overflow-y-auto'
+                : ''
+            } shadow-[0_0_50px_rgba(0,0,0,0.02)]`}
+          >
+            <Suspense
+              fallback={<RouteContentFallback isSpace={isSpace} isMessages={isMessages} />}
+            >
               <motion.div
                 key={location.pathname}
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.02 }}
-                transition={{ duration: 0.25, ease: 'easeOut' }}
-                className={isMap ? 'h-full flex flex-col' : ''}
+                className={
+                  isMessages
+                    ? 'flex min-h-0 h-full w-full min-w-0 flex-1 flex-col overflow-hidden [will-change:opacity,transform] transform-gpu'
+                    : isMap
+                      ? 'min-h-0 h-full w-full flex flex-1 flex-col [will-change:opacity,transform] transform-gpu'
+                      : 'min-h-0 [will-change:opacity,transform] transform-gpu'
+                }
+                {...pageEnter}
               >
-                {children}
+                {isMessages ? (
+                  <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+                ) : (
+                  children
+                )}
               </motion.div>
-            </AnimatePresence>
-          )}
-        </main>
-
-        {/* Placeholder to balance flex layout */}
-        {!isMap && <div className="flex-grow hidden lg:block w-[80px] xl:w-[280px]" />}
+            </Suspense>
+          </main>
+        ) : (
+          <>
+            <main
+              className={`relative min-h-0 w-full min-w-0 flex-1 overflow-y-auto border-x transition-[background-color,backdrop-filter,box-shadow,border-color] duration-200 ease-out ${
+                isSpace ? 'border-white/5 bg-[#0a0a1a]/40' : 'border-gray-100 bg-white/80'
+              } backdrop-blur-[4px] shadow-[0_0_50px_rgba(0,0,0,0.02)]`}
+            >
+              <Suspense
+                fallback={<RouteContentFallback isSpace={isSpace} isMessages={isMessages} />}
+              >
+                <motion.div
+                  key={location.pathname}
+                  className="min-h-0 w-full [will-change:opacity,transform] transform-gpu"
+                  {...pageEnter}
+                >
+                  {children}
+                </motion.div>
+              </Suspense>
+            </main>
+            {showDockedPulse && (
+              <aside
+                className={`relative hidden max-h-full min-h-0 w-[380px] shrink-0 flex-col self-stretch overflow-hidden border-l lg:flex ${
+                  isSpace ? 'border-white/5 bg-[#0a0a1a]/40' : 'border-gray-100 bg-white/80'
+                } backdrop-blur-[4px] shadow-[0_0_50px_rgba(0,0,0,0.02)]`}
+                aria-label={t('rightSidebar.campusPulse')}
+              >
+                <div
+                  className={`flex shrink-0 items-center justify-end border-b px-3 py-2 ${
+                    isSpace ? 'border-white/10' : 'border-gray-100'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setShowPulse(false)}
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-xl transition ${
+                      isSpace ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                    title={t('common.close')}
+                    aria-label={t('common.close')}
+                  >
+                    <FiX size={18} />
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
+                  <RightSidebar />
+                </div>
+              </aside>
+            )}
+          </>
+        )}
       </div>
 
       {/* ── Mobile Layout (<md) ── */}
-      <div className="md:hidden relative z-10 w-full min-h-screen">
+      <div
+        className={`relative z-10 md:hidden w-full ${
+          isMessages ? 'flex min-h-0 max-h-dvh h-dvh flex-1 flex-col overflow-hidden' : 'min-h-screen'
+        }`}
+      >
         <main
-          className={`w-full min-h-screen ${isSpace ? 'bg-[#0a0a1a]/40' : 'bg-white/80'} pb-20`}
+          className={`w-full ${
+            isMessages
+              ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden'
+              : 'min-h-screen'
+          } ${isSpace ? 'bg-[#0a0a1a]/40' : 'bg-white/80'} ${isMessages ? 'pb-[max(5.25rem,env(safe-area-inset-bottom,0px))]' : 'pb-20'}`}
         >
-          {location.pathname === '/messages' ? (
-            <div className="w-full">{children}</div>
-          ) : (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={location.pathname}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.15, ease: 'easeOut' }}
-              >
-                {children}
-              </motion.div>
-            </AnimatePresence>
-          )}
+          <Suspense
+            fallback={<RouteContentFallback isSpace={isSpace} isMessages={isMessages} />}
+          >
+            <motion.div
+              key={location.pathname}
+              className={
+                isMessages
+                  ? 'w-full min-h-0 flex-1 flex flex-col overflow-hidden [will-change:opacity,transform] transform-gpu'
+                  : 'min-h-0 w-full [will-change:opacity,transform] transform-gpu'
+              }
+              {...pageEnter}
+            >
+              {isMessages ? (
+                <div className="w-full min-h-0 flex-1 flex flex-col overflow-hidden">{children}</div>
+              ) : (
+                children
+              )}
+            </motion.div>
+          </Suspense>
         </main>
       </div>
 
       {/* Mobile Bottom Navigation */}
       <BottomNav onPostClick={() => setIsPostModalOpen(true)} />
 
-      {/* Campus Pulse Drawer — global, works on mobile and desktop */}
+      {/* Campus Pulse: mobil + tablet = çekmece; lg+ bu panel flex üstünde (showDockedPulse) */}
       <AnimatePresence>
-        {showPulse && (
+        {showPulse && !isFullWidthMain && (
           <motion.aside
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className={`fixed right-0 top-0 h-screen ${isSpace ? 'bg-[#0a0a1a]/95 border-white/5' : 'bg-white/95 border-uv-border'} backdrop-blur-xl border-l z-[70] shadow-[-20px_0_50px_rgba(0,0,0,0.05)] w-full sm:w-[380px] max-w-[100vw] flex flex-col`}
+            className={`fixed right-0 top-0 h-screen w-full sm:w-[380px] max-w-[100vw] flex flex-col border-l backdrop-blur-xl shadow-[-20px_0_50px_rgba(0,0,0,0.05)] lg:hidden z-[70] ${
+              isSpace ? 'bg-[#0a0a1a]/95 border-white/5' : 'bg-white/95 border-uv-border'
+            }`}
           >
             <button
               onClick={() => setShowPulse(false)}
-              className={`absolute top-4 right-4 z-10 w-10 h-10 rounded-xl flex items-center justify-center ${isSpace ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              className={`absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-xl ${
+                isSpace ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
               aria-label={t('common.close')}
             >
               <FiX size={20} />

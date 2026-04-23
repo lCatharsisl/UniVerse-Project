@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import api from '../api/client';
 import { useAuth } from './AuthContext';
 
@@ -12,15 +12,19 @@ const NotificationsContext = createContext<NotificationsContextType | undefined>
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  const lastRefreshAtRef = useRef(0);
 
   const refreshUnreadCount = async () => {
     if (!user) {
       setUnreadCount(0);
       return;
     }
+    const now = Date.now();
+    if (now - lastRefreshAtRef.current < 10000) return;
     const res = await api.get('/notifications/unread-count');
     const count = Number(res.data?.count ?? 0);
     setUnreadCount(Number.isFinite(count) ? count : 0);
+    lastRefreshAtRef.current = now;
   };
 
   useEffect(() => {
@@ -31,7 +35,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const id = window.setInterval(() => {
       refreshUnreadCount().catch(() => {});
-    }, 8000);
+    }, 30000);
     return () => window.clearInterval(id);
   }, [user?.userId]);
 
@@ -60,4 +64,3 @@ export function useNotifications() {
   if (!ctx) throw new Error('useNotifications must be used within a NotificationsProvider');
   return ctx;
 }
-

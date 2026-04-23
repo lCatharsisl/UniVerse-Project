@@ -8,8 +8,25 @@ import { parseMenuText, type ParsedMenu, type DayMenu } from './menu.parser';
 
 const CACHE_PATH = path.join(process.cwd(), 'data', 'menu_cache.json');
 const PDF_URL = process.env.YASAR_MENU_PDF_URL || 'https://www.yasar.edu.tr/yemek-liste.pdf';
+/** Kurumsal site 403/503 verdiğinde kullanılacak yerel PDF (admin tarafından indirilmiş). */
+const LOCAL_PDF_PATH =
+  process.env.YASAR_MENU_PDF_LOCAL_PATH ||
+  path.join(process.cwd(), 'data', 'yemek-liste.pdf');
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_PDF_SIZE_BYTES = 5 * 1024 * 1024;
+
+/** Sunucu tarafı fetch bazen Cloudflare/WAF tarafından engellenir; tarayıcıya yakın header denemesi. */
+const PDF_FETCH_HEADERS: Record<string, string> = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+  Accept: 'application/pdf,application/octet-stream,*/*;q=0.8',
+  'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
+  Referer: 'https://www.yasar.edu.tr/',
+};
+
+function isDifferentCalendarMonth(a: Date, b: Date): boolean {
+  return a.getFullYear() !== b.getFullYear() || a.getMonth() !== b.getMonth();
+}
 
 export interface MenuCache {
   hash: string;
@@ -89,20 +106,104 @@ function parsePdfBuffer(buffer: Buffer): Promise<string> {
   });
 }
 
-export async function fetchAndParseMenu(forceRefresh = false): Promise<ParsedMenu> {
-  const existing = loadCache();
-
+async function fetchRemotePdfBuffer(): Promise<Buffer> {
   const response = await fetch(PDF_URL, {
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    headers: { 'User-Agent': 'UniVerse/1.0' },
+    headers: PDF_FETCH_HEADERS,
   });
   if (!response.ok) {
-    if (existing?.parsed) return existing.parsed;
-    throw new Error(`PDF fetch failed: ${response.status}`);
+    const hint =
+      response.status === 403 || response.status === 503
+        ? ' (Cloudflare sunucu IP’sini engelliyor; headless tarayıcı denenecek.)'
+        : '';
+    throw Object.assign(new Error(`PDF fetch failed: ${response.status}${hint}`), {
+      httpStatus: response.status,
+    });
+  }
+  const ab = await response.arrayBuffer();
+  return Buffer.from(ab);
+}
+
+/** Headless Chrome ile Cloudflare challenge’ını geçip PDF’i indir. */
+async function fetchViaBrowser(): Promise<{ buffer: Buffer; source: string } | null> {
+  try {
+    const mod = await import('./menu-browser-fetcher');
+    const result = await mod.downloadMenuPdfViaBrowser(PDF_URL, FETCH_TIMEOUT_MS + 15_000);
+    return { buffer: result.buffer, source: result.url };
+  } catch (err) {
+    console.warn(`[menu] Headless tarayıcı denemesi başarısız: ${(err as Error).message}`);
+    return null;
+  }
+}
+
+function tryLoadLocalPdfBuffer(): { buffer: Buffer; source: string } | null {
+  try {
+    if (!fs.existsSync(LOCAL_PDF_PATH)) return null;
+    const stat = fs.statSync(LOCAL_PDF_PATH);
+    if (stat.size === 0 || stat.size > MAX_PDF_SIZE_BYTES) return null;
+    const buffer = fs.readFileSync(LOCAL_PDF_PATH);
+    return { buffer, source: `file://${path.resolve(LOCAL_PDF_PATH)}` };
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalFallback(buffer: Buffer): void {
+  try {
+    const dir = path.dirname(LOCAL_PDF_PATH);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(LOCAL_PDF_PATH, buffer);
+  } catch (err) {
+    console.warn(`[menu] Yerel PDF kopyası yazılamadı: ${(err as Error).message}`);
+  }
+}
+
+export async function fetchAndParseMenu(forceRefresh = false): Promise<ParsedMenu> {
+  const existing = loadCache();
+  const now = new Date();
+  const lastFetch = existing?.fetchedAt ? new Date(existing.fetchedAt) : null;
+  /** Yeni ay: hash aynı kalsa da PDF/metin yeniden işlensin; üniversite gecikmeli yüklediyse aynı hash nadir. */
+  const newCalendarMonth =
+    lastFetch == null || isDifferentCalendarMonth(lastFetch, now);
+  const shouldBypassHashMatch = forceRefresh || newCalendarMonth;
+
+  let buffer: Buffer | null = null;
+  let sourceUrl = PDF_URL;
+  let usedFallback: 'remote' | 'browser' | 'local' = 'remote';
+
+  try {
+    buffer = await fetchRemotePdfBuffer();
+  } catch (remoteErr) {
+    console.warn(`[menu] Uzak PDF alınamadı: ${(remoteErr as Error).message}`);
+
+    // 1) Headless tarayıcı dene (Cloudflare challenge’ı için sistem Chrome’u kullanır).
+    const viaBrowser = await fetchViaBrowser();
+    if (viaBrowser) {
+      buffer = viaBrowser.buffer;
+      sourceUrl = viaBrowser.source;
+      usedFallback = 'browser';
+      writeLocalFallback(buffer);
+      console.log('[menu] PDF headless tarayıcı ile indirildi ve yerel kopya güncellendi.');
+    } else {
+      // 2) Yerel kopyaya düş.
+      const local = tryLoadLocalPdfBuffer();
+      if (local) {
+        console.warn(`[menu] Yerel PDF’e düşüldü: ${local.source}`);
+        buffer = local.buffer;
+        sourceUrl = local.source;
+        usedFallback = 'local';
+      } else if (existing?.parsed) {
+        return existing.parsed;
+      } else {
+        throw remoteErr;
+      }
+    }
   }
 
-  const ab = await response.arrayBuffer();
-  const buffer = Buffer.from(ab);
+  if (!buffer) {
+    if (existing?.parsed) return existing.parsed;
+    throw new Error('PDF alınamadı ve yerel yedek yok.');
+  }
 
   if (buffer.length > MAX_PDF_SIZE_BYTES) {
     if (existing?.parsed) return existing.parsed;
@@ -110,8 +211,14 @@ export async function fetchAndParseMenu(forceRefresh = false): Promise<ParsedMen
   }
 
   const hash = bufferToHash(buffer);
-  if (!forceRefresh && existing && existing.hash === hash) {
+  const isFallback = usedFallback !== 'remote';
+  if (!shouldBypassHashMatch && !isFallback && existing && existing.hash === hash) {
     return existing.parsed;
+  }
+  if (shouldBypassHashMatch && existing && existing.hash === hash) {
+    console.log(
+      '[menu] Ay değişimi/zorunlu yenileme: aynı hash, yine de yeniden parse edilip cache yazılıyor.'
+    );
   }
 
   const rawText = await parsePdfBuffer(buffer);
@@ -120,7 +227,7 @@ export async function fetchAndParseMenu(forceRefresh = false): Promise<ParsedMen
   saveCache({
     hash,
     fetchedAt: new Date().toISOString(),
-    sourceUrl: PDF_URL,
+    sourceUrl,
     parsed: { ...parsed, sourceText: undefined },
   });
 
@@ -144,6 +251,35 @@ export async function parseAndCacheFromFile(filePath: string): Promise<ParsedMen
   return parsed;
 }
 
+/** PDF bazen farklı yılda ISO tarih üretir; aynı ay-günü eşle. */
+function findDayForDate(days: DayMenu[] | undefined, dateStr: string): DayMenu | undefined {
+  if (!days?.length) return undefined;
+  const exact = days.find((d) => d.date === dateStr);
+  if (exact) return exact;
+  if (dateStr.length < 10) return undefined;
+  const monthDay = dateStr.slice(5);
+  return days.find((d) => d.date && d.date.length >= 10 && d.date.slice(5) === monthDay);
+}
+
+function weekdayTr(isoDate: string): string {
+  const d = new Date(isoDate + 'T12:00:00');
+  return d.toLocaleDateString('tr-TR', { weekday: 'long' });
+}
+
+const PLACEHOLDER_MSG =
+  'PDF menü bu tarih için sunucuda yok (site erişim engeli veya henüz güncellenmedi). Üstteki "Resmi menü (PDF)" ile güncel listeye bakın.';
+
+function buildPlaceholderMeals(dateStr: string): { lunch: DayMenu; dinner: DayMenu } {
+  const wd = weekdayTr(dateStr);
+  const base: DayMenu = { date: dateStr, weekday: wd, soup: PLACEHOLDER_MSG };
+  return { lunch: { ...base }, dinner: { ...base } };
+}
+
+function normalizeDayForRequest(d: DayMenu, requestedIso: string): DayMenu {
+  if (d.date === requestedIso) return d;
+  return { ...d, date: requestedIso, weekday: weekdayTr(requestedIso) };
+}
+
 export function getTodaysMenu(): TodaysMenuResult | null {
   const cache = loadCache();
   if (!cache?.parsed) return null;
@@ -159,11 +295,12 @@ export function getTodaysMenu(): TodaysMenuResult | null {
   };
 
   for (const section of cache.parsed.sections || []) {
-    const day = section.days?.find((d) => d.date === today);
+    const day = findDayForDate(section.days, today);
     if (day) {
-      if (section.type === 'lunch') result.lunch = day;
-      else if (section.type === 'dinner') result.dinner = day;
-      else if (section.type === 'breakfast') result.breakfast = day;
+      const n = normalizeDayForRequest(day, today);
+      if (section.type === 'lunch') result.lunch = n;
+      else if (section.type === 'dinner') result.dinner = n;
+      else if (section.type === 'breakfast') result.breakfast = n;
     }
   }
 
@@ -174,18 +311,46 @@ export function getFullMenu(): MenuCache | null {
   return loadCache();
 }
 
-export function getMenuByDate(dateStr: string): { lunch?: DayMenu; dinner?: DayMenu; breakfast?: DayMenu } | null {
+/** Cache yok veya son çekim takvimde şu aydan farklıysa (ör. Mart → Nisan) sunucu PDF tazelemeli. */
+export function isMenuCacheStaleByCalendarMonth(): boolean {
+  const c = loadCache();
+  if (!c?.fetchedAt) return true;
+  return isDifferentCalendarMonth(new Date(c.fetchedAt), new Date());
+}
+
+export interface MenuByDateResult {
+  lunch?: DayMenu;
+  dinner?: DayMenu;
+  breakfast?: DayMenu;
+  isPlaceholder: boolean;
+}
+
+/**
+ * Tarih bazlı menü. Cache yoksa null.
+ * Tarih bulunamazsa (PDF çekilemiyor / eski ay): varsayılan olarak placeholder + isPlaceholder
+ * (404 yerine UI’da açıklama). Kapatmak: MENU_PLACEHOLDER_WHEN_EMPTY=0
+ */
+export function getMenuByDate(dateStr: string): MenuByDateResult | null {
   const cache = loadCache();
   if (!cache?.parsed?.sections) return null;
 
   const out: { lunch?: DayMenu; dinner?: DayMenu; breakfast?: DayMenu } = {};
   for (const section of cache.parsed.sections) {
-    const day = section.days?.find((d) => d.date === dateStr);
+    const day = findDayForDate(section.days, dateStr);
     if (day) {
-      if (section.type === 'lunch') out.lunch = day;
-      else if (section.type === 'dinner') out.dinner = day;
-      else if (section.type === 'breakfast') out.breakfast = day;
+      const n = normalizeDayForRequest(day, dateStr);
+      if (section.type === 'lunch') out.lunch = n;
+      else if (section.type === 'dinner') out.dinner = n;
+      else if (section.type === 'breakfast') out.breakfast = n;
     }
   }
-  return Object.keys(out).length ? out : null;
+  if (Object.keys(out).length) {
+    return { ...out, isPlaceholder: false };
+  }
+  const allowPlaceholder =
+    process.env.MENU_PLACEHOLDER_WHEN_EMPTY !== '0' &&
+    String(process.env.MENU_PLACEHOLDER_WHEN_EMPTY).toLowerCase() !== 'false';
+  if (!allowPlaceholder) return null;
+  const ph = buildPlaceholderMeals(dateStr);
+  return { lunch: ph.lunch, dinner: ph.dinner, isPlaceholder: true };
 }

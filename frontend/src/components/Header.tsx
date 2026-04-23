@@ -5,6 +5,11 @@ import { FiHome, FiLogOut, FiPlusCircle } from 'react-icons/fi';
 const Header = () => {
     const { user, logout } = useAuth();
     const location = useLocation();
+<<<<<<< Updated upstream
+=======
+    const headerAvatarUrl = user ? getAuthUserAvatarUrl(user) : undefined;
+    const headerInitials = user ? getAuthUserInitials(user) : '?';
+>>>>>>> Stashed changes
 
     const isActive = (path: string) => location.pathname === path;
 
