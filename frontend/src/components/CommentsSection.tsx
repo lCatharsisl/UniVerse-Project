@@ -29,10 +29,6 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadComments();
-  }, [itemType, itemId]);
-
   const loadComments = async () => {
     setLoading(true);
     setError(null);
@@ -46,6 +42,10 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadComments();
+  }, [itemType, itemId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

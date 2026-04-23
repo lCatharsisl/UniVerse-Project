@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import api from '../api/client';
 import { useAuth } from './AuthContext';
 
@@ -12,6 +12,7 @@ const MessagingUnreadContext = createContext<MessagingUnreadContextType | undefi
 export function MessagingUnreadProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [messagesUnreadCount, setMessagesUnreadCount] = useState(0);
+  const lastRefreshAtRef = useRef(0);
 
   const refreshMessagesUnreadCount = useCallback(async () => {
     if (!user) {
@@ -19,13 +20,12 @@ export function MessagingUnreadProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      const res = await api.get('/messages/conversations', { timeout: 20000 });
-      const list = (res.data || []) as Array<{ unread_count?: number | string }>;
-      const totalUnread = list.reduce((sum, c) => {
-        const n = Number(c.unread_count);
-        return sum + (Number.isFinite(n) && n > 0 ? n : 0);
-      }, 0);
-      setMessagesUnreadCount(totalUnread);
+      const now = Date.now();
+      if (now - lastRefreshAtRef.current < 10000) return;
+      const res = await api.get('/messages/unread-count', { timeout: 10000 });
+      const totalUnread = Number(res.data?.count ?? 0);
+      setMessagesUnreadCount(Number.isFinite(totalUnread) ? totalUnread : 0);
+      lastRefreshAtRef.current = now;
     } catch {
       // keep previous count on transient errors
     }
@@ -39,7 +39,7 @@ export function MessagingUnreadProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const id = window.setInterval(() => {
       refreshMessagesUnreadCount().catch(() => {});
-    }, 8000);
+    }, 30000);
     return () => window.clearInterval(id);
   }, [user?.userId, refreshMessagesUnreadCount]);
 

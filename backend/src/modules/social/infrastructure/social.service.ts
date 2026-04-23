@@ -142,27 +142,38 @@ export class SocialService {
     const mutedRegex = mutedWords.length > 0 ? mutedWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') : null;
 
     if (type === 'feed' || type === 'discover') {
-      // Timeline consists of original posts AND reposts
-      const discoverClause = type === 'discover'
-        ? `
-          WHERE (
-            user_id <> $1
-            AND user_id NOT IN (
-              SELECT following_id FROM follows WHERE follower_id = $1
-            )
-            AND user_id NOT IN (
-              SELECT blocked_id FROM blocked_users WHERE blocker_id = $1
-            )
-            AND user_id NOT IN (
-              SELECT blocker_id FROM blocked_users WHERE blocked_id = $1
-            )
-          )
-        `
-        : '';
+      // Timeline = gönderi + alıntı. Feed: sadece takip ettiklerinin (veya kendi) paylaşımları.
+      // Discover: takip ETMEDİKLERİN paylaştığı/altyazıladığı içerik (repost'ta "paylaşan" = reposter_id).
+      const followSub = 'SELECT following_id FROM follows WHERE follower_id = $1';
+      const noBlockPostAuthor = `NOT EXISTS (
+        SELECT 1 FROM blocked_users b
+        WHERE (b.blocker_id = $1 AND b.blocked_id = user_id) OR (b.blocker_id = user_id AND b.blocked_id = $1)
+      )`;
+      const noBlockReposter = `(reposter_id IS NULL OR NOT EXISTS (
+        SELECT 1 FROM blocked_users b
+        WHERE (b.blocker_id = $1 AND b.blocked_id = reposter_id) OR (b.blocker_id = reposter_id AND b.blocked_id = $1)
+      ))`;
+      const feedMatch = `(
+        (reposter_id IS NULL AND (user_id = $1 OR user_id IN (${followSub})))
+        OR
+        (reposter_id IS NOT NULL AND (reposter_id = $1 OR reposter_id IN (${followSub})))
+      )`;
+      const discoverMatch = `(
+        (reposter_id IS NULL AND user_id <> $1 AND user_id NOT IN (${followSub}))
+        OR
+        (reposter_id IS NOT NULL AND reposter_id <> $1 AND reposter_id NOT IN (${followSub}))
+      )`;
+
+      const whereParts: string[] = [type === 'feed' ? feedMatch : discoverMatch, noBlockPostAuthor, noBlockReposter];
+      if (mutedRegex) {
+        whereParts.push('content !~* $4');
+      }
+      const whereClause = `WHERE ${whereParts.join(' AND ')}`;
+
       sql = `
         SELECT * FROM (
           -- Original Posts
-          SELECT 
+          SELECT
             p.post_id, p.user_id, p.content, p.image_url, p.created_at,
             u.email, u.role,
             COALESCE(s.student_name, st.staff_name, a.admin_name, c.community_name) as first_name,
@@ -180,7 +191,7 @@ export class SocialService {
           UNION ALL
 
           -- Reposts
-          SELECT 
+          SELECT
             p.post_id, p.user_id, p.content, p.image_url, p.created_at,
             u.email, u.role,
             COALESCE(s.student_name, st.staff_name, a.admin_name, c.community_name) as first_name,
@@ -198,51 +209,40 @@ export class SocialService {
           LEFT JOIN staff st ON st.user_id = u.user_id
           LEFT JOIN admins a ON a.user_id = u.user_id
           LEFT JOIN communities c ON c.user_id = u.user_id
-          -- Reposter joins
           LEFT JOIN students rs ON rs.user_id = ru.user_id
           LEFT JOIN staff rst ON rst.user_id = ru.user_id
           LEFT JOIN admins ra ON ra.user_id = ru.user_id
           LEFT JOIN communities rc ON rc.user_id = ru.user_id
         ) combined
-        ${discoverClause}
-        ${mutedRegex ? `${discoverClause ? ' AND ' : ' WHERE '} content !~* $4` : ''}
+        ${whereClause}
         ORDER BY sorted_at DESC
         LIMIT $2 OFFSET $3
       `;
       if (mutedRegex) params.push(mutedRegex);
 
-      // Count for feed/discover
-      if (type === 'discover') {
-        countSql = `
-          SELECT COUNT(*)::text AS total
-          FROM (
-            SELECT p.post_id, p.user_id, p.content FROM posts p
-            UNION ALL
-            SELECT p.post_id, p.user_id, p.content
-            FROM post_reposts pr
-            JOIN posts p ON p.post_id = pr.post_id
-          ) combined
-          WHERE (
-            user_id <> $1
-            AND user_id NOT IN (
-              SELECT following_id FROM follows WHERE follower_id = $1
-            )
-            AND user_id NOT IN (
-              SELECT blocked_id FROM blocked_users WHERE blocker_id = $1
-            )
-            AND user_id NOT IN (
-              SELECT blocker_id FROM blocked_users WHERE blocked_id = $1
-            )
-          )
-          ${mutedRegex ? 'AND content !~* $2' : ''}
-        `;
-        countParams = mutedRegex ? [currentUserId, mutedRegex] : [currentUserId];
-      } else {
-        countSql = `
-          SELECT (SELECT COUNT(*) FROM posts) + (SELECT COUNT(*) FROM post_reposts) as total
-        `;
-        countParams = [];
+      const wherePartsCount: string[] = [
+        type === 'feed' ? feedMatch : discoverMatch,
+        noBlockPostAuthor,
+        noBlockReposter,
+      ];
+      if (mutedRegex) {
+        wherePartsCount.push('content !~* $2');
       }
+      const whereClauseCount = `WHERE ${wherePartsCount.join(' AND ')}`;
+      // Aynı filtre: user_id = gönderi sahibi; reposter_id = alıntıyı paylaşan (yalnızca alıntı satırında)
+      countSql = `
+        SELECT COUNT(*)::text AS total
+        FROM (
+          SELECT p.user_id, NULL::int AS reposter_id, p.content
+          FROM posts p
+          UNION ALL
+          SELECT p.user_id, pr.user_id AS reposter_id, p.content
+          FROM post_reposts pr
+          JOIN posts p ON p.post_id = pr.post_id
+        ) combined
+        ${whereClauseCount}
+      `;
+      countParams = mutedRegex ? [currentUserId, mutedRegex] : [currentUserId];
     } else {
       // Profile activity tabs
       let whereClause = '';

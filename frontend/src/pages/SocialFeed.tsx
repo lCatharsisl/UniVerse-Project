@@ -106,11 +106,6 @@ const SocialFeed = () => {
 
     const meAvatarUrl = getAuthUserAvatarUrl(user);
     const meInitials = getAuthUserInitials(user);
-
-    useEffect(() => {
-        fetchPosts();
-    }, []);
-
     const getInitials = (firstName?: string, lastName?: string, email?: string) => {
         const first = firstName?.trim() || '';
         const last = lastName?.trim() || '';
@@ -122,9 +117,7 @@ const SocialFeed = () => {
             return first[0].toUpperCase();
         }
 
-        const local = email?.split('@')[0] || '';
-        const letter = local.match(/\p{L}/u);
-        return letter ? letter[0].toUpperCase() : '?';
+        return email?.trim()?.[0]?.toUpperCase() || '?';
     };
 
     const composerPreviewUrl = useMemo(
@@ -147,6 +140,10 @@ const SocialFeed = () => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchPosts();
+    }, []);
 
     const handleDeletePost = async (postId: number) => {
         if (!(await themedConfirm(t('socialFeed.deleteConfirm')))) return;
@@ -367,7 +364,7 @@ const SocialFeed = () => {
                 <div className="p-2 md:p-5">
                     <div className="flex gap-2 md:gap-4">
                         <div className="w-8 h-8 md:w-12 md:h-12 bg-primary/5 rounded-tl-lg rounded-br-lg md:rounded-tl-xl md:rounded-br-xl flex items-center justify-center text-primary font-black border border-primary/10 shrink-0 text-xs md:text-base overflow-hidden">
-                            <FeedAvatarImage src={meAvatarUrl || undefined} initials={meInitials} imgClassName="h-full w-full object-cover" />
+                            <FeedAvatarImage src={meAvatarUrl} initials={meInitials} imgClassName="h-full w-full object-cover" />
                         </div>
                         <form onSubmit={handleCreatePost} className="flex-1 min-w-0">
                             <textarea
@@ -455,7 +452,7 @@ const SocialFeed = () => {
                                     <FeedAvatarImage
                                         src={post.avatar_url ? resolveMediaUrl(post.avatar_url) : undefined}
                                         initials={getInitials(post.first_name, post.last_name, post.email)}
-                                        imgClassName="h-full w-full object-cover"
+                                        imgClassName="w-full h-full object-cover"
                                     />
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -602,7 +599,7 @@ const SocialFeed = () => {
                                             <div className="mt-2 pt-2 md:mt-6 md:pt-6 border-t border-uv-border space-y-2 md:space-y-4">
                                             <div className="flex gap-2.5 sm:gap-3">
                                                 <div className="w-7 h-7 sm:w-8 sm:h-8 bg-primary/5 rounded-lg flex items-center justify-center text-primary font-black text-[10px] sm:text-xs shrink-0 overflow-hidden">
-                                                    <FeedAvatarImage src={meAvatarUrl || undefined} initials={meInitials} imgClassName="h-full w-full object-cover" />
+                                                    <FeedAvatarImage src={meAvatarUrl} initials={meInitials} imgClassName="h-full w-full object-cover" />
                                                 </div>
                                                 <div className="flex-1 relative">
                                                     <input 
@@ -630,7 +627,7 @@ const SocialFeed = () => {
                                                                 <FeedAvatarImage
                                                                     src={comment.avatar_url ? resolveMediaUrl(comment.avatar_url) : undefined}
                                                                     initials={getInitials(comment.first_name, comment.last_name, comment.email)}
-                                                                    imgClassName="h-full w-full object-cover rounded-md md:rounded-lg"
+                                                                    imgClassName="w-full h-full object-cover rounded-md md:rounded-lg"
                                                                 />
                                                             </div>
                                                             <div className="flex-1 min-w-0">
@@ -750,7 +747,7 @@ const SocialFeed = () => {
                                                     className="flex items-center gap-5 p-4 bg-uv-border/5 hover:bg-primary/[0.05] rounded-[1.8rem] transition-all cursor-pointer group border border-transparent hover:border-primary/20 hover:shadow-xl hover:shadow-primary/5"
                                                 >
                                                     <div className="w-12 h-12 sm:w-14 sm:h-14 bg-white rounded-2xl flex items-center justify-center font-black text-xl sm:text-2xl text-primary border-2 border-uv-border group-hover:border-primary/50 group-hover:scale-105 transition-all shadow-sm shrink-0 overflow-hidden relative">
-                                                        <span className="relative z-10">{getInitials(u.first_name, u.last_name, u.email)}</span>
+                                                        <span className="relative z-10">{u.first_name?.[0].toUpperCase() || u.email[0].toUpperCase()}</span>
                                                         <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
@@ -838,7 +835,7 @@ const SocialFeed = () => {
                                                     <FeedAvatarImage
                                                         src={comment.avatar_url ? resolveMediaUrl(comment.avatar_url) : undefined}
                                                         initials={getInitials(comment.first_name, comment.last_name, comment.email)}
-                                                        imgClassName="h-full w-full object-cover rounded-lg"
+                                                        imgClassName="w-full h-full object-cover rounded-lg"
                                                     />
                                                 </div>
                                                 <div className="flex-1 min-w-0">

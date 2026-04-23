@@ -6,7 +6,7 @@ import { useTheme } from '../context/ThemeContext';
 import { COMMUNITY_CATEGORY_CODES, COMMUNITY_CATEGORY_LABEL_KEYS, type CommunityCategoryCode } from '../constants/communityCategories';
 import { motion } from 'framer-motion';
 import { FiUsers } from 'react-icons/fi';
-import { resolveMediaUrl } from '../utils/resolveMediaUrl';
+import { toImgSrc } from '../utils/resolveMediaUrl';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -145,7 +145,10 @@ const CommunityFair = () => {
             initial="hidden"
             animate="show"
           >
-            {communities.map((c) => (
+            {communities.map((c) => {
+              const cover = toImgSrc(c.cover_url);
+              const av = toImgSrc(c.avatar_url);
+              return (
               <motion.article
                 key={c.community_id}
                 variants={cardVariants}
@@ -154,9 +157,9 @@ const CommunityFair = () => {
                 }`}
               >
                 <div className="relative h-36 md:h-40 shrink-0">
-                  {c.cover_url ? (
+                  {cover ? (
                     <img
-                      src={resolveMediaUrl(c.cover_url)}
+                      src={cover}
                       alt=""
                       className="w-full h-full object-cover"
                     />
@@ -165,9 +168,9 @@ const CommunityFair = () => {
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
                   <div className="absolute left-3 bottom-2.5 flex items-center gap-2.5 pr-2">
-                    {c.avatar_url ? (
+                    {av ? (
                       <img
-                        src={resolveMediaUrl(c.avatar_url)}
+                        src={av}
                         alt=""
                         className="w-10 h-10 rounded-xl border-2 border-white/30 object-cover bg-white shrink-0"
                       />
@@ -229,7 +232,8 @@ const CommunityFair = () => {
                   </button>
                 </div>
               </motion.article>
-            ))}
+              );
+            })}
           </motion.div>
         )}
       </div>

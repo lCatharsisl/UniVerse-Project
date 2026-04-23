@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { toImgSrc } from '../utils/resolveMediaUrl';
 
 type Props = {
   /** Tam tarayıcı URL’si (ör. resolveMediaUrl ile) */
@@ -21,7 +22,7 @@ export function FeedAvatarImage({
   alt = '',
 }: Props) {
   const [broken, setBroken] = useState(false);
-  const url = (src || '').trim();
+  const url = toImgSrc(src);
   const showImg = Boolean(url) && !broken;
 
   useEffect(() => {

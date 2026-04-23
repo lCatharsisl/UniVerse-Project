@@ -4,7 +4,7 @@ import { FiSearch, FiClock, FiBook, FiCoffee, FiInfo, FiArrowRight, FiCalendar, 
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { useTranslatedMenu } from '../hooks/useTranslatedMenu';
-import { formatPeriodLabel } from '../utils/translate';
+import { menuPeriodHeading } from '../utils/translate';
 
 interface DayMenu {
   date?: string;
@@ -56,8 +56,9 @@ function parsePricingSummary(pricing: string[]): string[] {
 }
 
 const RightSidebar: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const [hubSearch, setHubSearch] = useState('');
   const [recentItem, setRecentItem] = useState<RecentItem | null>(null);
   const [todaysMenu, setTodaysMenu] = useState<TodaysMenu | null>(null);
 
@@ -98,6 +99,14 @@ const RightSidebar: React.FC = () => {
           <FiSearch className="text-uv-gray" />
           <input 
             type="text" 
+            value={hubSearch}
+            onChange={(e) => setHubSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && hubSearch.trim()) {
+                const q = hubSearch.trim();
+                navigate(`/search?q=${encodeURIComponent(q)}&type=top&sort=relevance`);
+              }
+            }}
             placeholder={t('rightSidebar.searchHub')} 
             className="bg-transparent border-none outline-none text-sm w-full font-medium"
           />
@@ -168,9 +177,13 @@ const RightSidebar: React.FC = () => {
                 </div>
                 <div className="flex flex-col items-end gap-0.5">
                   <span className="bg-white/50 backdrop-blur px-2 py-1 rounded-lg text-[10px] font-black uppercase text-accent border border-accent/10">{t('foodMenu.todaysMenu')}</span>
-                  {todaysMenu?.periodLabel && (
-                    <span className="text-[10px] font-bold text-uv-gray">{formatPeriodLabel(todaysMenu.periodLabel)}</span>
-                  )}
+                  <span className="text-[10px] font-bold text-uv-gray">
+                    {menuPeriodHeading(
+                      todaysMenu?.periodLabel,
+                      new Date().toISOString().slice(0, 10),
+                      i18n.language
+                    )}
+                  </span>
                 </div>
             </div>
             {displayLunch ? (

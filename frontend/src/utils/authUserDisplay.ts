@@ -13,9 +13,10 @@ export type AuthMeUser = {
   email?: string;
 };
 
-export function getAuthUserAvatarUrl(user: AuthMeUser | null | undefined): string {
-  if (!user?.profileImageUrl) return '';
-  return resolveMediaUrl(user.profileImageUrl);
+export function getAuthUserAvatarUrl(user: AuthMeUser | null | undefined): string | undefined {
+  if (!user?.profileImageUrl) return undefined;
+  const s = resolveMediaUrl(user.profileImageUrl);
+  return s || undefined;
 }
 
 /** Initials from name fields; never use numeric student-ID prefix from email. */

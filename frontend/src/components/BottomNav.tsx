@@ -41,35 +41,36 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
 
   const barItems = [
     { icon: <FiHome size={20} />, path: '/feed', label: t('bottomNav.hub') },
-    { icon: <FiBox size={20} />, path: '/lost-found', label: t('bottomNav.lAndF') },
-    { icon: <FiMap size={20} />, path: '/campus-map', label: t('bottomNav.map') },
+    {
+      icon: (
+        <span className="relative inline-flex items-center justify-center text-xl shrink-0">
+          <FiBell />
+          <NavIconBadge count={unreadCount} tone="alerts" />
+        </span>
+      ),
+      path: '/notifications',
+      label: t('sidebar.alerts'),
+    },
+    {
+      icon: (
+        <span className="relative inline-flex items-center justify-center text-xl shrink-0">
+          <FiMessageSquare />
+          <NavIconBadge count={messagesUnreadCount} tone="messages" />
+        </span>
+      ),
+      path: '/messages',
+      label: t('sidebar.chats'),
+    },
   ];
 
   const moreMenuItems = useMemo(
     () =>
       [
+        { icon: <FiSearch className="text-xl shrink-0" />, label: t('bottomNav.search'), path: '/search' },
         { icon: <FiCompass className="text-xl shrink-0" />, label: t('bottomNav.fair'), path: '/explore' },
         { icon: <FiSearch className="text-xl shrink-0" />, label: t('sidebar.discover'), path: '/discover' },
-        {
-          icon: (
-            <span className="relative inline-flex items-center justify-center text-xl shrink-0">
-              <FiBell />
-              <NavIconBadge count={unreadCount} tone="alerts" />
-            </span>
-          ),
-          label: t('sidebar.alerts'),
-          path: '/notifications',
-        },
-        {
-          icon: (
-            <span className="relative inline-flex items-center justify-center text-xl shrink-0">
-              <FiMessageSquare />
-              <NavIconBadge count={messagesUnreadCount} tone="messages" />
-            </span>
-          ),
-          label: t('sidebar.chats'),
-          path: '/messages',
-        },
+        { icon: <FiBox className="text-xl shrink-0" />, label: t('bottomNav.lAndF'), path: '/lost-found' },
+        { icon: <FiMap className="text-xl shrink-0" />, label: t('bottomNav.map'), path: '/campus-map' },
         { icon: <FiCalendar className="text-xl shrink-0" />, label: t('sidebar.appointments'), path: '/appointments' },
         { icon: <FiBriefcase className="text-xl shrink-0" />, label: t('sidebar.jobBoard'), path: '/job-board' },
         ...(isAcademic(user?.role || '')
@@ -78,7 +79,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
         { icon: <FiUser className="text-xl shrink-0" />, label: t('sidebar.mySpace'), path: '/profile' },
         { icon: <FiSettings className="text-xl shrink-0" />, label: t('sidebar.settings'), path: '/settings' },
       ] as { icon: React.ReactNode; label: string; path: string; red?: boolean }[],
-    [t, user?.role, unreadCount, messagesUnreadCount]
+    [t, user?.role]
   );
 
   const morePaths = useMemo(() => moreMenuItems.map((i) => i.path), [moreMenuItems]);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -11,6 +11,148 @@ type AuthProvidersResponse = {
         enabled?: boolean;
     };
 };
+
+const LOGIN_SLOGANS = [
+    'Sync with Campus.',
+    'Connect to Community.',
+    'Explore your UniVerse.',
+    'Broadcast your Story.',
+    'Your Campus. Your Rules.',
+    'Join the Transmission.',
+    'Elevate Your Experience.',
+    'Stay in the Flow.'
+] as const;
+
+const LOGIN_PAGE_STYLES = `
+    @keyframes bounce-hop {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-15px); }
+    }
+    .animate-bounce-hop {
+        animation: bounce-hop 2s infinite ease-in-out;
+    }
+    .cursor-blink::after {
+        content: '|';
+        animation: blink 0.7s infinite;
+        color: var(--uv-primary);
+        margin-left: 2px;
+    }
+    @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+    }
+    @keyframes space-drift {
+        from { transform: translateY(0); }
+        to { transform: translateY(-1000px); }
+    }
+    .stars-layer {
+        position: absolute;
+        inset: 0;
+        background-image:
+            radial-gradient(1px 1px at 20px 30px, #eee, rgba(0,0,0,0)),
+            radial-gradient(1px 1px at 40px 70px, #fff, rgba(0,0,0,0)),
+            radial-gradient(2px 2px at 50px 160px, #ddd, rgba(0,0,0,0)),
+            radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0)),
+            radial-gradient(1px 1px at 130px 80px, #fff, rgba(0,0,0,0)),
+            radial-gradient(2px 2px at 160px 120px, #ddd, rgba(0,0,0,0));
+        background-size: 200px 200px;
+        animation: space-drift 100s linear infinite;
+        opacity: 0.5;
+    }
+    .stars-layer-fast {
+        background-size: 300px 300px;
+        animation-duration: 60s;
+        opacity: 0.8;
+    }
+    .nebula {
+        position: absolute;
+        width: 150%;
+        height: 150%;
+        top: -25%;
+        left: -25%;
+        background: radial-gradient(circle at 30% 70%, rgba(100, 80, 255, 0.15) 0%, transparent 40%),
+                    radial-gradient(circle at 70% 30%, rgba(255, 50, 200, 0.1) 0%, transparent 40%);
+        filter: blur(80px);
+        animation: nebula-drift 30s ease-in-out infinite alternate;
+    }
+    @keyframes nebula-drift {
+        from { transform: rotate(0deg) scale(1); }
+        to { transform: rotate(10deg) scale(1.1); }
+    }
+    @keyframes rocket-move {
+        0%, 100% { transform: translate(0, 0) rotate(0deg); }
+        25% { transform: translate(10px, -20px) rotate(5deg); }
+        75% { transform: translate(-10px, -10px) rotate(-5deg); }
+    }
+    @keyframes float {
+        0%, 100% { transform: translateY(0) rotate(0); }
+        50% { transform: translateY(-30px) rotate(10deg); }
+    }
+    .animate-rocket { animation: rocket-move 6s ease-in-out infinite; }
+    .animate-float { animation: float 10s ease-in-out infinite; }
+    .animate-float-delayed { animation: float 14s ease-in-out infinite reverse; }
+`;
+
+const LoginTypewriter = memo(({ isSpace }: { isSpace: boolean }) => {
+    const [currentSloganIndex, setCurrentSloganIndex] = useState(0);
+    const [displayText, setDisplayText] = useState('');
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [typingSpeed, setTypingSpeed] = useState(100);
+
+    useEffect(() => {
+        const handleTyping = () => {
+            const fullText = LOGIN_SLOGANS[currentSloganIndex];
+            if (isDeleting) {
+                setDisplayText((prev) => prev.substring(0, prev.length - 1));
+                setTypingSpeed(50);
+            } else {
+                setDisplayText((prev) => fullText.substring(0, prev.length + 1));
+                setTypingSpeed(100);
+            }
+
+            if (!isDeleting && displayText === fullText) {
+                setTimeout(() => setIsDeleting(true), 1500);
+            } else if (isDeleting && displayText === '') {
+                setIsDeleting(false);
+                setCurrentSloganIndex((prev) => (prev + 1) % LOGIN_SLOGANS.length);
+            }
+        };
+
+        const timer = setTimeout(handleTyping, typingSpeed);
+        return () => clearTimeout(timer);
+    }, [currentSloganIndex, displayText, isDeleting, typingSpeed]);
+
+    return (
+        <h1 className={`text-3xl md:text-5xl lg:text-6xl font-black tracking-tighter leading-tight cursor-blink ${isSpace ? 'text-white' : 'text-uv-black'}`}>
+            {displayText}
+        </h1>
+    );
+});
+
+const LoginVisualPanel = memo(() => (
+    <div className="hidden md:flex flex-1 bg-[#050510] items-center justify-center p-20 select-none relative overflow-hidden">
+        <div className="nebula" />
+        <div className="stars-layer" />
+        <div className="stars-layer stars-layer-fast" />
+
+        <div className="absolute top-20 right-20 w-32 h-32 rounded-full bg-gradient-to-br from-orange-500 to-red-800 opacity-40 blur-[2px] animate-float shadow-[0_0_50px_rgba(255,100,0,0.2)]" />
+        <div className="absolute bottom-40 left-20 w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-indigo-900 opacity-30 blur-[1px] animate-float-delayed" />
+        <div className="absolute top-1/2 left-10 w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-purple-900 opacity-20 animate-float" />
+
+        <div className="absolute top-1/3 left-1/4 text-white opacity-40 animate-rocket pointer-events-none">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M13.13,2.57c-2.47-0.91-5.07,0.36-6.19,2.68c-0.12,0.25-0.23,0.51-0.32,0.78C5.25,9.22,5.2,12.72,5.2,12.72l-1.92,1.92 c-0.39,0.39-0.39,1.02,0,1.41l2.42,2.42c0.39,0.39,1.02,0.39,1.41,0l1.92-1.92c0,0,3.5,0.05,6.69-1.42c0.27-0.12,0.53-0.25,0.78-0.39 c2.32-1.12,3.59-3.72,2.68-6.19C15.06,5.32,13.13,2.57,13.13,2.57z M8.57,15.43c-0.78-0.78-0.78-2.05,0-2.83 c0.78-0.78,2.05-0.78,2.83,0c0.78,0.78,0.78,2.05,0,2.83C10.62,16.21,9.35,16.21,8.57,15.43z M18.41,18.41 c-0.39-0.39-1.02-0.39-1.41,0l-2.12,2.12c-0.39,0.39-0.39,1.02,0,1.41l0.71,0.71c0.39,0.39,1.02,0.39,1.41,0l2.12-2.12 c0.39-0.39,0.39-1.02,0-1.41L18.41,18.41z" />
+            </svg>
+        </div>
+
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050510]/50 to-[#050510]" />
+
+        <div className="z-10 text-center">
+            <img src="/logo.svg" alt="UniVerse Logo" className="w-64 h-auto drop-shadow-[0_0_30px_rgba(100,80,255,0.3)] animate-bounce-hop" />
+        </div>
+        <div className="absolute bottom-10 left-10 text-white/40 font-black text-xs uppercase tracking-[0.5em] z-10">UniVerse Ecosystem v2.0</div>
+    </div>
+));
 
 const Login = () => {
     const { t } = useTranslation();
@@ -25,45 +167,6 @@ const Login = () => {
     const navigate = useNavigate();
     const { dimension, toggleDimension } = useTheme();
     const isSpace = dimension === 'space';
-
-    // Typewriter Logic
-    const slogans = [
-        "Sync with Campus.",
-        "Connect to Community.",
-        "Explore your UniVerse.",
-        "Broadcast your Story.",
-        "Your Campus. Your Rules.",
-        "Join the Transmission.",
-        "Elevate Your Experience.",
-        "Stay in the Flow."
-    ];
-    const [currentSloganIndex, setCurrentSloganIndex] = useState(0);
-    const [displayText, setDisplayText] = useState("");
-    const [isDeleting, setIsDeleting] = useState(false);
-    const [typingSpeed, setTypingSpeed] = useState(100);
-
-    useEffect(() => {
-        const handleTyping = () => {
-            const fullText = slogans[currentSloganIndex];
-            if (isDeleting) {
-                setDisplayText(prev => prev.substring(0, prev.length - 1));
-                setTypingSpeed(50);
-            } else {
-                setDisplayText(prev => fullText.substring(0, prev.length + 1));
-                setTypingSpeed(100);
-            }
-
-            if (!isDeleting && displayText === fullText) {
-                setTimeout(() => setIsDeleting(true), 1500);
-            } else if (isDeleting && displayText === "") {
-                setIsDeleting(false);
-                setCurrentSloganIndex(prev => (prev + 1) % slogans.length);
-            }
-        };
-
-        const timer = setTimeout(handleTyping, typingSpeed);
-        return () => clearTimeout(timer);
-    }, [displayText, isDeleting, currentSloganIndex]);
 
     useEffect(() => {
         api.get<AuthProvidersResponse>('/auth/providers')
@@ -151,78 +254,7 @@ const Login = () => {
 
     return (
         <div className={`min-h-screen flex flex-col md:flex-row overflow-hidden transition-colors duration-700 ${isSpace ? 'bg-[#050510]' : 'bg-white'}`}>
-            <style>
-                {`
-                    @keyframes bounce-hop {
-                        0%, 100% { transform: translateY(0); }
-                        50% { transform: translateY(-15px); }
-                    }
-                    .animate-bounce-hop {
-                        animation: bounce-hop 2s infinite ease-in-out;
-                    }
-                    .cursor-blink::after {
-                        content: '|';
-                        animation: blink 0.7s infinite;
-                        color: var(--uv-primary);
-                        margin-left: 2px;
-                    }
-                    @keyframes blink {
-                        0%, 100% { opacity: 1; }
-                        50% { opacity: 0; }
-                    }
-                    
-                    @keyframes space-drift {
-                        from { transform: translateY(0); }
-                        to { transform: translateY(-1000px); }
-                    }
-                    .stars-layer {
-                        position: absolute;
-                        inset: 0;
-                        background-image: 
-                            radial-gradient(1px 1px at 20px 30px, #eee, rgba(0,0,0,0)),
-                            radial-gradient(1px 1px at 40px 70px, #fff, rgba(0,0,0,0)),
-                            radial-gradient(2px 2px at 50px 160px, #ddd, rgba(0,0,0,0)),
-                            radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0)),
-                            radial-gradient(1px 1px at 130px 80px, #fff, rgba(0,0,0,0)),
-                            radial-gradient(2px 2px at 160px 120px, #ddd, rgba(0,0,0,0));
-                        background-size: 200px 200px;
-                        animation: space-drift 100s linear infinite;
-                        opacity: 0.5;
-                    }
-                    .stars-layer-fast {
-                        background-size: 300px 300px;
-                        animation-duration: 60s;
-                        opacity: 0.8;
-                    }
-                    .nebula {
-                        position: absolute;
-                        width: 150%;
-                        height: 150%;
-                        top: -25%;
-                        left: -25%;
-                        background: radial-gradient(circle at 30% 70%, rgba(100, 80, 255, 0.15) 0%, transparent 40%),
-                                    radial-gradient(circle at 70% 30%, rgba(255, 50, 200, 0.1) 0%, transparent 40%);
-                        filter: blur(80px);
-                        animation: nebula-drift 30s ease-in-out infinite alternate;
-                    }
-                    @keyframes nebula-drift {
-                        from { transform: rotate(0deg) scale(1); }
-                        to { transform: rotate(10deg) scale(1.1); }
-                    }
-                    @keyframes rocket-move {
-                        0%, 100% { transform: translate(0, 0) rotate(0deg); }
-                        25% { transform: translate(10px, -20px) rotate(5deg); }
-                        75% { transform: translate(-10px, -10px) rotate(-5deg); }
-                    }
-                    @keyframes float {
-                        0%, 100% { transform: translateY(0) rotate(0); }
-                        50% { transform: translateY(-30px) rotate(10deg); }
-                    }
-                    .animate-rocket { animation: rocket-move 6s ease-in-out infinite; }
-                    .animate-float { animation: float 10s ease-in-out infinite; }
-                    .animate-float-delayed { animation: float 14s ease-in-out infinite reverse; }
-                `}
-            </style>
+            <style>{LOGIN_PAGE_STYLES}</style>
 
             {/* Floating Dimension Toggle */}
             <div className="fixed bottom-6 left-6 z-[80] flex flex-col gap-3">
@@ -240,31 +272,7 @@ const Login = () => {
             </div>
 
             {/* Left Side - Brand Visual */}
-            <div className="hidden md:flex flex-1 bg-[#050510] items-center justify-center p-20 select-none relative overflow-hidden">
-                {/* Space Elements */}
-                <div className="nebula" />
-                <div className="stars-layer" />
-                <div className="stars-layer stars-layer-fast" />
-
-                {/* Decorative Planets */}
-                <div className="absolute top-20 right-20 w-32 h-32 rounded-full bg-gradient-to-br from-orange-500 to-red-800 opacity-40 blur-[2px] animate-float shadow-[0_0_50px_rgba(255,100,0,0.2)]" />
-                <div className="absolute bottom-40 left-20 w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-indigo-900 opacity-30 blur-[1px] animate-float-delayed" />
-                <div className="absolute top-1/2 left-10 w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-purple-900 opacity-20 animate-float" />
-                
-                {/* Rocket */}
-                <div className="absolute top-1/3 left-1/4 text-white opacity-40 animate-rocket pointer-events-none">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M13.13,2.57c-2.47-0.91-5.07,0.36-6.19,2.68c-0.12,0.25-0.23,0.51-0.32,0.78C5.25,9.22,5.2,12.72,5.2,12.72l-1.92,1.92 c-0.39,0.39-0.39,1.02,0,1.41l2.42,2.42c0.39,0.39,1.02,0.39,1.41,0l1.92-1.92c0,0,3.5,0.05,6.69-1.42c0.27-0.12,0.53-0.25,0.78-0.39 c2.32-1.12,3.59-3.72,2.68-6.19C15.06,5.32,13.13,2.57,13.13,2.57z M8.57,15.43c-0.78-0.78-0.78-2.05,0-2.83 c0.78-0.78,2.05-0.78,2.83,0c0.78,0.78,0.78,2.05,0,2.83C10.62,16.21,9.35,16.21,8.57,15.43z M18.41,18.41 c-0.39-0.39-1.02-0.39-1.41,0l-2.12,2.12c-0.39,0.39-0.39,1.02,0,1.41l0.71,0.71c0.39,0.39,1.02,0.39,1.41,0l2.12-2.12 c0.39-0.39,0.39-1.02,0-1.41L18.41,18.41z" />
-                    </svg>
-                </div>
-
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050510]/50 to-[#050510]" />
-                
-                <div className="z-10 text-center">
-                    <img src="/logo.svg" alt="UniVerse Logo" className="w-64 h-auto drop-shadow-[0_0_30px_rgba(100,80,255,0.3)] animate-bounce-hop" />
-                </div>
-                <div className="absolute bottom-10 left-10 text-white/40 font-black text-xs uppercase tracking-[0.5em] z-10">UniVerse Ecosystem v2.0</div>
-            </div>
+            <LoginVisualPanel />
 
             {/* Right Side - Form */}
             <div className={`flex-1 flex flex-col justify-center px-6 md:px-16 lg:px-24 py-1 md:py-8 relative overflow-y-auto transition-colors duration-700 ${isSpace ? 'bg-[#0a0a1a]' : 'bg-[#fcfcff]'}`}>
@@ -281,9 +289,7 @@ const Login = () => {
                     
                     <div className="mb-4 md:mb-6 text-center md:text-left">
                         <div className="h-[40px] md:h-[60px] lg:h-[130px] flex items-center justify-center md:justify-start">
-                            <h1 className={`text-3xl md:text-5xl lg:text-6xl font-black tracking-tighter leading-tight cursor-blink ${isSpace ? 'text-white' : 'text-uv-black'}`}>
-                                {displayText}
-                            </h1>
+                            <LoginTypewriter isSpace={isSpace} />
                         </div>
                         <p className={`font-bold text-[10px] md:text-base lg:text-lg tracking-tight mt-1 md:mt-2 ${isSpace ? 'text-gray-400' : 'text-uv-gray'}`}>{t('login.subtitle')}</p>
                     </div>
