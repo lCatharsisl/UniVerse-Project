@@ -13,7 +13,7 @@ import {
 } from 'react-icons/fi';
 import api from '../api/client';
 import { useTheme } from '../context/ThemeContext';
-import { resolveMediaUrl } from '../utils/resolveMediaUrl';
+import { toImgSrc } from '../utils/resolveMediaUrl';
 
 type OwnedCommunity = {
   community_id: number;
@@ -128,6 +128,8 @@ const CommunityMySpace = () => {
           owned.map((c) => {
             const pend = pendingById[c.community_id] || { events: 0, members: 0 };
             const pendingTotal = pend.events + pend.members;
+            const cover = toImgSrc(c.cover_url);
+            const av = toImgSrc(c.avatar_url);
             return (
               <section
                 key={c.community_id}
@@ -136,8 +138,8 @@ const CommunityMySpace = () => {
                 }`}
               >
                 <div className="relative h-36 md:h-44">
-                  {c.cover_url ? (
-                    <img src={resolveMediaUrl(c.cover_url)} alt="" className="w-full h-full object-cover" />
+                  {cover ? (
+                    <img src={cover} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/70 to-accent opacity-80" />
                   )}
@@ -148,8 +150,8 @@ const CommunityMySpace = () => {
                         isSpace ? 'bg-white/10 text-white' : 'bg-white text-primary'
                       }`}
                     >
-                      {c.avatar_url ? (
-                        <img src={resolveMediaUrl(c.avatar_url)} alt="" className="w-full h-full object-cover" />
+                      {av ? (
+                        <img src={av} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <span>{c.community_name?.[0]?.toUpperCase() || 'C'}</span>
                       )}

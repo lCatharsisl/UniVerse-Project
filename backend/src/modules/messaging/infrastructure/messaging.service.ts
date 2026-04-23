@@ -1,4 +1,5 @@
 import { query, queryOne, transaction } from '../../../config/db';
+import { storeMessagingImage } from '../../../integrations/messagingStorage';
 import { AppError } from '../../../shared/core/errors';
 import { IdentityService } from '../../identity/infrastructure/identity.service';
 
@@ -25,6 +26,7 @@ export class MessagingService {
       LEFT JOIN communities c ON c.user_id = u.user_id
       WHERE u.user_id <> $1
         AND u.is_active = true
+        AND COALESCE(u.has_completed_login, false) = true
         AND (
           u.email ILIKE $2
           OR COALESCE(st.student_name, sf.staff_name, a.admin_name, c.community_name, '') ILIKE $2
@@ -55,6 +57,7 @@ export class MessagingService {
         throw AppError.forbidden('Cannot start conversation with blocked user');
       }
     }
+    await IdentityService.assertChatEligibleUserIds(cleanIds);
 
     if (!isGroup) {
       const targetId = cleanIds[0];
@@ -159,6 +162,7 @@ export class MessagingService {
         lm.created_at AS last_message_created_at,
         lm.sender_user_id AS last_message_sender_user_id,
         cp.last_read_message_id,
+        COALESCE(cp.notifications_muted, false) AS notifications_muted,
         (
           SELECT COUNT(*)::int
           FROM messages m
@@ -180,7 +184,7 @@ export class MessagingService {
     const members = convIds.length
       ? await query<any>(
           `
-          SELECT
+          SELECT DISTINCT ON (cp.conversation_id, cp.user_id)
             cp.conversation_id,
             cp.user_id,
             cp.role,
@@ -196,15 +200,22 @@ export class MessagingService {
           LEFT JOIN communities c ON c.user_id = u.user_id
           WHERE cp.conversation_id = ANY($1::int[])
             AND cp.is_active = true
-          ORDER BY cp.joined_at ASC
+          ORDER BY cp.conversation_id, cp.user_id, cp.joined_at ASC
           `,
           [convIds]
         )
       : [];
 
+    const membersByConversation = new Map<number, any[]>();
+    for (const member of members) {
+      const bucket = membersByConversation.get(member.conversation_id);
+      if (bucket) bucket.push(member);
+      else membersByConversation.set(member.conversation_id, [member]);
+    }
+
     const enriched = rows.map((row) => ({
       ...row,
-      members: members.filter((m) => m.conversation_id === row.conversation_id),
+      members: membersByConversation.get(row.conversation_id) || [],
     }));
 
     const deduped: typeof enriched = [];
@@ -227,8 +238,135 @@ export class MessagingService {
     return deduped;
   }
 
-  static async getConversationMessages(conversationId: number, userId: number, limit = 50, offset = 0) {
+  static async getUnreadCount(userId: number) {
+    const row = await queryOne<{ count: string }>(
+      `
+      SELECT COALESCE(SUM(unread_count), 0)::text AS count
+      FROM (
+        SELECT
+          (
+            SELECT COUNT(*)::int
+            FROM messages m
+            WHERE m.conversation_id = c.conversation_id
+              AND (cp.last_read_message_id IS NULL OR m.message_id > cp.last_read_message_id)
+              AND m.sender_user_id <> $1
+              AND m.deleted_at IS NULL
+          ) AS unread_count
+        FROM conversation_participants cp
+        JOIN conversations c ON c.conversation_id = cp.conversation_id
+        WHERE cp.user_id = $1
+          AND cp.is_active = true
+      ) unread
+      `,
+      [userId]
+    );
+    return { count: parseInt(row?.count || '0', 10) };
+  }
+
+  static async getConversationMessages(
+    conversationId: number,
+    userId: number,
+    limit = 50,
+    offset = 0,
+    anchorMessageId?: number
+  ) {
     await this.ensureParticipant(conversationId, userId);
+    let items: any[];
+    if (anchorMessageId != null) {
+      const anchorRow = await queryOne<{ message_id: number }>(
+        `
+        SELECT message_id
+        FROM messages
+        WHERE message_id = $1 AND conversation_id = $2 AND deleted_at IS NULL
+        `,
+        [anchorMessageId, conversationId]
+      );
+      if (!anchorRow) throw AppError.notFound('Message not found in this conversation');
+      items = await query<any>(
+        `
+        SELECT
+          m.message_id,
+          m.conversation_id,
+          m.sender_user_id,
+          m.content,
+          m.message_type,
+          m.created_at,
+          COALESCE(st.student_name, sf.staff_name, a.admin_name, c.community_name, u.email) AS sender_first_name,
+          COALESCE(st.student_surname, sf.staff_surname, a.admin_surname, '') AS sender_last_name,
+          COALESCE(st.avatar_url, sf.avatar_url, a.avatar_url, c.avatar_url) AS sender_avatar_url
+        FROM messages m
+        JOIN users u ON u.user_id = m.sender_user_id
+        LEFT JOIN students st ON st.user_id = u.user_id
+        LEFT JOIN staff sf ON sf.user_id = u.user_id
+        LEFT JOIN admins a ON a.user_id = u.user_id
+        LEFT JOIN communities c ON c.user_id = u.user_id
+        WHERE m.conversation_id = $1 AND m.deleted_at IS NULL
+          AND m.message_id <= $4
+        ORDER BY m.message_id DESC
+        LIMIT $2 OFFSET $3
+        `,
+        [conversationId, limit, offset, anchorMessageId]
+      );
+    } else {
+      items = await query<any>(
+        `
+        SELECT
+          m.message_id,
+          m.conversation_id,
+          m.sender_user_id,
+          m.content,
+          m.message_type,
+          m.created_at,
+          COALESCE(st.student_name, sf.staff_name, a.admin_name, c.community_name, u.email) AS sender_first_name,
+          COALESCE(st.student_surname, sf.staff_surname, a.admin_surname, '') AS sender_last_name,
+          COALESCE(st.avatar_url, sf.avatar_url, a.avatar_url, c.avatar_url) AS sender_avatar_url
+        FROM messages m
+        JOIN users u ON u.user_id = m.sender_user_id
+        LEFT JOIN students st ON st.user_id = u.user_id
+        LEFT JOIN staff sf ON sf.user_id = u.user_id
+        LEFT JOIN admins a ON a.user_id = u.user_id
+        LEFT JOIN communities c ON c.user_id = u.user_id
+        WHERE m.conversation_id = $1 AND m.deleted_at IS NULL
+        ORDER BY m.created_at DESC
+        LIMIT $2 OFFSET $3
+        `,
+        [conversationId, limit, offset]
+      );
+    }
+    const messageIds = items.map((m) => m.message_id);
+    const attachments = messageIds.length
+      ? await query<any>(
+          `
+          SELECT attachment_id, message_id, file_url, file_type, mime_type, file_size
+          FROM message_attachments
+          WHERE message_id = ANY($1::int[])
+          ORDER BY attachment_id ASC
+          `,
+          [messageIds]
+        )
+      : [];
+
+    const attachmentsByMessageId = new Map<number, any[]>();
+    for (const attachment of attachments) {
+      const bucket = attachmentsByMessageId.get(attachment.message_id);
+      if (bucket) bucket.push(attachment);
+      else attachmentsByMessageId.set(attachment.message_id, [attachment]);
+    }
+
+    return items
+      .map((m) => ({ ...m, attachments: attachmentsByMessageId.get(m.message_id) || [] }))
+      .reverse();
+  }
+
+  static async searchMessagesInConversation(
+    conversationId: number,
+    userId: number,
+    q: string,
+    limit = 30,
+    offset = 0
+  ) {
+    await this.ensureParticipant(conversationId, userId);
+    if (!q.trim()) throw AppError.badRequest('q is required');
     const items = await query<any>(
       `
       SELECT
@@ -248,10 +386,11 @@ export class MessagingService {
       LEFT JOIN admins a ON a.user_id = u.user_id
       LEFT JOIN communities c ON c.user_id = u.user_id
       WHERE m.conversation_id = $1 AND m.deleted_at IS NULL
-      ORDER BY m.created_at DESC
-      LIMIT $2 OFFSET $3
+        AND position(lower($2) in lower(COALESCE(m.content, ''))) > 0
+      ORDER BY m.message_id DESC
+      LIMIT $3 OFFSET $4
       `,
-      [conversationId, limit, offset]
+      [conversationId, q, limit, offset]
     );
     const messageIds = items.map((m) => m.message_id);
     const attachments = messageIds.length
@@ -265,10 +404,133 @@ export class MessagingService {
           [messageIds]
         )
       : [];
+    const attachmentsByMessageId = new Map<number, any[]>();
+    for (const attachment of attachments) {
+      const bucket = attachmentsByMessageId.get(attachment.message_id);
+      if (bucket) bucket.push(attachment);
+      else attachmentsByMessageId.set(attachment.message_id, [attachment]);
+    }
+    // Newest matches first (items are already message_id DESC)
+    return items.map((m) => ({ ...m, attachments: attachmentsByMessageId.get(m.message_id) || [] }));
+  }
 
-    return items
-      .map((m) => ({ ...m, attachments: attachments.filter((a) => a.message_id === m.message_id) }))
-      .reverse();
+  private static extractUrlsFromText(text: string | null | undefined): string[] {
+    if (!text) return [];
+    const re = /https?:\/\/[^\s<>"'{}|\\^`[\])]+/gi;
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const m of text.matchAll(re)) {
+      const u = m[0].replace(/[.,;:!?)]+$/, '');
+      if (u.length < 5) continue;
+      if (!seen.has(u)) {
+        seen.add(u);
+        out.push(u);
+      }
+    }
+    return out;
+  }
+
+  static async getSharedConversationContent(
+    conversationId: number,
+    userId: number,
+    limit = 60,
+    offset = 0
+  ) {
+    await this.ensureParticipant(conversationId, userId);
+    const attachmentRows = await query<any>(
+      `
+      SELECT
+        ma.attachment_id,
+        ma.message_id,
+        ma.file_url,
+        ma.file_type,
+        ma.mime_type,
+        ma.file_size,
+        m.created_at AS message_created_at,
+        m.sender_user_id,
+        COALESCE(st.student_name, sf.staff_name, a.admin_name, c.community_name, u.email) AS sender_first_name,
+        COALESCE(st.student_surname, sf.staff_surname, a.admin_surname, '') AS sender_last_name
+      FROM message_attachments ma
+      JOIN messages m ON m.message_id = ma.message_id
+      JOIN users u ON u.user_id = m.sender_user_id
+      LEFT JOIN students st ON st.user_id = u.user_id
+      LEFT JOIN staff sf ON sf.user_id = u.user_id
+      LEFT JOIN admins a ON a.user_id = u.user_id
+      LEFT JOIN communities c ON c.user_id = u.user_id
+      WHERE m.conversation_id = $1 AND m.deleted_at IS NULL
+      ORDER BY m.message_id DESC, ma.attachment_id DESC
+      LIMIT $2 OFFSET $3
+      `,
+      [conversationId, limit, offset]
+    );
+
+    const linkMessageRows = await query<any>(
+      `
+      SELECT
+        m.message_id,
+        m.content,
+        m.created_at,
+        m.sender_user_id,
+        COALESCE(st.student_name, sf.staff_name, a.admin_name, c.community_name, u.email) AS sender_first_name,
+        COALESCE(st.student_surname, sf.staff_surname, a.admin_surname, '') AS sender_last_name
+      FROM messages m
+      JOIN users u ON u.user_id = m.sender_user_id
+      LEFT JOIN students st ON st.user_id = u.user_id
+      LEFT JOIN staff sf ON sf.user_id = u.user_id
+      LEFT JOIN admins a ON a.user_id = u.user_id
+      LEFT JOIN communities c ON c.user_id = u.user_id
+      WHERE m.conversation_id = $1
+        AND m.deleted_at IS NULL
+        AND m.content IS NOT NULL
+        AND m.content ~* 'https?://'
+      ORDER BY m.message_id DESC
+      LIMIT 400
+      `,
+      [conversationId]
+    );
+
+    const links: {
+      url: string;
+      message_id: number;
+      created_at: string;
+      sender_user_id: number;
+      sender_first_name: string;
+      sender_last_name: string;
+    }[] = [];
+    for (const row of linkMessageRows) {
+      for (const url of this.extractUrlsFromText(row.content)) {
+        links.push({
+          url,
+          message_id: row.message_id,
+          created_at: row.created_at,
+          sender_user_id: row.sender_user_id,
+          sender_first_name: row.sender_first_name,
+          sender_last_name: row.sender_last_name,
+        });
+      }
+    }
+
+    return {
+      attachments: attachmentRows,
+      links,
+    };
+  }
+
+  static async setConversationNotificationsMuted(
+    conversationId: number,
+    userId: number,
+    muted: boolean
+  ) {
+    await this.ensureParticipant(conversationId, userId);
+    await query(
+      `
+      UPDATE conversation_participants
+      SET notifications_muted = $1
+      WHERE conversation_id = $2 AND user_id = $3 AND is_active = true
+      `,
+      [muted, conversationId, userId]
+    );
+    return { success: true, notifications_muted: muted };
   }
 
   static async sendMessage(
@@ -298,6 +560,11 @@ export class MessagingService {
       }
     }
 
+    const attachmentUrls: string[] = [];
+    for (const file of files) {
+      attachmentUrls.push(await storeMessagingImage(file, conversationId));
+    }
+
     const createdMessageId = await transaction(async (client) => {
       const messageType = files.length > 0 ? (content ? 'mixed' : 'image') : 'text';
       const inserted = await client.query(
@@ -310,13 +577,14 @@ export class MessagingService {
       );
       const messageId = inserted.rows[0].message_id as number;
 
-      for (const file of files) {
+      for (let i = 0; i < attachmentUrls.length; i++) {
+        const file = files[i];
         await client.query(
           `
           INSERT INTO message_attachments (message_id, file_url, file_type, mime_type, file_size)
           VALUES ($1, $2, 'image', $3, $4)
           `,
-          [messageId, `/uploads/${file.filename}`, file.mimetype || null, file.size || null]
+          [messageId, attachmentUrls[i], file.mimetype || null, file.size || null]
         );
       }
 
@@ -371,6 +639,9 @@ export class MessagingService {
       if (blocked.isBlocked || blocked.blockedByTarget) {
         throw AppError.forbidden('Cannot add blocked user to conversation');
       }
+    }
+    await IdentityService.assertChatEligibleUserIds(cleanIds);
+    for (const userId of cleanIds) {
       await query(
         `
         INSERT INTO conversation_participants (conversation_id, user_id, role, is_active, left_at)

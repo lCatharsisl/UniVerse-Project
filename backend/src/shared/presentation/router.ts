@@ -7,6 +7,7 @@ import { campusInfoModule } from '../../modules/campus-info/index';
 import { communityModule } from '../../modules/community/index';
 import { messagingModule } from '../../modules/messaging/index';
 import { notificationsModule } from '../../modules/notifications/index';
+import { searchModule } from '../../modules/search/index';
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use('/campus', campusInfoModule.router);
 router.use('/community', communityModule.router);
 router.use('/messages', messagingModule.router);
 router.use('/notifications', notificationsModule.router);
+router.use('/search', searchModule.router);
 
 export { router as mainRouter };

@@ -35,3 +35,12 @@ export const uploadLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+/** Elasticsearch search: avoid abuse */
+export const searchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: 'Too many search requests, please try again in a moment',
+  standardHeaders: true,
+  legacyHeaders: false,
+});

@@ -26,6 +26,16 @@ export class MessagingController {
     }
   }
 
+  static async unreadCount(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.userId!;
+      const out = await MessagingService.getUnreadCount(userId);
+      return res.json(out);
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message || 'Failed to fetch unread count' });
+    }
+  }
+
   static async createConversation(req: AuthenticatedRequest, res: Response) {
     try {
       const currentUserId = req.userId!;
@@ -90,31 +100,97 @@ export class MessagingController {
 
   static async unsendMessage(req: AuthenticatedRequest, res: Response) {
     try {
-      const userId = req.userId!;
       const conversationId = parseInt(req.params.id, 10);
       const messageId = parseInt(req.params.messageId, 10);
       if (Number.isNaN(conversationId) || Number.isNaN(messageId)) {
         return res.status(400).json({ error: 'Invalid id' });
       }
-      const out = await MessagingService.unsendMessage(conversationId, messageId, userId);
-      return res.json(out);
+      // Service katmanında unsend henüz yok; geçici olarak net hata dön.
+      return res.status(501).json({ error: 'Unsend message is not implemented yet' });
     } catch (error: any) {
       const status = error?.statusCode || 400;
       return res.status(status).json({ error: error.message || 'Failed to unsend message' });
     }
   }
 
+  static async searchConversationMessages(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.userId!;
+      const conversationId = parseInt(req.params.id, 10);
+      const q = String(req.query.q || '').trim();
+      if (q.length < 1) return res.status(400).json({ error: 'q is required' });
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 30;
+      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : 0;
+      const items = await MessagingService.searchMessagesInConversation(
+        conversationId,
+        userId,
+        q,
+        Number.isNaN(limit) ? 30 : limit,
+        Number.isNaN(offset) ? 0 : offset
+      );
+      return res.json(items);
+    } catch (error: any) {
+      const status = error?.statusCode || 400;
+      return res.status(status).json({ error: error.message || 'Search failed' });
+    }
+  }
+
+  static async getSharedContent(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.userId!;
+      const conversationId = parseInt(req.params.id, 10);
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 60;
+      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : 0;
+      const out = await MessagingService.getSharedConversationContent(
+        conversationId,
+        userId,
+        Number.isNaN(limit) ? 60 : limit,
+        Number.isNaN(offset) ? 0 : offset
+      );
+      return res.json(out);
+    } catch (error: any) {
+      const status = error?.statusCode || 400;
+      return res.status(status).json({ error: error.message || 'Failed to load shared content' });
+    }
+  }
+
+  static async setNotificationsMuted(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.userId!;
+      const conversationId = parseInt(req.params.id, 10);
+      const raw = req.body?.muted;
+      let muted: boolean;
+      if (raw === true || raw === 'true' || raw === 1) muted = true;
+      else if (raw === false || raw === 'false' || raw === 0) muted = false;
+      else {
+        return res.status(400).json({ error: 'muted (boolean) is required' });
+      }
+      const out = await MessagingService.setConversationNotificationsMuted(
+        conversationId,
+        userId,
+        muted
+      );
+      return res.json(out);
+    } catch (error: any) {
+      const status = typeof error?.statusCode === 'number' ? error.statusCode : 500;
+      return res.status(status).json({ error: error.message || 'Failed to update notifications' });
+    }
+  }
   static async getMessages(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.userId!;
       const conversationId = parseInt(req.params.id, 10);
       const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 50;
       const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : 0;
+      const anchorRaw = req.query.anchorMessageId;
+      const anchorMessageId =
+        anchorRaw != null && String(anchorRaw) !== '' ? parseInt(String(anchorRaw), 10) : undefined;
       const items = await MessagingService.getConversationMessages(
         conversationId,
         userId,
         Number.isNaN(limit) ? 50 : limit,
-        Number.isNaN(offset) ? 0 : offset
+        Number.isNaN(offset) ? 0 : offset,
+        anchorMessageId != null && !Number.isNaN(anchorMessageId) ? anchorMessageId : undefined
       );
       return res.json(items);
     } catch (error: any) {

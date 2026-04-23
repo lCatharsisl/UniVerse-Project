@@ -13,5 +13,10 @@ export default {
             },
         },
     },
-    plugins: [],
+    plugins: [
+        // Space dimension (kozmik / koyu tema): `html.space-dimension` açıkken uygulanır
+        function spaceDimensionVariant({ addVariant }) {
+            addVariant('space', 'html.space-dimension &');
+        },
+    ],
 }

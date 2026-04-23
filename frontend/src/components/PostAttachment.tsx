@@ -1,5 +1,6 @@
-import React from 'react';
-import { isPostVideoUrl, resolveSocialPostMediaUrl } from '../utils/postMedia';
+import React, { useCallback, useEffect, useState } from 'react';
+import { isPostVideoUrl } from '../utils/postMedia';
+import { toImgSrc } from '../utils/resolveMediaUrl';
 
 type PostAttachmentProps = {
   path: string;
@@ -10,10 +11,27 @@ type PostAttachmentProps = {
 };
 
 const PostAttachment: React.FC<PostAttachmentProps> = ({ path, className = '', mediaClassName }) => {
-  const src = resolveSocialPostMediaUrl(path);
+  const [mediaFailed, setMediaFailed] = useState(false);
+  const src = toImgSrc(path);
   const video = isPostVideoUrl(path);
   const imgMc =
     mediaClassName ?? 'max-h-48 md:max-h-[512px] w-full object-cover';
+
+  useEffect(() => {
+    setMediaFailed(false);
+  }, [path]);
+
+  const onVideoError = useCallback(() => {
+    setMediaFailed(true);
+  }, []);
+
+  const onImgError = useCallback(() => {
+    setMediaFailed(true);
+  }, []);
+
+  if (mediaFailed || !src) {
+    return null;
+  }
 
   if (video) {
     const base = (mediaClassName ?? 'max-h-48 md:max-h-[512px] w-full').replace(
@@ -29,6 +47,7 @@ const PostAttachment: React.FC<PostAttachmentProps> = ({ path, className = '', m
           playsInline
           className={videoMc}
           preload="metadata"
+          onError={onVideoError}
         />
       </div>
     );
@@ -36,7 +55,7 @@ const PostAttachment: React.FC<PostAttachmentProps> = ({ path, className = '', m
 
   return (
     <div className={className}>
-      <img src={src} loading="lazy" className={imgMc} alt="" />
+      <img src={src} loading="lazy" className={imgMc} alt="" onError={onImgError} />
     </div>
   );
 };

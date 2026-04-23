@@ -378,7 +378,7 @@ const Notifications = () => {
                     : notification.title && notification.title.trim() && notification.title.trim() !== summary
                       ? notification.title.trim()
                       : '';
-                const avatarUrl = resolveMediaUrl(notification.actor_avatar_url);
+                const avatarUrl = resolveMediaUrl(notification.actor_avatar_url) || undefined;
 
                 return (
                   <div
@@ -400,11 +400,12 @@ const Notifications = () => {
                             isSpace ? 'border-white/10 bg-white/10' : 'border-uv-border bg-gray-100'
                           }`}
                         >
-                          {avatarUrl ? (
-                            <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className={`font-black text-sm ${isSpace ? 'text-white' : 'text-uv-black'}`}>{actorInitials}</span>
-                          )}
+                          <FeedAvatarImage
+                            src={avatarUrl}
+                            initials={actorInitials}
+                            className="font-black text-sm"
+                            imgClassName="w-full h-full object-cover"
+                          />
                           <span
                             className={`absolute -right-0.5 -bottom-0.5 w-3 h-3 rounded-full border-2 ${
                               isRead ? 'bg-uv-gray border-white' : 'bg-primary border-white'

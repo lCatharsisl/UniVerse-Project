@@ -35,7 +35,7 @@ export class IdentityService {
         }
       }
 
-      return await transaction(async (client) => {
+      const regResult = await transaction(async (client) => {
         const existingUser = await client.query('SELECT user_id FROM users WHERE email = $1', [normalizedEmail]);
         if (existingUser.rows.length > 0) throw AppError.badRequest('Email already registered');
 
@@ -161,6 +161,7 @@ export class IdentityService {
 
         return Result.ok({ userId, emailToken });
       });
+      return regResult;
     } catch (error: any) {
       console.error('Registration Error:', error);
       return Result.fail(error.message || 'Registration failed');
@@ -373,14 +374,38 @@ export class IdentityService {
         'INSERT INTO user_sessions (user_id, session_token, expires_at, user_agent, ip_address, last_active_at) VALUES ($1, $2, $3, $4, $5, NOW())',
         [userId, sessionToken, expiresAt, userAgent || null, ipAddress || null]
       );
+      await executor('UPDATE public.users SET has_completed_login = true WHERE user_id = $1', [userId]);
     } else {
       await executor.query(
         'INSERT INTO user_sessions (user_id, session_token, expires_at, user_agent, ip_address, last_active_at) VALUES ($1, $2, $3, $4, $5, NOW())',
         [userId, sessionToken, expiresAt, userAgent || null, ipAddress || null]
       );
+      await executor.query('UPDATE public.users SET has_completed_login = true WHERE user_id = $1', [userId]);
     }
 
     return sessionToken;
+  }
+
+  /**
+   * Dizin/içe aktarma ile açılmış fakat uygulamada hiç giriş yapmamış hesaplar sohbet/ekleme için uygun değildir.
+   */
+  static async assertChatEligibleUserIds(userIds: number[]): Promise<void> {
+    const clean = userIds.filter((id) => Number.isInteger(id) && id > 0);
+    if (clean.length === 0) return;
+    const row = await queryOne<{ c: string }>(
+      `SELECT COUNT(*)::text AS c
+       FROM public.users
+       WHERE user_id = ANY($1::int[])
+         AND COALESCE(is_active, true) = true
+         AND COALESCE(has_completed_login, false) = false`,
+      [clean]
+    );
+    const n = parseInt(row?.c ?? '0', 10);
+    if (n > 0) {
+      throw AppError.badRequest(
+        'This user has not signed in to UniVerse yet and cannot receive messages or invites'
+      );
+    }
   }
 
   static async getCurrentUser(userId: number) {
@@ -434,7 +459,7 @@ export class IdentityService {
 
   static async updateProfile(userId: number, data: any) {
     try {
-      return await transaction(async (client) => {
+      const r = await transaction(async (client) => {
         const user = await client.query('SELECT role, password_hash FROM users WHERE user_id = $1', [userId]);
         if (user.rows.length === 0) throw AppError.notFound('User not found');
         const role = user.rows[0].role;
@@ -535,6 +560,7 @@ export class IdentityService {
 
         return Result.ok();
       });
+      return r;
     } catch (error: any) {
       console.error('Update Profile Error:', error);
       return Result.fail(error.message || 'Profile update failed');

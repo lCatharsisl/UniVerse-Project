@@ -17,10 +17,6 @@ export const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadStats();
-  }, []);
-
   const loadStats = async () => {
     setLoading(true);
     setError(null);
@@ -34,6 +30,10 @@ export const Dashboard: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadStats();
+  }, []);
 
   if (loading) return <Loading message="Loading dashboard..." />;
   if (error) return <div className="error-container">{error}</div>;

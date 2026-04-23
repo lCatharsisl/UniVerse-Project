@@ -6,7 +6,7 @@ import { FiHome, FiLogOut, FiPlusCircle } from 'react-icons/fi';
 const Header = () => {
     const { user, logout } = useAuth();
     const location = useLocation();
-    const headerAvatarUrl = user ? getAuthUserAvatarUrl(user) : '';
+    const headerAvatarUrl = user ? getAuthUserAvatarUrl(user) : undefined;
     const headerInitials = user ? getAuthUserInitials(user) : '?';
 
     const isActive = (path: string) => location.pathname === path;
@@ -56,7 +56,7 @@ const Header = () => {
                     {user && (
                         <div className="flex items-center gap-4">
                             <Link to="/profile" className="hidden md:flex items-center gap-2 text-sm text-gray-700 hover:bg-gray-50 p-1.5 pr-3 rounded-full transition-colors border border-transparent hover:border-gray-200">
-                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm overflow-hidden">
+                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold overflow-hidden">
                                     {headerAvatarUrl ? (
                                         <img src={headerAvatarUrl} alt="" className="w-full h-full object-cover" />
                                     ) : (

@@ -53,6 +53,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
 
   const baseMenuItems = [
     { icon: <FiHome />, label: t('sidebar.hub'), path: '/feed' },
+    { icon: <FiSearch />, label: t('bottomNav.search'), path: '/search' },
     { icon: <FiBox />, label: t('sidebar.lostFound'), path: '/lost-found' },
     { icon: <FiSearch />, label: t('sidebar.discover'), path: '/discover' },
     { icon: <FiCompass />, label: t('sidebar.communityFair'), path: '/explore' },
