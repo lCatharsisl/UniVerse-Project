@@ -40,6 +40,13 @@ app.listen(PORT, async () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📊 Environment: ${env.NODE_ENV}`);
   try {
+    const { query } = await import('./config/db');
+    await query('SELECT 1');
+    console.log('✅ Database: connection OK');
+  } catch (e) {
+    console.error('❌ Database: connection failed —', (e as Error).message);
+  }
+  try {
     const { fetchAndParseMenu } = await import('./modules/campus-info/infrastructure/menu.service');
     await fetchAndParseMenu();
     console.log('📋 Menu cache refreshed on startup');

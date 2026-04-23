@@ -227,11 +227,22 @@ const Login = () => {
             const loginRes = await api.post('/auth/login', { email, password });
             const { sessionToken } = loginRes.data;
             localStorage.setItem('sessionToken', sessionToken);
-            const meRes = await api.get('/auth/me');
-            login(sessionToken, meRes.data);
-            navigate('/feed');
+            try {
+                const meRes = await api.get('/auth/me');
+                login(sessionToken, meRes.data);
+                navigate('/feed');
+            } catch (meErr: any) {
+                localStorage.removeItem('sessionToken');
+                setError(
+                    meErr.response?.data?.error ||
+                        t('login.errorProfile')
+                );
+            }
         } catch (err: any) {
-            setError(err.response?.data?.error || t('login.error'));
+            const apiErr = err.response?.data?.error;
+            setError(
+                typeof apiErr === 'string' && apiErr.length > 0 ? apiErr : t('login.error')
+            );
         } finally {
             setLoading(false);
         }

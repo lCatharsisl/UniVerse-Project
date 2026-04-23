@@ -4,6 +4,8 @@ import api from '../api/client';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiMapPin, FiClock, FiSearch, FiPackage, FiArrowLeft } from 'react-icons/fi';
 import { useTheme } from '../context/ThemeContext';
+import { LostFoundItemImage } from '../components/lostFound/LostFoundItemImage';
+import type { LostFoundVisualKind } from '../components/lostFound/LostFoundPlaceholder';
 
 interface Item {
     lost_item_id?: number;
@@ -71,6 +73,9 @@ const LostFoundFeed = () => {
         item.location?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const tabPlaceholderKind: LostFoundVisualKind =
+        activeTab === 'lost' ? 'lost' : activeTab === 'found' ? 'found' : 'resolved';
+
     return (
         <div className="flex flex-col min-h-screen">
             {/* Header */}
@@ -123,7 +128,7 @@ const LostFoundFeed = () => {
                     <div className="flex flex-col">
                         {filteredItems.map(item => (
                             <Link
-                                key={getItemId(item)}
+                                key={`${item.__type || activeTab}-${getItemId(item)}`}
                                 to={`/item/${item.__type || activeTab}/${getItemId(item)}`}
                                 className={`p-3 md:p-4 border-b transition-colors flex gap-3 ${
                                     isSpace ? 'border-white/5 hover:bg-white/5' : 'border-gray-50 hover:bg-gray-50'
@@ -132,11 +137,11 @@ const LostFoundFeed = () => {
                                 <div className={`w-16 h-16 md:w-24 md:h-24 rounded-xl overflow-hidden shrink-0 border flex items-center justify-center ${
                                     isSpace ? 'bg-white/5 border-white/10' : 'bg-gray-100 border-gray-100'
                                 }`}>
-                                    {item.imageUrl ? (
-                                        <img src={item.imageUrl} alt={getItemName(item)} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <FiPackage size={20} className={`${isSpace ? 'text-white/20' : 'text-gray-300'}`} />
-                                    )}
+                                    <LostFoundItemImage
+                                        imageUrl={item.imageUrl}
+                                        kind={tabPlaceholderKind}
+                                        alt={getItemName(item) || ''}
+                                    />
                                 </div>
                                 <div className="flex-1 min-w-0 flex flex-col justify-center">
                                     <h3 className={`font-black text-sm md:text-base truncate ${isSpace ? 'text-white' : 'text-gray-900'}`}>

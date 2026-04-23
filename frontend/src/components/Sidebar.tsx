@@ -23,6 +23,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useNotifications } from '../context/NotificationsContext';
 import { useMessagingUnread } from '../context/MessagingUnreadContext';
 import { NavIconBadge } from './NavIconBadge';
+import { getAuthUserAvatarUrl, getAuthUserInitials } from '../utils/authUserDisplay';
 
 interface SidebarProps {
   onPostClick: () => void;
@@ -85,6 +86,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
   ];
   const menuItems = baseMenuItems as { icon: React.ReactNode; label: string; path: string; red?: boolean }[];
 
+  const sidebarAvatarUrl = getAuthUserAvatarUrl(user);
+  const sidebarInitials = getAuthUserInitials(user);
+
   return (
     <div className="flex flex-col h-screen h-svh sticky top-0 p-4">
       {/* Brand Logo */}
@@ -140,8 +144,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
               : isSpace ? 'hover:bg-white/10 border-transparent hover:border-white/20' : 'hover:bg-gray-50 border-transparent hover:border-uv-border'
           }`}
         >
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shrink-0 border ${isSpace ? 'bg-primary/20 text-primary border-primary/30' : 'bg-primary/10 text-primary border-primary/20'}`}>
-            {user?.email[0].toUpperCase()}
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shrink-0 border overflow-hidden ${isSpace ? 'bg-primary/20 text-primary border-primary/30' : 'bg-primary/10 text-primary border-primary/20'}`}>
+            {sidebarAvatarUrl ? (
+              <img src={sidebarAvatarUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-xs">{sidebarInitials}</span>
+            )}
           </div>
           <div className="hidden xl:flex flex-col flex-1 min-w-0">
             <span className={`font-black text-sm truncate leading-tight ${isSpace ? 'text-white' : 'text-uv-black'}`}>
