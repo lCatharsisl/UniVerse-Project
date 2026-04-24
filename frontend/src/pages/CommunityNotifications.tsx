@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import api from '../api/client';
 import { useTheme } from '../context/ThemeContext';
 import { themedAlert } from '../utils/themedDialog';
+import { formatNotificationTime, getNotificationActorName, getNotificationSourceLabel, getNotificationSummary } from '../utils/notificationDisplay';
 
 import { useNavigate } from 'react-router-dom';
 import { FiBell, FiCheck } from 'react-icons/fi';
@@ -32,7 +33,6 @@ const CommunityNotifications = () => {
 
   useEffect(() => {
     load().catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const markRead = async (id: number) => {
@@ -55,7 +55,7 @@ const CommunityNotifications = () => {
   return (
     <div className={`min-h-screen p-4 md:p-6 ${isSpace ? 'bg-[#050510]' : 'bg-white'}`}>
       <div className="max-w-3xl mx-auto space-y-4">
-        <div className={`rounded-3xl border ${isSpace ? 'border-white/10 bg-white/5' : 'border-uv-border bg-gray-50'} p-4 md:p-5 flex items-center gap-3`}>
+          <div className={`rounded-3xl border ${isSpace ? 'border-white/10 bg-white/5' : 'border-uv-border bg-gray-50'} p-4 md:p-5 flex items-center gap-3`}>
           <FiBell />
           <div>
             <h1 className={`text-2xl font-black ${isSpace ? 'text-white' : 'text-uv-black'}`}>{t('notifications.title')}</h1>
@@ -74,20 +74,24 @@ const CommunityNotifications = () => {
         ) : (
           <div className="space-y-3">
             {notifications.map((n) => {
-              const label = t(`communityNotifications.${n.kind}`);
+              const actorName = getNotificationActorName(n);
+              const label = getNotificationSummary({ ...n, source_module: 'community' }, t);
+              const sourceLabel = getNotificationSourceLabel({ ...n, source_module: 'community' }, t);
               const isRead = !!n.is_read;
               return (
                 <div key={n.notification_id} className={`rounded-3xl p-4 border ${isSpace ? 'border-white/10 bg-white/5' : 'border-uv-border bg-white'}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className={`font-black truncate ${isSpace ? 'text-white' : 'text-uv-black'}`}>
-                        {label || n.kind}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className={`font-black truncate ${isSpace ? 'text-white' : 'text-uv-black'}`}>{actorName || sourceLabel}</div>
+                        <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${isSpace ? 'border-white/10 bg-white/5 text-white/60' : 'border-uv-border bg-gray-50 text-uv-gray'}`}>
+                          {sourceLabel}
+                        </span>
                       </div>
-                      {n.title ? (
-                        <div className={`text-sm mt-1 ${isSpace ? 'text-white/70' : 'text-uv-gray'}`}>{n.title}</div>
-                      ) : null}
+                      <div className={`text-sm mt-1 font-bold ${isSpace ? 'text-white/80' : 'text-uv-black'}`}>{label}</div>
+                      {n.title ? <div className={`text-sm mt-1 ${isSpace ? 'text-white/70' : 'text-uv-gray'}`}>{n.title}</div> : null}
                       <div className={`text-[10px] font-bold uppercase tracking-widest mt-2 ${isSpace ? 'text-white/50' : 'text-uv-gray'}`}>
-                        {new Date(n.created_at).toLocaleString()}
+                        {formatNotificationTime(n.created_at, t)}
                       </div>
                     </div>
 
@@ -135,4 +139,3 @@ const CommunityNotifications = () => {
 };
 
 export default CommunityNotifications;
-

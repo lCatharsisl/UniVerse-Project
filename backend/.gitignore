@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 dist/
+uploads/
 
 # Environment variables
 .env
@@ -30,5 +31,4 @@ Thumbs.db
 # Testing
 coverage/
 .nyc_output/
-
 

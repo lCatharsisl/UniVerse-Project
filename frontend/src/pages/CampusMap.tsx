@@ -289,7 +289,7 @@ const CampusMap: React.FC = () => {
     if (!destPoint) return;
 
     let startId: number;
-    let extraEdges: [number, number][] = [];
+    const extraEdges: [number, number][] = [];
     let extraNode: { id: number; x: number; y: number } | undefined;
 
     if (isWaypointId !== undefined) {
@@ -379,7 +379,7 @@ const CampusMap: React.FC = () => {
     [pathNodes]);
 
   // ── Map Contents ─────────────────────────────────────────────────────────────
-  const MapInner = () => (
+  const mapInner = (
     <>
       <div className="absolute inset-0 pointer-events-none z-10 opacity-15">
         <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(var(--uv-primary) 0.5px, transparent 0.5px)', backgroundSize: '24px 24px' }} />
@@ -492,12 +492,12 @@ const CampusMap: React.FC = () => {
                   {(isSelected || isStart || isEnd) && (
                     <div className={`absolute inset-[-4px] rounded-full animate-ping opacity-50 pointer-events-none ${isStart ? 'bg-green-500' : isEnd ? 'bg-red-500' : 'bg-primary'}`} />
                   )}
-                  <div className={`${point.label ? 'w-5 h-5 rounded-md' : 'w-4 h-4 rounded-full'} border-2 border-white shadow-lg flex items-center justify-center text-[7px] font-black transition-all ${
+                  <div className={`${point.label ? 'w-5 h-5 rounded-md' : 'w-4 h-4 rounded-full'} border-2 ${isSpace ? 'border-uv-black' : 'border-white'} shadow-lg flex items-center justify-center text-[8px] font-black transition-all ${
                     isStart ? 'bg-green-500 text-white scale-125'
                     : isEnd ? 'bg-red-500 text-white scale-125'
                     : isOnPath ? 'bg-red-500 text-white scale-110'
                     : isSelected ? 'bg-primary text-white scale-125'
-                    : 'bg-uv-black/90 text-white hover:bg-primary'
+                    : isSpace ? 'bg-white text-uv-black hover:bg-primary hover:text-white' : 'bg-uv-black/90 text-white hover:bg-primary'
                   }`}>
                     {point.label || point.id}
                   </div>
@@ -566,7 +566,7 @@ const CampusMap: React.FC = () => {
         {/* Map */}
         <div className={`flex-[3] flex flex-col p-3 lg:p-5 border-b xl:border-b-0 xl:border-r ${isSpace ? 'border-white/5' : 'border-gray-50'} min-w-0 h-full`}>
           <div className="relative flex-1 rounded-[1.5rem] lg:rounded-[2rem] overflow-hidden bg-uv-black shadow-2xl min-h-[280px]">
-            <MapInner />
+            {mapInner}
           </div>
 
           {/* Bottom panels */}
@@ -694,7 +694,7 @@ const CampusMap: React.FC = () => {
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               className={`fixed inset-0 z-[100] flex items-center justify-center p-4 ${isSpace ? 'bg-[#050510]/95 backdrop-blur-2xl' : 'bg-black/90 backdrop-blur-2xl'}`}>
               <div className="w-full h-full relative rounded-[2rem] overflow-hidden bg-uv-black">
-                <MapInner />
+                {mapInner}
               </div>
             </motion.div>
           )}

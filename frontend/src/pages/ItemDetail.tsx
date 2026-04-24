@@ -26,11 +26,6 @@ const ItemDetail = () => {
     const [submitting, setSubmitting] = useState(false);
     const [openMenu, setOpenMenu] = useState(false);
 
-    useEffect(() => {
-        fetchItem();
-        fetchComments();
-    }, [type, id]);
-
     const fetchItem = async () => {
         try {
             const endpoint = type === 'lost' ? '/services/lost-items' : '/services/found-items';
@@ -65,6 +60,15 @@ const ItemDetail = () => {
         }
     };
 
+    useEffect(() => {
+        fetchItem();
+        fetchComments();
+    }, [type, id]);
+
+    useEffect(() => {
+        setActiveImg(0);
+    }, [type, id]);
+
     const handleAddComment = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newComment.trim() || submitting) return;
@@ -86,7 +90,7 @@ const ItemDetail = () => {
             const endpoint = type === 'lost' ? `/services/lost-items/${id}` : `/services/found-items/${id}`;
             await api.delete(endpoint);
             navigate('/lost-found');
-        } catch (err) {
+        } catch {
             await themedAlert('Failed to delete report');
         }
     };

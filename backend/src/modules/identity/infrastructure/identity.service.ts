@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { PoolClient } from 'pg';
 import { randomBytes } from 'crypto';
 import { query, queryOne, transaction } from '../../../config/db';
 import { AppError } from '../../../shared/core/errors';
@@ -34,7 +35,7 @@ export class IdentityService {
         }
       }
 
-      return await transaction(async (client) => {
+      const regResult = await transaction(async (client) => {
         const existingUser = await client.query('SELECT user_id FROM users WHERE email = $1', [normalizedEmail]);
         if (existingUser.rows.length > 0) throw AppError.badRequest('Email already registered');
 
@@ -160,6 +161,7 @@ export class IdentityService {
 
         return Result.ok({ userId, emailToken });
       });
+      return regResult;
     } catch (error: any) {
       console.error('Registration Error:', error);
       return Result.fail(error.message || 'Registration failed');
@@ -182,12 +184,7 @@ export class IdentityService {
         return Result.fail('Invalid credentials');
       }
 
-      const sessionToken = randomBytes(32).toString('hex');
-      const expiresAt = new Date(Date.now() + this.SESSION_DURATION_MS);
-      await query(
-        'INSERT INTO user_sessions (user_id, session_token, expires_at, user_agent, ip_address, last_active_at) VALUES ($1, $2, $3, $4, $5, NOW())',
-        [user.user_id, sessionToken, expiresAt, userAgent || null, ipAddress || null]
-      );
+      const sessionToken = await this.createSession(query, user.user_id, userAgent, ipAddress);
 
       return Result.ok({
         token: sessionToken,
@@ -199,12 +196,216 @@ export class IdentityService {
       });
     } catch (error: any) {
       console.error('Login Error:', error);
+      const code = error?.code as string | undefined;
+      if (code === 'ECONNREFUSED' || code === 'ETIMEDOUT' || code === 'ENOTFOUND') {
+        return Result.fail(
+          'Database unavailable. Start PostgreSQL (e.g. docker compose up -d) and check DATABASE_URL or DB_* in backend/.env.'
+        );
+      }
+      // pg: şifre/URI yanlış (Supabase dashboard’dan yeni URI alın)
+      if (code === '28P01' || String(error?.message || '').includes('password authentication failed')) {
+        return Result.fail(
+          'Database connection rejected. Copy DATABASE_URL from Supabase → Settings → Database (reset DB password if needed).'
+        );
+      }
       return Result.fail(error.message || 'Login failed');
+    }
+  }
+
+  static async loginWithMicrosoft(
+    data: {
+      email: string;
+      microsoftOid: string;
+      microsoftTid: string;
+      inferredRole: 'student' | 'staff' | null;
+      firstName: string;
+      lastName: string;
+      displayName?: string;
+    },
+    userAgent?: string,
+    ipAddress?: string
+  ) {
+    try {
+      return await transaction(async (client) => {
+        const normalizedEmail = data.email.toLowerCase();
+        const linkedUserResult = await client.query(
+          `SELECT * FROM users
+           WHERE microsoft_tid = $1
+             AND microsoft_oid = $2
+           LIMIT 1`,
+          [data.microsoftTid, data.microsoftOid]
+        );
+
+        let user = linkedUserResult.rows[0] || null;
+
+        if (!user) {
+          const existingByEmailResult = await client.query(
+            'SELECT * FROM users WHERE email = $1 LIMIT 1',
+            [normalizedEmail]
+          );
+          const existingByEmail = existingByEmailResult.rows[0] || null;
+
+          if (existingByEmail) {
+            if (!existingByEmail.is_active) {
+              throw AppError.badRequest('Account is deactivated');
+            }
+
+            if (
+              existingByEmail.microsoft_tid &&
+              existingByEmail.microsoft_oid &&
+              (
+                existingByEmail.microsoft_tid !== data.microsoftTid ||
+                existingByEmail.microsoft_oid !== data.microsoftOid
+              )
+            ) {
+              throw AppError.badRequest('This account is already linked to another Microsoft identity');
+            }
+
+            const updatedUserResult = await client.query(
+              `UPDATE users
+               SET microsoft_tid = $1,
+                   microsoft_oid = $2,
+                   is_email_verified = true
+               WHERE user_id = $3
+               RETURNING *`,
+              [data.microsoftTid, data.microsoftOid, existingByEmail.user_id]
+            );
+
+            user = updatedUserResult.rows[0];
+          } else {
+            if (!data.inferredRole) {
+              throw AppError.badRequest('Only Yaşar University Microsoft accounts can sign in');
+            }
+
+            const generatedPassword = randomBytes(48).toString('hex');
+            const passwordHash = await bcrypt.hash(generatedPassword, this.SALT_ROUNDS);
+            const createdUserResult = await client.query(
+              `INSERT INTO users (
+                email,
+                password_hash,
+                role,
+                is_email_verified,
+                is_active,
+                microsoft_tid,
+                microsoft_oid
+              )
+              VALUES ($1, $2, $3, true, true, $4, $5)
+              RETURNING *`,
+              [normalizedEmail, passwordHash, data.inferredRole, data.microsoftTid, data.microsoftOid]
+            );
+
+            user = createdUserResult.rows[0];
+
+            if (data.inferredRole === 'student') {
+              const studentNumber = normalizedEmail.split('@')[0];
+              await client.query(
+                `INSERT INTO students (
+                  user_id,
+                  student_number,
+                  student_name,
+                  student_surname,
+                  department_id
+                )
+                VALUES ($1, $2, $3, $4, $5)`,
+                [
+                  user.user_id,
+                  studentNumber,
+                  data.firstName || studentNumber,
+                  data.lastName || '',
+                  null,
+                ]
+              );
+            } else {
+              await client.query(
+                `INSERT INTO staff (
+                  user_id,
+                  staff_name,
+                  staff_surname,
+                  department_id
+                )
+                VALUES ($1, $2, $3, $4)`,
+                [
+                  user.user_id,
+                  data.firstName || data.displayName || normalizedEmail.split('@')[0],
+                  data.lastName || '',
+                  null,
+                ]
+              );
+            }
+          }
+        }
+
+        if (!user.is_active) {
+          throw AppError.badRequest('Account is deactivated');
+        }
+
+        const sessionToken = await this.createSession(client, user.user_id, userAgent, ipAddress);
+
+        return Result.ok({
+          token: sessionToken,
+          user: {
+            id: user.user_id,
+            email: user.email,
+            role: user.role,
+          },
+        });
+      });
+    } catch (error: any) {
+      console.error('Microsoft Login Error:', error);
+      return Result.fail(error.message || 'Microsoft sign-in failed');
     }
   }
 
   static async logout(sessionToken: string): Promise<void> {
     await query('DELETE FROM user_sessions WHERE session_token = $1', [sessionToken]);
+  }
+
+  private static async createSession(
+    executor: Pick<PoolClient, 'query'> | typeof query,
+    userId: number,
+    userAgent?: string,
+    ipAddress?: string
+  ): Promise<string> {
+    const sessionToken = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + this.SESSION_DURATION_MS);
+
+    if (typeof executor === 'function') {
+      await executor(
+        'INSERT INTO user_sessions (user_id, session_token, expires_at, user_agent, ip_address, last_active_at) VALUES ($1, $2, $3, $4, $5, NOW())',
+        [userId, sessionToken, expiresAt, userAgent || null, ipAddress || null]
+      );
+      await executor('UPDATE public.users SET has_completed_login = true WHERE user_id = $1', [userId]);
+    } else {
+      await executor.query(
+        'INSERT INTO user_sessions (user_id, session_token, expires_at, user_agent, ip_address, last_active_at) VALUES ($1, $2, $3, $4, $5, NOW())',
+        [userId, sessionToken, expiresAt, userAgent || null, ipAddress || null]
+      );
+      await executor.query('UPDATE public.users SET has_completed_login = true WHERE user_id = $1', [userId]);
+    }
+
+    return sessionToken;
+  }
+
+  /**
+   * Dizin/içe aktarma ile açılmış fakat uygulamada hiç giriş yapmamış hesaplar sohbet/ekleme için uygun değildir.
+   */
+  static async assertChatEligibleUserIds(userIds: number[]): Promise<void> {
+    const clean = userIds.filter((id) => Number.isInteger(id) && id > 0);
+    if (clean.length === 0) return;
+    const row = await queryOne<{ c: string }>(
+      `SELECT COUNT(*)::text AS c
+       FROM public.users
+       WHERE user_id = ANY($1::int[])
+         AND COALESCE(is_active, true) = true
+         AND COALESCE(has_completed_login, false) = false`,
+      [clean]
+    );
+    const n = parseInt(row?.c ?? '0', 10);
+    if (n > 0) {
+      throw AppError.badRequest(
+        'This user has not signed in to UniVerse yet and cannot receive messages or invites'
+      );
+    }
   }
 
   static async getCurrentUser(userId: number) {
@@ -258,7 +459,7 @@ export class IdentityService {
 
   static async updateProfile(userId: number, data: any) {
     try {
-      return await transaction(async (client) => {
+      const r = await transaction(async (client) => {
         const user = await client.query('SELECT role, password_hash FROM users WHERE user_id = $1', [userId]);
         if (user.rows.length === 0) throw AppError.notFound('User not found');
         const role = user.rows[0].role;
@@ -296,6 +497,41 @@ export class IdentityService {
         // Parse phone number
         const phoneNumber = data.phoneNumber || null;
 
+        // Description: distinguish "not provided" (skip) from "explicitly empty" (clear).
+        // COALESCE($, description) keeps the old value when the param is NULL, but if we
+        // pass an empty string '' it overwrites the column (since '' is NOT NULL in SQL),
+        // letting users clear their bio.
+        const descriptionValue =
+          data.description === undefined ? null : String(data.description);
+
+        // Mirror avatar URL onto users.profile_image_url so /auth/me (used by Sidebar/Header)
+        // stays in sync with the role-specific avatar_url updated below.
+        if (data.avatarUrl) {
+          await client.query(
+            'UPDATE users SET profile_image_url = $1 WHERE user_id = $2',
+            [data.avatarUrl, userId]
+          );
+        }
+
+        // Parse and validate departmentId (student-only, optional).
+        // Must be a positive integer that exists in departments table; otherwise ignored.
+        let departmentId: number | null = null;
+        if (data.departmentId !== undefined && data.departmentId !== null && data.departmentId !== '') {
+          const parsed = Number(data.departmentId);
+          if (Number.isInteger(parsed) && parsed > 0) {
+            const dept = await client.query(
+              'SELECT department_id FROM departments WHERE department_id = $1',
+              [parsed]
+            );
+            if (dept.rows.length === 0) {
+              throw AppError.badRequest('Invalid departmentId.');
+            }
+            departmentId = parsed;
+          } else {
+            throw AppError.badRequest('Invalid departmentId.');
+          }
+        }
+
         // Update role-specific profile fields
         if (role === 'student') {
           await client.query(
@@ -307,17 +543,19 @@ export class IdentityService {
               cover_url       = COALESCE($5, cover_url),
               description     = COALESCE($6, description),
               social_links    = COALESCE($7, social_links),
-              interests       = COALESCE($8, interests)
-             WHERE user_id = $9`,
+              interests       = COALESCE($8, interests),
+              department_id   = COALESCE($9, department_id)
+             WHERE user_id = $10`,
             [
               data.name || null,
               data.surname || null,
               phoneNumber,
               data.avatarUrl || null,
               data.coverUrl || null,
-              data.description || null,
+              descriptionValue,
               socialLinks,
               interests,
+              departmentId,
               userId
             ]
           );
@@ -339,7 +577,7 @@ export class IdentityService {
               phoneNumber,
               data.avatarUrl || null,
               data.coverUrl || null,
-              data.description || null,
+              descriptionValue,
               socialLinks,
               interests,
               userId
@@ -353,12 +591,13 @@ export class IdentityService {
               cover_url      = COALESCE($3, cover_url),
               description    = COALESCE($4, description)
              WHERE user_id = $5`,
-            [data.name || null, data.avatarUrl || null, data.coverUrl || null, data.description || null, userId]
+            [data.name || null, data.avatarUrl || null, data.coverUrl || null, descriptionValue, userId]
           );
         }
 
         return Result.ok();
       });
+      return r;
     } catch (error: any) {
       console.error('Update Profile Error:', error);
       return Result.fail(error.message || 'Profile update failed');
@@ -485,6 +724,8 @@ export class IdentityService {
       coverUrl: canSeeFull ? profile?.cover_url : undefined,
       description: canSeeFull ? profile?.description : undefined,
       title: canSeeFull ? profile?.staff_title : undefined,
+      departmentId: canSeeFull ? (profile?.department_id ?? undefined) : undefined,
+      departmentId: canSeeFull ? profile?.department_id ?? null : undefined,
       departmentName: canSeeFull ? profile?.department_name : undefined,
       facultyName: canSeeFull ? profile?.faculty_name : undefined,
       phoneNumber: canSeeFull ? profile?.phone_number : undefined,

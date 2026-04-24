@@ -133,8 +133,105 @@ body {
   color: #9ca3af !important;
 }
 
+/* Space: açık-gri satır hover (gray-50/100) beyaz `text-uv-*` ile birleşince metin “siliniyor” — hover’ı koyu zemin + hafif vurgu yap */
+.space-dimension [class*='hover:bg-gray-50']:hover,
+.space-dimension [class*='hover:bg-gray-100']:hover,
+.space-dimension [class*='hover:bg-slate-50']:hover,
+.space-dimension [class*='hover:bg-slate-100']:hover,
+.space-dimension [class*='hover:bg-slate-200']:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Örn. hover:bg-slate-50/90 — sınıf adında "slate" + opacity */
+.space-dimension [class*='hover:bg-slate-50/']:hover,
+.space-dimension [class*='hover:bg-slate-100/']:hover,
+.space-dimension [class*='hover:bg-gray-50/']:hover,
+.space-dimension [class*='hover:bg-gray-100/']:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.space-dimension [class*='hover:bg-red-50']:hover,
+.space-dimension [class*='hover:bg-red-100']:hover {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+}
+
+.space-dimension [class*='hover:bg-amber-50']:hover,
+.space-dimension [class*='hover:bg-amber-100']:hover {
+  background-color: rgba(245, 158, 11, 0.2) !important;
+}
+
 .space-dimension .bg-white {
   background-color: #0a0a1a !important;
+}
+
+/* Tailwind v4: opaklıklı beyaz sınıfları (sadece tam `bg-white` yukarıda; /80 vb. ayrı üretilir) */
+.space-dimension .bg-white\/80,
+.space-dimension .bg-white\/88,
+.space-dimension .bg-white\/92,
+.space-dimension .bg-white\/95 {
+  background-color: rgba(10, 10, 26, 0.9) !important;
+}
+
+/* Mesajlar sayfası: Tailwind v4’te `space:` olmadan slate/renk sınıfları koyu zeminde okunmuyor */
+.space-dimension .universe-messages .text-slate-950,
+.space-dimension .universe-messages .text-slate-900,
+.space-dimension .universe-messages .text-slate-800,
+.space-dimension .universe-messages .text-slate-700,
+.space-dimension .universe-messages .text-slate-600 {
+  color: #f1f5f9 !important;
+}
+
+.space-dimension .universe-messages .text-slate-500 {
+  color: #cbd5e1 !important;
+}
+
+.space-dimension .universe-messages .text-slate-400,
+.space-dimension .universe-messages .text-slate-300 {
+  color: #94a3b8 !important;
+}
+
+.space-dimension .universe-messages .text-indigo-500 {
+  color: #a5b4fc !important;
+}
+
+.space-dimension .universe-messages .text-indigo-600,
+.space-dimension .universe-messages .text-indigo-700,
+.space-dimension .universe-messages .text-indigo-800 {
+  color: #e0e7ff !important;
+}
+
+.space-dimension .universe-messages .text-emerald-600 {
+  color: #6ee7b7 !important;
+}
+
+.space-dimension .universe-messages .border-slate-200\/80,
+.space-dimension .universe-messages .border-slate-200 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.space-dimension .universe-messages .border-slate-100 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.space-dimension .universe-messages .bg-slate-50 {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.space-dimension .universe-messages .bg-slate-100,
+.space-dimension .universe-messages .bg-slate-200 {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Düz etiket araması: inbox arama satırı */
+.space-dimension .universe-messages label.border-slate-200 {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Genel `space-dimension input` beyaz zorlamasını bu sayfada okunur griye çevir */
+.space-dimension .universe-messages input,
+.space-dimension .universe-messages textarea {
+  color: #e2e8f0 !important;
+  background-color: transparent !important;
 }
 
 .space-dimension .uv-card {

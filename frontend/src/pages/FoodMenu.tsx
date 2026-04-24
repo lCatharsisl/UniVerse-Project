@@ -13,7 +13,7 @@ import { useTheme } from '../context/ThemeContext';
 import api from '../api/client';
 import { useTranslatedMenu } from '../hooks/useTranslatedMenu';
 import { useTranslatedStrings } from '../hooks/useTranslatedStrings';
-import { formatPeriodLabel } from '../utils/translate';
+import { menuPeriodHeading } from '../utils/translate';
 
 interface DayMenu {
   date?: string;
@@ -38,9 +38,23 @@ interface MenuByDate {
   periodLabel?: string;
   lastUpdated?: string;
   sourceUrl?: string;
+  /** Backend: PDF/cache’de gün yok; çorba alanında açıklama metni */
+  isPlaceholder?: boolean;
 }
 
-const MENU_ITEM_KEYS: (keyof DayMenu)[] = ['soup', 'main', 'side', 'salad', 'yogurt', 'dessert', 'fruit'];
+type MenuValueKey = 'soup' | 'main' | 'side' | 'salad' | 'yogurt' | 'dessert' | 'fruit';
+
+const MENU_ITEM_KEYS: MenuValueKey[] = ['soup', 'main', 'side', 'salad', 'yogurt', 'dessert', 'fruit'];
+
+/** Backend `YASAR_MENU_PDF_URL` ile aynı varsayılan — görüntüleme yönlendirmesi */
+const OFFICIAL_MENU_PDF_URL = 'https://www.yasar.edu.tr/yemek-liste.pdf';
+
+function menuPdfPublicHref(sourceUrl: string | undefined | null): string {
+  if (sourceUrl && /^https?:\/\//i.test(sourceUrl) && !sourceUrl.startsWith('file:')) {
+    return sourceUrl;
+  }
+  return OFFICIAL_MENU_PDF_URL;
+}
 
 function sanitizeDisplay(val: string | undefined): string {
   if (!val) return '';
@@ -153,6 +167,7 @@ function MenuCard({
 }
 
 const FoodMenu: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const { dimension } = useTheme();
   const isSpace = dimension === 'space';
 
@@ -163,22 +178,37 @@ const FoodMenu: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<{ min: string; max: string } | null>(null);
 
+  const officialPdfHref = useMemo(() => menuPdfPublicHref(data?.sourceUrl), [data?.sourceUrl]);
+
+  const cachedRangeHint = useMemo(() => {
+    if (!dateRange?.min || !dateRange?.max) return null;
+    const fmt = (iso: string) =>
+      new Date(iso + 'T12:00:00').toLocaleDateString(
+        i18n.language?.startsWith('tr') ? 'tr-TR' : 'en-US',
+        { day: 'numeric', month: 'short' }
+      );
+    return `${fmt(dateRange.min)} – ${fmt(dateRange.max)}`;
+  }, [dateRange, i18n.language]);
+
   useEffect(() => {
     let cancelled = false;
     async function load() {
       setLoading(true);
       setError(null);
       try {
-        const [fullRes, dateRes] = await Promise.all([
-          api.get<{ sections?: { type: string; days: DayMenu[] }[] }>('/campus/menu/full'),
-          api.get<MenuByDate>(`/campus/menu/date/${selectedDate}`),
-        ]);
+        // Önce tarih: backend bu gün yoksa PDF çeker ve cache’i günceller. Paralelde /menu/full
+        // eski ayı döndürüp min/max aralığını (ve bazen hata) bozuyordu.
+        const dateRes = await api.get<MenuByDate>(`/campus/menu/date/${selectedDate}`);
+        const fullRes = await api.get<{ sections?: { type: string; days: DayMenu[] }[] }>('/campus/menu/full');
         if (cancelled) return;
         const sections = fullRes.data?.sections || [];
         const lunchSection = sections.find((s) => s.type === 'lunch');
         const days = lunchSection?.days || [];
         if (days.length > 0) {
-          const dates = days.map((d) => d.date).filter((x): x is string => Boolean(x)).sort();
+          const dates = days
+            .map((d) => d.date)
+            .filter((date): date is string => Boolean(date))
+            .sort();
           if (dates.length > 0) {
             setDateRange({ min: dates[0], max: dates[dates.length - 1] });
           }
@@ -248,20 +278,32 @@ const FoodMenu: React.FC = () => {
         <div className="px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex items-center gap-3 sm:gap-4">
             <div
-              className={`flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl ${
+              className={`flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex-shrink-0 ${
                 isSpace ? 'bg-primary/20 border border-primary/30' : 'bg-slate-900'
               }`}
             >
               <FiCoffee size={20} className={isSpace ? 'text-primary' : 'text-white'} strokeWidth={2} />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h1 className={`text-xl sm:text-2xl font-bold tracking-tight ${isSpace ? 'text-indigo-50' : 'text-slate-900'}`}>
-                Food Menu
+                {t('foodMenu.title')}
               </h1>
               <p className={`text-[10px] sm:text-xs font-medium uppercase tracking-wider ${isSpace ? 'text-primary/70' : 'text-slate-500'}`}>
                 Yaşar University
               </p>
             </div>
+            <a
+              href={officialPdfHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs font-bold transition-colors ${
+                isSpace
+                  ? 'bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30'
+                  : 'bg-primary text-white hover:brightness-110'
+              }`}
+            >
+              {t('foodMenu.viewOfficialPdf')} <FiExternalLink size={14} />
+            </a>
           </div>
         </div>
       </header>
@@ -280,8 +322,6 @@ const FoodMenu: React.FC = () => {
             <input
               type="date"
               value={selectedDate}
-              min={dateRange?.min}
-              max={dateRange?.max}
               onChange={(e) => setSelectedDate(e.target.value)}
               className={`w-full sm:max-w-[200px] px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-primary/40 transition-all ${
                 isSpace
@@ -289,19 +329,12 @@ const FoodMenu: React.FC = () => {
                   : 'bg-white text-slate-800 border border-slate-200'
               }`}
             />
+            {cachedRangeHint && (
+              <p className={`mt-1.5 text-[10px] font-medium ${isSpace ? 'text-primary/60' : 'text-slate-500'}`}>
+                {cachedRangeHint}
+              </p>
+            )}
           </div>
-          {data?.sourceUrl && !data.sourceUrl.startsWith('file') && (
-            <a
-              href="https://www.yasar.edu.tr/yemek-liste.pdf"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`inline-flex items-center gap-1.5 text-xs font-medium transition-colors ${
-                isSpace ? 'text-primary hover:text-indigo-300' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              PDF List <FiExternalLink size={12} />
-            </a>
-          )}
         </div>
       </div>
 
@@ -324,9 +357,32 @@ const FoodMenu: React.FC = () => {
           )}
           {!loading && !error && (
             <>
+              {data?.isPlaceholder && (
+                <div
+                  className={`rounded-2xl border-l-4 p-4 sm:p-5 ${
+                    isSpace
+                      ? 'border-amber-400/60 bg-amber-500/10 border border-primary/10'
+                      : 'border-amber-500 bg-amber-50'
+                  }`}
+                >
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <FiAlertTriangle
+                      size={20}
+                      className={isSpace ? 'text-amber-400 shrink-0 mt-0.5' : 'text-amber-600 shrink-0 mt-0.5'}
+                    />
+                    <p
+                      className={`text-sm leading-relaxed ${
+                        isSpace ? 'text-amber-100/90' : 'text-amber-900'
+                      }`}
+                    >
+                      {t('foodMenu.placeholderBanner')}
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className={`text-center py-3 sm:py-4 ${isSpace ? 'text-primary/90' : 'text-slate-600'}`}>
                 <p className="text-[10px] font-semibold uppercase tracking-widest">
-                  {formatPeriodLabel(data?.periodLabel)}
+                  {menuPeriodHeading(data?.periodLabel, selectedDate, i18n.language)}
                 </p>
                 <p className={`text-base sm:text-lg font-bold mt-1 ${isSpace ? 'text-indigo-50' : 'text-slate-900'}`}>
                   {formatDateLabel(selectedDate)}

@@ -194,7 +194,7 @@ const Reported = () => {
     try {
       await api.delete(`/social/posts/${postId}`);
       setReportedPosts((prev) => prev.filter((p) => p.post_id !== postId));
-    } catch (err) {
+    } catch {
       await themedAlert(t('reported.deletePostFailed'));
     }
   };
@@ -206,7 +206,7 @@ const Reported = () => {
       const endpoint = type === 'post' ? `/social/posts/${id}/reporters` : `/social/users/${id}/reporters`;
       const res = await api.get(endpoint);
       setReportersModal((prev) => (prev ? { ...prev, list: res.data || [] } : null));
-    } catch (err) {
+    } catch {
       setReportersModal(null);
     } finally {
       setLoadingReporters(false);

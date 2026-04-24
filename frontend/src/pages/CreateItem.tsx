@@ -23,12 +23,6 @@ const CreateItem = () => {
 
     const isEditing = !!editId;
 
-    useEffect(() => {
-        if (isEditing) {
-            fetchItemData();
-        }
-    }, [editId]);
-
     const fetchItemData = async () => {
         setFetching(true);
         try {
@@ -54,6 +48,12 @@ const CreateItem = () => {
             setFetching(false);
         }
     };
+
+    useEffect(() => {
+        if (isEditing) {
+            fetchItemData();
+        }
+    }, [editId]);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {

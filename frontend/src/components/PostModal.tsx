@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/client';
 import { themedAlert } from '../utils/themedDialog';
+import { getAuthUserAvatarUrl, getAuthUserInitials } from '../utils/authUserDisplay';
 
 interface PostModalProps {
   onClose: () => void;
@@ -16,6 +17,8 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
   const { user } = useAuth();
   const { dimension } = useTheme();
   const isSpace = dimension === 'space';
+  const modalAvatarUrl = getAuthUserAvatarUrl(user);
+  const modalInitials = getAuthUserInitials(user);
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -62,10 +65,9 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
       await api.post('/social/posts', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-
       onClose();
       window.location.reload();
-    } catch (error) {
+    } catch {
       await themedAlert(t('postModal.transmissionFailed'));
     } finally {
       setSubmitting(false);
@@ -112,9 +114,13 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
 
         <div className="flex gap-4 md:gap-5">
           <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-tl-xl rounded-br-xl border border-primary/20 bg-primary/5 text-sm font-black text-primary shadow-inner md:h-14 md:w-14 md:rounded-tl-2xl md:rounded-br-2xl md:text-xl`}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-tl-xl rounded-br-xl border border-primary/20 bg-primary/5 text-sm font-black text-primary shadow-inner md:h-14 md:w-14 md:rounded-tl-2xl md:rounded-br-2xl md:text-xl overflow-hidden`}
           >
-            {(user?.email?.[0] ?? '?').toUpperCase()}
+            {modalAvatarUrl ? (
+              <img src={modalAvatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              modalInitials
+            )}
           </div>
           <div className="min-w-0 flex-1 flex flex-col">
             <textarea
