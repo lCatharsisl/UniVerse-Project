@@ -5,6 +5,8 @@
  *   Dosya silinmişse `<img onError>` (örn. FeedAvatarImage) baş harf avatar'a düşer.
  * - Geliştirmede `VITE_UPLOADS_BASE_URL` yoksa varsayılan `http://localhost:3000` (Vite 5173 yerine API'ye gider).
  */
+const LEGACY_DISK_AVATAR_OR_COVER = /^\/uploads\/(avatar|cover)-/i;
+
 export function resolveMediaUrl(path: string | null | undefined): string {
   if (path == null || path === '') return '';
   const p = path.trim();
