@@ -28,6 +28,9 @@ const envSchema = z.object({
   // Public URLs
   FRONTEND_URL: z.string().url().optional().default('http://localhost:5173'),
   BACKEND_PUBLIC_URL: z.string().url().optional(),
+  CORS_ORIGINS: z.string().optional(),
+  MONITORING_ENABLED: z.coerce.boolean().optional().default(false),
+  MONITORING_WEBHOOK_URL: z.string().url().optional(),
 
   // Microsoft Entra ID
   MICROSOFT_CLIENT_ID: z.string().optional(),

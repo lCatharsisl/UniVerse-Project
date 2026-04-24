@@ -23,7 +23,7 @@ export const Dashboard: React.FC = () => {
     try {
       const { data } = await statisticsService.getDashboard();
       setStats(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError('Failed to load dashboard statistics');
       console.error('Load stats error:', err);
     } finally {

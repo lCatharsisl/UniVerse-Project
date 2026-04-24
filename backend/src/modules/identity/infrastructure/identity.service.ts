@@ -724,7 +724,6 @@ export class IdentityService {
       coverUrl: canSeeFull ? profile?.cover_url : undefined,
       description: canSeeFull ? profile?.description : undefined,
       title: canSeeFull ? profile?.staff_title : undefined,
-      departmentId: canSeeFull ? (profile?.department_id ?? undefined) : undefined,
       departmentId: canSeeFull ? profile?.department_id ?? null : undefined,
       departmentName: canSeeFull ? profile?.department_name : undefined,
       facultyName: canSeeFull ? profile?.faculty_name : undefined,

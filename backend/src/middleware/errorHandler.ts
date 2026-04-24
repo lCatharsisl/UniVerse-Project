@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { AppError } from '../shared/core/errors';
+import { logger } from '../utils/logger';
+import { reportException } from './observability';
 
 export function errorHandler(
   err: Error | AppError | ZodError,
-  _req: Request,
+  req: Request,
   res: Response,
   _next: NextFunction
 ): void {
@@ -26,7 +28,14 @@ export function errorHandler(
     return;
   }
 
-  console.error('Unhandled error:', err);
+  logger.error('Unhandled error', {
+    message: err.message,
+    stack: err.stack,
+    requestId: (req as any).requestId,
+    method: req.method,
+    path: req.originalUrl,
+  });
+  void reportException(err, req);
   res.status(500).json({
     error: 'Internal server error',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),

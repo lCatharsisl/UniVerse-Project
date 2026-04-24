@@ -18,6 +18,17 @@ interface CommentsSectionProps {
   currentUserId?: number;
 }
 
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (typeof err === 'object' && err !== null) {
+    const maybeResponse = (err as { response?: { data?: { error?: string } } }).response;
+    const apiMessage = maybeResponse?.data?.error;
+    if (typeof apiMessage === 'string' && apiMessage.trim()) {
+      return apiMessage;
+    }
+  }
+  return fallback;
+}
+
 export const CommentsSection: React.FC<CommentsSectionProps> = ({
   itemType,
   itemId,
@@ -35,7 +46,7 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
     try {
       const { data } = await commentsService.getComments(itemType, itemId);
       setComments(data.comments || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError('Failed to load comments');
       console.error('Load comments error:', err);
     } finally {
@@ -57,8 +68,8 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
       await commentsService.addComment(itemType, itemId, newComment.trim());
       setNewComment('');
       await loadComments(); // Reload comments
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to add comment');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to add comment'));
     } finally {
       setSubmitting(false);
     }
@@ -70,8 +81,8 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
     try {
       await commentsService.deleteComment(commentId);
       await loadComments(); // Reload comments
-    } catch (err: any) {
-      await themedAlert(err.response?.data?.error || 'Failed to delete comment');
+    } catch (err: unknown) {
+      await themedAlert(getErrorMessage(err, 'Failed to delete comment'));
     }
   };
 
