@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FiArrowRight, FiBell, FiCheck } from 'react-icons/fi';
 import api from '../api/client';
 import { useTheme } from '../context/ThemeContext';
@@ -379,6 +379,27 @@ const Notifications = () => {
                       ? notification.title.trim()
                       : '';
                 const avatarUrl = resolveMediaUrl(notification.actor_avatar_url) || undefined;
+                const actorId = notification.actor_user_id ?? null;
+                const actorProfileTo = actorId ? `/profile/${actorId}` : null;
+                const avatarBox = (
+                  <div
+                    className={`relative w-12 h-12 rounded-2xl overflow-hidden border flex items-center justify-center ${
+                      isSpace ? 'border-white/10 bg-white/10' : 'border-uv-border bg-gray-100'
+                    }`}
+                  >
+                    <FeedAvatarImage
+                      src={avatarUrl}
+                      initials={actorInitials}
+                      className="font-black text-sm"
+                      imgClassName="w-full h-full object-cover"
+                    />
+                    <span
+                      className={`absolute -right-0.5 -bottom-0.5 w-3 h-3 rounded-full border-2 ${
+                        isRead ? 'bg-uv-gray border-white' : 'bg-primary border-white'
+                      }`}
+                    />
+                  </div>
+                );
 
                 return (
                   <div
@@ -395,32 +416,40 @@ const Notifications = () => {
                   >
                     <div className="flex items-start gap-4">
                       <div className="shrink-0 pt-0.5">
-                        <div
-                          className={`relative w-12 h-12 rounded-2xl overflow-hidden border flex items-center justify-center ${
-                            isSpace ? 'border-white/10 bg-white/10' : 'border-uv-border bg-gray-100'
-                          }`}
-                        >
-                          <FeedAvatarImage
-                            src={avatarUrl}
-                            initials={actorInitials}
-                            className="font-black text-sm"
-                            imgClassName="w-full h-full object-cover"
-                          />
-                          <span
-                            className={`absolute -right-0.5 -bottom-0.5 w-3 h-3 rounded-full border-2 ${
-                              isRead ? 'bg-uv-gray border-white' : 'bg-primary border-white'
-                            }`}
-                          />
-                        </div>
+                        {actorProfileTo ? (
+                          <Link
+                            to={actorProfileTo}
+                            onClick={(e) => e.stopPropagation()}
+                            title={actorName || undefined}
+                            aria-label={actorName || undefined}
+                            className="block no-underline outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary/40 rounded-2xl"
+                          >
+                            {avatarBox}
+                          </Link>
+                        ) : (
+                          avatarBox
+                        )}
                       </div>
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <div className={`font-black text-sm truncate ${isSpace ? 'text-white' : 'text-uv-black'}`}>
-                                {actorName || sourceLabel}
-                              </div>
+                              {actorProfileTo && actorName ? (
+                                <Link
+                                  to={actorProfileTo}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={`font-black text-sm truncate no-underline transition hover:underline ${
+                                    isSpace ? 'text-white hover:text-white' : 'text-uv-black hover:text-primary'
+                                  }`}
+                                >
+                                  {actorName}
+                                </Link>
+                              ) : (
+                                <div className={`font-black text-sm truncate ${isSpace ? 'text-white' : 'text-uv-black'}`}>
+                                  {actorName || sourceLabel}
+                                </div>
+                              )}
                               <span
                                 className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
                                   isSpace ? 'border-white/10 bg-white/5 text-white/60' : 'border-uv-border bg-gray-50 text-uv-gray'

@@ -497,6 +497,41 @@ export class IdentityService {
         // Parse phone number
         const phoneNumber = data.phoneNumber || null;
 
+        // Description: distinguish "not provided" (skip) from "explicitly empty" (clear).
+        // COALESCE($, description) keeps the old value when the param is NULL, but if we
+        // pass an empty string '' it overwrites the column (since '' is NOT NULL in SQL),
+        // letting users clear their bio.
+        const descriptionValue =
+          data.description === undefined ? null : String(data.description);
+
+        // Mirror avatar URL onto users.profile_image_url so /auth/me (used by Sidebar/Header)
+        // stays in sync with the role-specific avatar_url updated below.
+        if (data.avatarUrl) {
+          await client.query(
+            'UPDATE users SET profile_image_url = $1 WHERE user_id = $2',
+            [data.avatarUrl, userId]
+          );
+        }
+
+        // Parse and validate departmentId (student-only, optional).
+        // Must be a positive integer that exists in departments table; otherwise ignored.
+        let departmentId: number | null = null;
+        if (data.departmentId !== undefined && data.departmentId !== null && data.departmentId !== '') {
+          const parsed = Number(data.departmentId);
+          if (Number.isInteger(parsed) && parsed > 0) {
+            const dept = await client.query(
+              'SELECT department_id FROM departments WHERE department_id = $1',
+              [parsed]
+            );
+            if (dept.rows.length === 0) {
+              throw AppError.badRequest('Invalid departmentId.');
+            }
+            departmentId = parsed;
+          } else {
+            throw AppError.badRequest('Invalid departmentId.');
+          }
+        }
+
         // Update role-specific profile fields
         if (role === 'student') {
           await client.query(
@@ -508,17 +543,19 @@ export class IdentityService {
               cover_url       = COALESCE($5, cover_url),
               description     = COALESCE($6, description),
               social_links    = COALESCE($7, social_links),
-              interests       = COALESCE($8, interests)
-             WHERE user_id = $9`,
+              interests       = COALESCE($8, interests),
+              department_id   = COALESCE($9, department_id)
+             WHERE user_id = $10`,
             [
               data.name || null,
               data.surname || null,
               phoneNumber,
               data.avatarUrl || null,
               data.coverUrl || null,
-              data.description || null,
+              descriptionValue,
               socialLinks,
               interests,
+              departmentId,
               userId
             ]
           );
@@ -540,7 +577,7 @@ export class IdentityService {
               phoneNumber,
               data.avatarUrl || null,
               data.coverUrl || null,
-              data.description || null,
+              descriptionValue,
               socialLinks,
               interests,
               userId
@@ -554,7 +591,7 @@ export class IdentityService {
               cover_url      = COALESCE($3, cover_url),
               description    = COALESCE($4, description)
              WHERE user_id = $5`,
-            [data.name || null, data.avatarUrl || null, data.coverUrl || null, data.description || null, userId]
+            [data.name || null, data.avatarUrl || null, data.coverUrl || null, descriptionValue, userId]
           );
         }
 
@@ -687,6 +724,8 @@ export class IdentityService {
       coverUrl: canSeeFull ? profile?.cover_url : undefined,
       description: canSeeFull ? profile?.description : undefined,
       title: canSeeFull ? profile?.staff_title : undefined,
+      departmentId: canSeeFull ? (profile?.department_id ?? undefined) : undefined,
+      departmentId: canSeeFull ? profile?.department_id ?? null : undefined,
       departmentName: canSeeFull ? profile?.department_name : undefined,
       facultyName: canSeeFull ? profile?.faculty_name : undefined,
       phoneNumber: canSeeFull ? profile?.phone_number : undefined,

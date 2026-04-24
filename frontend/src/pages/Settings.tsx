@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/client';
 import Cropper from 'react-easy-crop';
+import { DEPARTMENTS_DATA } from '../constants/departments';
+import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 import {
   FiUser, FiLock, FiShield, FiTrash2, FiCamera, FiPlus, FiX,
   FiLinkedin, FiGithub, FiGlobe, FiInstagram, FiAlertTriangle, FiBell,
@@ -28,9 +30,7 @@ async function getCroppedImg(imageSrc: string, croppedAreaPixels: any): Promise<
 }
 
 function parseImageUrl(url?: string): string {
-  if (!url) return '';
-  if (url.startsWith('http')) return url;
-  return url; // served via Vite proxy /uploads/...
+  return resolveMediaUrl(url);
 }
 
 // ─── Crop Modal ───────────────────────────────────────────────────────────────
@@ -102,9 +102,9 @@ const Settings = () => {
     setSaving(true);
     try {
       await api.put('/notifications/preferences', { prefs: notifPrefs });
-      showToast('success', 'Notification preferences saved!');
+      showToast('success', t('settings.notificationPreferencesSaved'));
     } catch (err: any) {
-      showToast('error', err?.response?.data?.error || 'Failed to save notification preferences.');
+      showToast('error', err?.response?.data?.error || t('settings.failedSaveNotificationPreferences'));
     } finally {
       setSaving(false);
     }
@@ -119,7 +119,7 @@ const Settings = () => {
 
   // ─── Profile State ─────────────────────────────────────────────────────────
   const [profileForm, setProfileForm] = useState({
-    name: '', surname: '', description: '', phoneNumber: '',
+    name: '', surname: '', description: '', phoneNumber: '', departmentId: '',
     linkedin: '', github: '', website: '', instagram: ''
   });
   const [interests, setInterests] = useState<string[]>([]);
@@ -142,6 +142,7 @@ const Settings = () => {
         surname: d.surname || '',
         description: d.description || '',
         phoneNumber: d.phoneNumber || '',
+        departmentId: d.departmentId != null ? String(d.departmentId) : '',
         linkedin: d.socialLinks?.linkedin || '',
         github: d.socialLinks?.github || '',
         website: d.socialLinks?.website || '',
@@ -186,6 +187,9 @@ const Settings = () => {
       fd.append('surname', profileForm.surname);
       fd.append('description', profileForm.description);
       fd.append('phoneNumber', profileForm.phoneNumber);
+      if (user?.role === 'student' && profileForm.departmentId) {
+        fd.append('departmentId', profileForm.departmentId);
+      }
       fd.append('socialLinks', JSON.stringify({
         linkedin: profileForm.linkedin,
         github: profileForm.github,
@@ -199,9 +203,9 @@ const Settings = () => {
       setAvatarFile(null);
       setCoverFile(null);
       await checkAuth();
-      showToast('success', 'Profile saved successfully!');
+      showToast('success', t('settings.profileSaved'));
     } catch (err: any) {
-      showToast('error', err?.response?.data?.error || 'Failed to save profile.');
+      showToast('error', err?.response?.data?.error || t('settings.saveError'));
     } finally {
       setSaving(false);
     }
@@ -220,16 +224,16 @@ const Settings = () => {
   }, [activeTab]);
 
   const handleChangePassword = async () => {
-    if (!pwForm.current) return showToast('error', 'Current password is required.');
-    if (pwForm.newPw.length < 8) return showToast('error', 'Password must be at least 8 characters.');
-    if (pwForm.newPw !== pwForm.confirm) return showToast('error', 'Passwords do not match.');
+    if (!pwForm.current) return showToast('error', t('settings.currentPasswordRequired'));
+    if (pwForm.newPw.length < 8) return showToast('error', t('settings.passwordMinLength'));
+    if (pwForm.newPw !== pwForm.confirm) return showToast('error', t('settings.passwordsDontMatch'));
     setSaving(true);
     try {
       await api.patch('/auth/profile', { currentPassword: pwForm.current, password: pwForm.newPw });
       setPwForm({ current: '', newPw: '', confirm: '' });
-      showToast('success', 'Password changed successfully!');
+      showToast('success', t('settings.passwordChanged'));
     } catch (err: any) {
-      showToast('error', err?.response?.data?.error || 'Failed to change password.');
+      showToast('error', err?.response?.data?.error || t('settings.failedChangePassword'));
     } finally {
       setSaving(false);
     }
@@ -239,9 +243,9 @@ const Settings = () => {
     try {
       await api.delete(`/auth/sessions/${sessionId}`);
       setSessions(prev => prev.filter(s => s.session_id !== sessionId));
-      showToast('success', 'Session terminated.');
+      showToast('success', t('settings.sessionTerminated'));
     } catch {
-      showToast('error', 'Failed to terminate session.');
+      showToast('error', t('settings.failedTerminateSession'));
     }
   };
 
@@ -267,9 +271,9 @@ const Settings = () => {
     setSaving(true);
     try {
       await api.patch('/auth/privacy', { isPrivate, mutedWords });
-      showToast('success', 'Privacy settings saved!');
+      showToast('success', t('settings.privacySaved'));
     } catch (err: any) {
-      showToast('error', err?.response?.data?.error || 'Failed to save privacy settings.');
+      showToast('error', err?.response?.data?.error || t('settings.failedSavePrivacy'));
     } finally {
       setSaving(false);
     }
@@ -279,22 +283,22 @@ const Settings = () => {
     try {
       await api.post(`/auth/block/${userId}`);
       setBlockedUsers(prev => prev.filter(u => u.user_id !== userId));
-      showToast('success', 'User unblocked.');
+      showToast('success', t('settings.userUnblocked'));
     } catch {
-      showToast('error', 'Failed to unblock user.');
+      showToast('error', t('settings.failedUnblock'));
     }
   };
   // ─── Account ───────────────────────────────────────────────────────────────
   const [deactivateConfirm, setDeactivateConfirm] = useState('');
   const handleDeactivate = async () => {
-    if (deactivateConfirm !== 'DELETE') return showToast('error', 'Type DELETE to confirm.');
+    if (deactivateConfirm !== 'DELETE') return showToast('error', t('settings.typeDeleteToConfirmError'));
     setSaving(true);
     try {
       await api.delete('/auth/account');
       logout();
       navigate('/login');
     } catch (err: any) {
-      showToast('error', err?.response?.data?.error || 'Failed to deactivate account.');
+      showToast('error', err?.response?.data?.error || t('settings.failedDeactivate'));
     } finally {
       setSaving(false);
     }
@@ -308,12 +312,12 @@ const Settings = () => {
   const input = `w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-primary/30 text-sm transition-all ${isSpace ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30' : 'bg-gray-50 border-gray-200 text-uv-black'}`;
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: 'profile', label: 'Profile', icon: <FiUser size={16} /> },
-    { key: 'security', label: 'Security', icon: <FiLock size={16} /> },
-    { key: 'privacy', label: 'Privacy', icon: <FiShield size={16} /> },
-    { key: 'notifications', label: 'Notifications', icon: <FiBell size={16} /> },
-    { key: 'appearance', label: 'Appearance', icon: <FiSun size={16} /> },
-    { key: 'account', label: 'Account', icon: <FiAlertTriangle size={16} /> },
+    { key: 'profile', label: t('settings.profile'), icon: <FiUser size={16} /> },
+    { key: 'security', label: t('settings.security'), icon: <FiLock size={16} /> },
+    { key: 'privacy', label: t('settings.privacy'), icon: <FiShield size={16} /> },
+    { key: 'notifications', label: t('settings.notifications'), icon: <FiBell size={16} /> },
+    { key: 'appearance', label: t('settings.appearance'), icon: <FiSun size={16} /> },
+    { key: 'account', label: t('settings.account'), icon: <FiAlertTriangle size={16} /> },
   ];
 
   return (
@@ -385,7 +389,7 @@ const Settings = () => {
                       {coverPreview && <img src={coverPreview} className="w-full h-full object-cover" alt="cover" />}
                       <label className="absolute inset-0 flex items-center justify-center gap-2 text-white bg-black/40 hover:bg-black/50 cursor-pointer transition-colors">
                         <FiCamera size={20} />
-                        <span className="text-xs font-black uppercase tracking-widest">Change Cover</span>
+                        <span className="text-xs font-black uppercase tracking-widest">{t('settings.changeCover')}</span>
                         <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleImageSelect(e, 'cover')} />
                       </label>
                     </div>
@@ -406,40 +410,83 @@ const Settings = () => {
                       <div>
                         <p className={`font-black text-base ${text}`}>{profileForm.name} {profileForm.surname}</p>
                         <p className={`text-sm ${muted}`}>{user?.email}</p>
-                        <p className={`text-xs mt-1 ${muted}`}>Click the camera icon to change your photos</p>
+                        <p className={`text-xs mt-1 ${muted}`}>{t('settings.clickToChangePhotos')}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Basic Info */}
                   <div className={`rounded-2xl border p-5 space-y-4 ${card}`}>
-                    <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>Basic Information</h3>
+                    <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>{t('settings.basicInfo')}</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className={`block text-xs font-black uppercase tracking-widest mb-1.5 ${muted}`}>First Name</label>
-                        <input className={input} value={profileForm.name} onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))} placeholder="First name" />
+                        <label className={`block text-xs font-black uppercase tracking-widest mb-1.5 ${muted}`}>{t('settings.firstName')}</label>
+                        <input className={input} value={profileForm.name} onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))} placeholder={t('settings.firstNamePlaceholder')} />
                       </div>
                       <div>
-                        <label className={`block text-xs font-black uppercase tracking-widest mb-1.5 ${muted}`}>Last Name</label>
-                        <input className={input} value={profileForm.surname} onChange={e => setProfileForm(p => ({ ...p, surname: e.target.value }))} placeholder="Last name" />
+                        <label className={`block text-xs font-black uppercase tracking-widest mb-1.5 ${muted}`}>{t('settings.lastName')}</label>
+                        <input className={input} value={profileForm.surname} onChange={e => setProfileForm(p => ({ ...p, surname: e.target.value }))} placeholder={t('settings.lastNamePlaceholder')} />
                       </div>
                     </div>
                     <div>
-                      <label className={`block text-xs font-black uppercase tracking-widest mb-1.5 ${muted}`}>Phone Number</label>
-                      <input className={input} value={profileForm.phoneNumber} onChange={e => setProfileForm(p => ({ ...p, phoneNumber: e.target.value }))} placeholder="+90 5XX XXX XX XX" />
+                      <label className={`block text-xs font-black uppercase tracking-widest mb-1.5 ${muted}`}>{t('settings.phoneNumber')}</label>
+                      <input className={input} value={profileForm.phoneNumber} onChange={e => setProfileForm(p => ({ ...p, phoneNumber: e.target.value }))} placeholder={t('settings.phonePlaceholder')} />
                     </div>
+                    {user?.role === 'student' && (
+                      <div>
+                        <label className={`block text-xs font-black uppercase tracking-widest mb-1.5 ${muted}`}>{t('settings.department')}</label>
+                        <select
+                          className={`${input} appearance-none ${
+                            isSpace
+                              ? profileForm.departmentId ? '' : 'text-white/40'
+                              : profileForm.departmentId ? '' : 'text-uv-gray/50'
+                          }`}
+                          value={profileForm.departmentId}
+                          onChange={(e) => setProfileForm((p) => ({ ...p, departmentId: e.target.value }))}
+                        >
+                          <option value="" className={isSpace ? 'bg-[#0a0a1a] text-white' : 'bg-white text-uv-black'}>
+                            {t('settings.selectDepartment')}
+                          </option>
+                          {Object.entries(DEPARTMENTS_DATA).map(([faculty, depts]) => (
+                            <optgroup
+                              key={faculty}
+                              label={t(`departments.faculties.${faculty}`, { defaultValue: faculty }) as string}
+                              style={
+                                isSpace
+                                  ? { backgroundColor: '#0a0a1a', color: '#ffffff' }
+                                  : { backgroundColor: '#ffffff', color: '#0b0b15' }
+                              }
+                            >
+                              {depts.map((department) => (
+                                <option
+                                  key={department.id}
+                                  value={String(department.id)}
+                                  style={
+                                    isSpace
+                                      ? { backgroundColor: '#0a0a1a', color: '#ffffff' }
+                                      : { backgroundColor: '#ffffff', color: '#0b0b15' }
+                                  }
+                                >
+                                  {t(`departments.departments.${department.name}`, { defaultValue: department.name }) as string}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <div>
-                      <label className={`block text-xs font-black uppercase tracking-widest mb-1.5 ${muted}`}>Bio</label>
-                      <textarea className={`${input} resize-none`} rows={3} value={profileForm.description} onChange={e => setProfileForm(p => ({ ...p, description: e.target.value }))} placeholder="Tell the UniVerse who you are..." />
+                      <label className={`block text-xs font-black uppercase tracking-widest mb-1.5 ${muted}`}>{t('settings.bio')}</label>
+                      <textarea className={`${input} resize-none`} rows={3} value={profileForm.description} onChange={e => setProfileForm(p => ({ ...p, description: e.target.value }))} placeholder={t('settings.bioPlaceholder')} />
                     </div>
                   </div>
 
                   {/* Social Links */}
                   <div className={`rounded-2xl border p-5 space-y-4 ${card}`}>
-                    <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>Social Links</h3>
+                    <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>{t('settings.socialLinks')}</h3>
                     {[
                       { key: 'linkedin', icon: <FiLinkedin size={16} className="text-[#0077B5]" />, placeholder: 'linkedin.com/in/username' },
-                      { key: 'github', icon: <FiGithub size={16} className={isSpace ? 'text-white' : 'text-gray-800'} />, placeholder: 'github.com/username' },
+                      { key: 'github', icon: <FiGithub size={16} className="text-gray-800" />, placeholder: 'github.com/username' },
                       { key: 'website', icon: <FiGlobe size={16} className="text-primary" />, placeholder: 'yourwebsite.com' },
                       { key: 'instagram', icon: <FiInstagram size={16} className="text-[#E1306C]" />, placeholder: 'instagram.com/username' },
                     ].map(({ key, icon, placeholder }) => (
@@ -457,14 +504,14 @@ const Settings = () => {
 
                   {/* Interests */}
                   <div className={`rounded-2xl border p-5 space-y-4 ${card}`}>
-                    <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>Interests & Tags <span className="normal-case font-normal">(max 10)</span></h3>
+                    <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>{t('settings.interestsTags')} <span className="normal-case font-normal">({t('settings.max10')})</span></h3>
                     <div className="flex gap-2">
                       <input
                         className={`${input} flex-1`}
                         value={interestInput}
                         onChange={e => setInterestInput(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddInterest())}
-                        placeholder="e.g. machine-learning, basketball..."
+                        placeholder={t('settings.addInterestPlaceholder')}
                       />
                       <button onClick={handleAddInterest} className="px-4 rounded-xl bg-primary text-white font-black text-sm hover:bg-primary/90 transition-colors shrink-0">
                         <FiPlus size={18} />
@@ -486,7 +533,7 @@ const Settings = () => {
 
                   <button onClick={handleSaveProfile} disabled={saving} className="w-full uv-button py-3 font-black text-sm flex items-center justify-center gap-2 disabled:opacity-60">
                     <FiSave size={16} />
-                    {saving ? 'Saving...' : 'Save Profile'}
+                    {saving ? t('settings.saving') : t('settings.saveProfile')}
                   </button>
                 </>
               )}
@@ -498,11 +545,11 @@ const Settings = () => {
             <>
               {/* Change Password */}
               <div className={`rounded-2xl border p-5 space-y-4 ${card}`}>
-                <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>Change Password</h3>
+                <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>{t('settings.changePassword')}</h3>
                 {[
-                  { field: 'current', label: 'Current Password', placeholder: 'Enter current password' },
-                  { field: 'newPw', label: 'New Password', placeholder: 'At least 8 characters' },
-                  { field: 'confirm', label: 'Confirm New Password', placeholder: 'Repeat new password' },
+                  { field: 'current', label: t('settings.currentPassword'), placeholder: t('settings.currentPasswordPlaceholder') },
+                  { field: 'newPw', label: t('settings.newPassword'), placeholder: t('settings.min8Placeholder') },
+                  { field: 'confirm', label: t('settings.confirmNewPassword'), placeholder: t('settings.repeatPlaceholder') },
                 ].map(({ field, label, placeholder }) => (
                   <div key={field}>
                     <label className={`block text-xs font-black uppercase tracking-widest mb-1.5 ${muted}`}>{label}</label>
@@ -521,17 +568,17 @@ const Settings = () => {
                   </div>
                 ))}
                 <button onClick={handleChangePassword} disabled={saving} className="w-full uv-button py-3 font-black text-sm disabled:opacity-60">
-                  {saving ? 'Updating...' : 'Update Password'}
+                  {saving ? t('settings.updating') : t('settings.updatePassword')}
                 </button>
               </div>
 
               {/* Active Sessions */}
               <div className={`rounded-2xl border p-5 space-y-4 ${card}`}>
-                <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>Active Sessions</h3>
+                <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>{t('settings.activeSessions')}</h3>
                 {sessionsLoading ? (
                   <div className="flex justify-center py-8"><div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" /></div>
                 ) : sessions.length === 0 ? (
-                  <p className={`text-sm ${muted} text-center py-4`}>No active sessions found.</p>
+                  <p className={`text-sm ${muted} text-center py-4`}>{t('settings.noSessions')}</p>
                 ) : (
                   <div className="space-y-3">
                     {sessions.map(s => (
@@ -539,12 +586,12 @@ const Settings = () => {
                         <div className="flex items-center gap-3 min-w-0">
                           <FiMonitor size={20} className={muted} />
                           <div className="min-w-0">
-                            <p className={`text-xs font-bold truncate ${text}`}>{s.user_agent?.split('(')[0]?.trim() || 'Unknown device'}</p>
-                            <p className={`text-[10px] ${muted}`}>{s.ip_address || 'Unknown IP'} · {new Date(s.last_active_at).toLocaleString()}</p>
+                            <p className={`text-xs font-bold truncate ${text}`}>{s.user_agent?.split('(')[0]?.trim() || t('settings.unknownDevice')}</p>
+                            <p className={`text-[10px] ${muted}`}>{s.ip_address || t('settings.unknownIp')} · {new Date(s.last_active_at).toLocaleString()}</p>
                           </div>
                         </div>
                         <button onClick={() => handleTerminateSession(s.session_id)} className="shrink-0 flex items-center gap-1 text-[10px] font-black text-red-500 hover:text-red-600 transition-colors px-2 py-1 rounded-lg hover:bg-red-50">
-                          <FiLogOut size={12} /> End
+                          <FiLogOut size={12} /> {t('settings.end')}
                         </button>
                       </div>
                     ))}
@@ -565,22 +612,22 @@ const Settings = () => {
                   <div className={`rounded-2xl border p-5 ${card}`}>
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <p className={`font-black text-sm ${text}`}>Private Account</p>
-                        <p className={`text-xs mt-0.5 ${muted}`}>Only your followers can see your posts and bio.</p>
+                        <p className={`font-black text-sm ${text}`}>{t('settings.privateAccount')}</p>
+                        <p className={`text-xs mt-0.5 ${muted}`}>{t('settings.onlyFollowersSee')}</p>
                       </div>
                       <button
                         onClick={() => setIsPrivate(v => !v)}
-                        className={`relative w-12 h-6 rounded-full transition-colors shrink-0 ${isPrivate ? 'bg-primary' : 'bg-gray-300'}`}
+                        className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${isPrivate ? 'bg-primary' : 'bg-gray-300'}`}
                       >
-                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow ${isPrivate ? 'translate-x-7' : 'translate-x-1'}`} />
+                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform shadow ${isPrivate ? 'translate-x-5' : 'translate-x-0'}`} />
                       </button>
                     </div>
                   </div>
 
                   {/* Muted Words */}
                   <div className={`rounded-2xl border p-5 space-y-4 ${card}`}>
-                    <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>Muted Words</h3>
-                    <p className={`text-xs ${muted}`}>Posts containing these words will be hidden from your feed.</p>
+                    <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>{t('settings.mutedWords')}</h3>
+                    <p className={`text-xs ${muted}`}>{t('settings.mutedWordsDesc')}</p>
                     <div className="flex gap-2">
                       <input
                         className={`${input} flex-1`}
@@ -594,7 +641,7 @@ const Settings = () => {
                             setMutedInput('');
                           }
                         }}
-                        placeholder="Add a word to mute..."
+                        placeholder={t('settings.addWordToMute')}
                       />
                       <button onClick={() => {
                         const w = mutedInput.trim().toLowerCase();
@@ -620,13 +667,13 @@ const Settings = () => {
 
                   <button onClick={handleSavePrivacy} disabled={saving} className="w-full uv-button py-3 font-black text-sm flex items-center justify-center gap-2 disabled:opacity-60">
                     <FiSave size={16} />
-                    {saving ? 'Saving...' : 'Save Privacy Settings'}
+                    {saving ? t('settings.saving') : t('settings.savePrivacy')}
                   </button>
 
                   {/* Blocked Users */}
                   {blockedUsers.length > 0 && (
                     <div className={`rounded-2xl border p-5 space-y-3 ${card}`}>
-                      <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>Blocked Users</h3>
+                      <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>{t('settings.blockedUsers')}</h3>
                       {blockedUsers.map(u => (
                         <div key={u.user_id} className={`flex items-center justify-between gap-3 p-3 rounded-xl border ${isSpace ? 'border-white/10 bg-white/5' : 'border-gray-100 bg-gray-50'}`}>
                           <div className="flex items-center gap-3 min-w-0">
@@ -638,7 +685,7 @@ const Settings = () => {
                               <p className={`text-[10px] truncate ${muted}`}>@{u.email?.split('@')[0]}</p>
                             </div>
                           </div>
-                          <button onClick={() => handleUnblock(u.user_id)} className="shrink-0 text-[10px] font-black text-primary hover:underline">Unblock</button>
+                          <button onClick={() => handleUnblock(u.user_id)} className="shrink-0 text-[10px] font-black text-primary hover:underline">{t('settings.unblock')}</button>
                         </div>
                       ))}
                     </div>
@@ -651,8 +698,8 @@ const Settings = () => {
           {/* ── NOTIFICATIONS TAB ───────────────────────────────────── */}
           {activeTab === 'notifications' && (
             <div className={`rounded-2xl border p-5 space-y-4 ${card}`}>
-              <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>Notification Preferences</h3>
-              <p className={`text-xs ${muted}`}>Choose which notifications you want to receive.</p>
+              <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>{t('settings.notificationPreferences')}</h3>
+              <p className={`text-xs ${muted}`}>{t('settings.notificationPreferencesDesc')}</p>
 
               {notifPrefsLoading ? (
                 <div className="flex justify-center py-8">
@@ -661,15 +708,15 @@ const Settings = () => {
               ) : (
                 <div className="space-y-2">
                   {[
-                    { key: 'social.like', label: 'Likes' },
-                    { key: 'social.comment', label: 'Comments' },
-                    { key: 'social.follow', label: 'Follows' },
-                    { key: 'social.repost', label: 'Reposts' },
-                    { key: 'messaging.message', label: 'Messages' },
-                    { key: 'academic.appointment_request', label: 'Appointment requests' },
-                    { key: 'academic.appointment_status', label: 'Appointment updates' },
-                    { key: 'community.job_post_created', label: 'Community job posts' },
-                    { key: 'community.event_created', label: 'Community events' },
+                    { key: 'social.like', label: t('settings.notif.likes') },
+                    { key: 'social.comment', label: t('settings.notif.comments') },
+                    { key: 'social.follow', label: t('settings.notif.follows') },
+                    { key: 'social.repost', label: t('settings.notif.reposts') },
+                    { key: 'messaging.message', label: t('settings.notif.messages') },
+                    { key: 'academic.appointment_request', label: t('settings.notif.appointmentRequests') },
+                    { key: 'academic.appointment_status', label: t('settings.notif.appointmentUpdates') },
+                    { key: 'community.job_post_created', label: t('settings.notif.communityJobs') },
+                    { key: 'community.event_created', label: t('settings.notif.communityEvents') },
                   ].map((row) => {
                     const enabled = notifPrefs[row.key] ?? true;
                     return (
@@ -685,8 +732,8 @@ const Settings = () => {
                           <p className={`font-black text-sm ${text}`}>{row.label}</p>
                           <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${muted}`}>{row.key}</p>
                         </div>
-                        <span className={`relative w-12 h-6 rounded-full transition-colors shrink-0 ${enabled ? 'bg-primary' : 'bg-gray-300'}`}>
-                          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow ${enabled ? 'translate-x-7' : 'translate-x-1'}`} />
+                        <span className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${enabled ? 'bg-primary' : 'bg-gray-300'}`}>
+                          <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform shadow ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
                         </span>
                       </button>
                     );
@@ -696,7 +743,7 @@ const Settings = () => {
 
               <button onClick={saveNotifPrefs} disabled={saving} className="w-full uv-button py-3 font-black text-sm flex items-center justify-center gap-2 disabled:opacity-60">
                 <FiSave size={16} />
-                {saving ? 'Saving...' : 'Save Notification Preferences'}
+                {saving ? t('settings.saving') : t('settings.saveNotificationPreferences')}
               </button>
             </div>
           )}
@@ -704,12 +751,12 @@ const Settings = () => {
           {/* ── APPEARANCE TAB ──────────────────────────────────────── */}
           {activeTab === 'appearance' && (
             <div className={`rounded-2xl border p-5 space-y-4 ${card}`}>
-              <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>Dimension</h3>
-              <p className={`text-xs ${muted}`}>Choose how UniVerse looks and feels.</p>
+              <h3 className={`text-xs font-black uppercase tracking-widest ${muted}`}>{t('settings.dimension')}</h3>
+              <p className={`text-xs ${muted}`}>{t('settings.dimensionDesc')}</p>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { value: 'ground', label: 'Ground Mode', desc: 'Clean and minimal', icon: <FiSun size={22} /> },
-                  { value: 'space', label: 'Space Mode', desc: 'Dark and cosmic', icon: <FiMoon size={22} /> },
+                  { value: 'ground', label: t('settings.groundMode'), desc: t('settings.cleanMinimal'), icon: <FiSun size={22} /> },
+                  { value: 'space', label: t('settings.spaceMode'), desc: t('settings.darkCosmic'), icon: <FiMoon size={22} /> },
                 ].map(opt => (
                   <button
                     key={opt.value}
@@ -732,15 +779,15 @@ const Settings = () => {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center"><FiTrash2 size={18} className="text-red-500" /></div>
                 <div>
-                  <p className="font-black text-sm text-red-600">Deactivate Account</p>
-                  <p className="text-xs text-red-400 mt-0.5">This action cannot be undone.</p>
+                  <p className="font-black text-sm text-red-600">{t('settings.deactivateAccount')}</p>
+                  <p className="text-xs text-red-400 mt-0.5">{t('settings.cannotUndone')}</p>
                 </div>
               </div>
               <p className="text-xs text-red-500 leading-relaxed">
-                Your account will be deactivated and all your sessions will be terminated. You will not be able to log in again without admin assistance.
+                {t('settings.deactivateDesc')}
               </p>
               <div>
-                <label className="block text-xs font-black uppercase tracking-widest text-red-500 mb-1.5">Type <span className="font-mono bg-red-100 px-1 rounded">DELETE</span> to confirm</label>
+                <label className="block text-xs font-black uppercase tracking-widest text-red-500 mb-1.5">{t('settings.typeDeleteToConfirm')}</label>
                 <input
                   className="w-full px-4 py-3 rounded-xl border border-red-300 outline-none focus:ring-2 focus:ring-red-300 text-sm bg-white text-red-600 placeholder:text-red-300"
                   value={deactivateConfirm}
@@ -753,7 +800,7 @@ const Settings = () => {
                 disabled={saving || deactivateConfirm !== 'DELETE'}
                 className="w-full py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-black text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {saving ? 'Deactivating...' : 'Deactivate My Account'}
+                {saving ? t('settings.deactivating') : t('settings.deactivateMyAccount')}
               </button>
             </div>
           )}

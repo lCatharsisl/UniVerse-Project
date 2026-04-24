@@ -350,6 +350,8 @@
     "firstName": "First Name",
     "lastName": "Last Name",
     "phoneNumber": "Phone Number",
+    "department": "Department",
+    "selectDepartment": "Select a department...",
     "bioPlaceholder": "Tell the UniVerse who you are...",
     "socialLinks": "Social Links",
     "interestsTags": "Interests & Tags",
@@ -399,7 +401,37 @@
     "deactivating": "Deactivating...",
     "cropCancel": "Cancel",
     "cropSave": "Crop & Save",
-    "zoomLevel": "Zoom Level"
+    "zoomLevel": "Zoom Level",
+    "notifications": "Notifications",
+    "bio": "Bio",
+    "firstNamePlaceholder": "First name",
+    "lastNamePlaceholder": "Last name",
+    "phonePlaceholder": "+90 5XX XXX XX XX",
+    "notificationPreferences": "Notification Preferences",
+    "notificationPreferencesDesc": "Choose which notifications you want to receive.",
+    "saveNotificationPreferences": "Save Notification Preferences",
+    "notificationPreferencesSaved": "Notification preferences saved!",
+    "failedSaveNotificationPreferences": "Failed to save notification preferences.",
+    "currentPasswordRequired": "Current password is required.",
+    "passwordMinLength": "Password must be at least 8 characters.",
+    "passwordsDontMatch": "Passwords do not match.",
+    "failedChangePassword": "Failed to change password.",
+    "failedTerminateSession": "Failed to terminate session.",
+    "failedSavePrivacy": "Failed to save privacy settings.",
+    "failedUnblock": "Failed to unblock user.",
+    "typeDeleteToConfirmError": "Type DELETE to confirm.",
+    "failedDeactivate": "Failed to deactivate account.",
+    "notif": {
+      "likes": "Likes",
+      "comments": "Comments",
+      "follows": "Follows",
+      "reposts": "Reposts",
+      "messages": "Messages",
+      "appointmentRequests": "Appointment requests",
+      "appointmentUpdates": "Appointment updates",
+      "communityJobs": "Community job posts",
+      "communityEvents": "Community events"
+    }
   },
   "foodMenu": {
     "title": "Food Menu",
@@ -671,7 +703,47 @@
   "academicCalendar": {
     "title": "Academic Calendar",
     "academicYear": "2025-2026 Academic Year",
-    "viewOfficial": "View Official PDF"
+    "viewOfficial": "View Official PDF",
+    "footerTitle": "Yaşar University 2025-2026 Academic Calendar",
+    "footerDesc": "Official and up-to-date calendar is available in the Student Affairs (OİDB) PDF.",
+    "tableHeaders": {
+      "event": "Event",
+      "preparatory": "Preparatory",
+      "undergrad": "Associate / Undergraduate",
+      "graduate": "Graduate"
+    },
+    "mobileLabels": {
+      "preparatory": "Preparatory",
+      "undergrad": "Assoc/Undergrad",
+      "graduate": "Graduate"
+    },
+    "sections": {
+      "fall": "Fall Semester",
+      "spring": "Spring Semester",
+      "summer": "Summer School",
+      "holidays": "Official Holidays"
+    },
+    "events": {
+      "englishProficiencyWritten": "English Proficiency Exam (Written)",
+      "englishProficiencyOral": "English Proficiency Exam (Oral)",
+      "preparatoryPlacement": "Preparatory Placement Test",
+      "courseRegistration": "Course Registration",
+      "startClasses": "Start of Classes",
+      "endClasses": "End of Classes",
+      "endSemesterExams": "End of Semester Exams",
+      "gradeEntry": "Grade Entry Deadline",
+      "courseWithdrawal": "Course Withdrawal Deadline",
+      "twoCourseMakeup": "Two-Course Make-up Exams",
+      "republicDay": "Republic Day",
+      "newYear": "New Year Holiday",
+      "eidFitr": "Eid al-Fitr",
+      "sovereigntyDay": "National Sovereignty Day",
+      "laborDay": "Labor Day",
+      "youthSports": "Youth and Sports Day",
+      "eidAdha": "Eid al-Adha",
+      "democracyDay": "Democracy and National Unity Day",
+      "victoryDay": "Victory Day"
+    }
   },
   "freeRooms": {
     "title": "Free Rooms",
@@ -680,7 +752,23 @@
     "selectRoom": "Select room",
     "selectSlot": "Select slot",
     "free": "Free",
-    "occupied": "Occupied"
+    "occupied": "Occupied",
+    "dayLabel": "Day",
+    "buildingLabel": "Building",
+    "roomLabel": "Room",
+    "timeLabel": "Time",
+    "selectPlaceholder": "Select",
+    "allCampus": "All campus",
+    "allRooms": "All",
+    "allDay": "All day",
+    "emptyState": "Select a day to list free rooms.",
+    "days": {
+      "Monday": "Monday",
+      "Tuesday": "Tuesday",
+      "Wednesday": "Wednesday",
+      "Thursday": "Thursday",
+      "Friday": "Friday"
+    }
   },
   "gradeCalculator": {
     "title": "Grade Calculator",

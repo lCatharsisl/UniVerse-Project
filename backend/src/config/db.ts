@@ -27,8 +27,8 @@ export function getPool(): Pool {
 
     pool = new Pool({
       ...config,
-      max: 20,
-      idleTimeoutMillis: 30000,
+      max: 10,
+      idleTimeoutMillis: 10000,
       connectionTimeoutMillis: 5000,
     });
 

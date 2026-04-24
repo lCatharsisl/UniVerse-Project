@@ -492,12 +492,12 @@ const CampusMap: React.FC = () => {
                   {(isSelected || isStart || isEnd) && (
                     <div className={`absolute inset-[-4px] rounded-full animate-ping opacity-50 pointer-events-none ${isStart ? 'bg-green-500' : isEnd ? 'bg-red-500' : 'bg-primary'}`} />
                   )}
-                  <div className={`${point.label ? 'w-5 h-5 rounded-md' : 'w-4 h-4 rounded-full'} border-2 border-white shadow-lg flex items-center justify-center text-[7px] font-black transition-all ${
+                  <div className={`${point.label ? 'w-5 h-5 rounded-md' : 'w-4 h-4 rounded-full'} border-2 ${isSpace ? 'border-uv-black' : 'border-white'} shadow-lg flex items-center justify-center text-[8px] font-black transition-all ${
                     isStart ? 'bg-green-500 text-white scale-125'
                     : isEnd ? 'bg-red-500 text-white scale-125'
                     : isOnPath ? 'bg-red-500 text-white scale-110'
                     : isSelected ? 'bg-primary text-white scale-125'
-                    : 'bg-uv-black/90 text-white hover:bg-primary'
+                    : isSpace ? 'bg-white text-uv-black hover:bg-primary hover:text-white' : 'bg-uv-black/90 text-white hover:bg-primary'
                   }`}>
                     {point.label || point.id}
                   </div>

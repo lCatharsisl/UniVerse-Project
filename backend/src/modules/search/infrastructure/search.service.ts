@@ -56,6 +56,14 @@ function webTsQuerySql(paramRef: string): string {
 }
 
 /**
+ * Regex özel karakterlerini kaçışlar — kullanıcı girdisini SQL `regexp_replace`
+ * pattern'i içinde güvenle kullanabilmek için.
+ */
+function escapeRegex(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * v_user_search ile aynı tanım (migration uygulanmamış ortamlarda da arama çalışsın diye inline).
  */
 const USER_SEARCH_SUBQUERY = `
@@ -323,14 +331,19 @@ async function searchUsersPostgres(
     CASE WHEN lower(concat_ws(' ', v.first_name, v.last_name, v.display_name, v.email, v.email_local, array_to_string(v.interests, ' ')))
       LIKE '%' || lower($1::text) || '%' THEN 0.18 ELSE 0 END
   )`;
+  const hlSource = `COALESCE(
+    NULLIF(trim(both ' ' FROM concat_ws(' ', v.first_name, v.last_name)), ''),
+    NULLIF(trim(v.display_name), ''),
+    v.email
+  )`;
   const hlSql = `COALESCE(
     NULLIF(ts_headline(
     'simple',
-    trim(both ' ' FROM concat(v.first_name, ' ', v.last_name, ' ', v.display_name)),
+    ${hlSource},
     ${webTsQuerySql('$1')},
     'StartSel=<mark>, StopSel=</mark>, MinWords=1, MaxWords=12, ShortWord=0, MaxFragments=1'
     ), ''),
-    trim(both ' ' FROM concat(v.first_name, ' ', v.last_name, ' ', v.display_name))
+    ${hlSource}
   )`;
 
   const sql = `
@@ -441,12 +454,33 @@ async function searchPostsWithHighlightsPostgres(
       ? `p.created_at DESC, (${scoreSql})::float8 DESC, p.post_id ASC`
       : `(${scoreSql})::float8 DESC, p.created_at DESC, p.post_id ASC`;
 
-  const hl = `COALESCE(NULLIF(ts_headline(
-    'simple',
-    p.content,
-    ${ptq},
-    'StartSel=<mark>, StopSel=</mark>, MaxWords=45, MinWords=1, MaxFragments=1'
-  ), ''), p.content)`;
+  // ts_headline `simple` tokenizer kullandığı için "inşa" ile "inşası" gibi
+  // ek çekimli kelimeleri eşleyemiyor; eşleşme bulamadığında MaxFragments=1
+  // sadece ilk birkaç kelimeyi döndürüp gerçek match'i gizliyor.
+  // LIKE eşleşmesini regex tabanlı highlight ile destekleyip içeriğin tamamını
+  // koruyoruz; eşleşme tsquery üzerinden bulunmuşsa ts_headline tercih edilir.
+  const qRegexParam = isHashtag ? '$8' : '$7';
+  const hl = `CASE
+    WHEN length(btrim(COALESCE(${qRegexParam}::text, ''))) > 0
+         AND lower(p.content) LIKE '%' || lower($4::text) || '%'
+    THEN regexp_replace(
+      p.content,
+      '(' || ${qRegexParam}::text || ')',
+      '<mark>\\1</mark>',
+      'gi'
+    )
+    ELSE COALESCE(
+      NULLIF(ts_headline(
+        'simple',
+        p.content,
+        ${ptq},
+        'StartSel=<mark>, StopSel=</mark>, MaxWords=45, MinWords=1, MaxFragments=1'
+      ), ''),
+      p.content
+    )
+  END`;
+
+  const qRegex = escapeRegex(qText);
 
   if (isHashtag && tagRx) {
     const sql = `
@@ -472,6 +506,7 @@ async function searchPostsWithHighlightsPostgres(
       tagRx,
       offset,
       size,
+      qRegex,
     ]);
     return mapPostResults(rows);
   }
@@ -498,6 +533,7 @@ async function searchPostsWithHighlightsPostgres(
     qText,
     offset,
     size,
+    qRegex,
   ]);
   return mapPostResults(rows);
 }
