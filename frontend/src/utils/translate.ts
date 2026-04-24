@@ -40,6 +40,53 @@ const TR_MONTH_TO_EN: Record<string, string> = {
   EYLÜL: 'September', EKİM: 'October', KASIM: 'November', ARALIK: 'December',
 };
 
+const TR_MONTH_ORDER = [
+  'OCAK', 'ŞUBAT', 'MART', 'NİSAN', 'MAYIS', 'HAZİRAN', 'TEMMUZ', 'AĞUSTOS', 'EYLÜL', 'EKİM', 'KASIM', 'ARALIK',
+] as const;
+
+function localeTagForApp(i18nLanguage?: string): string {
+  return i18nLanguage && i18nLanguage.toLowerCase().startsWith('tr') ? 'tr-TR' : 'en-US';
+}
+
+/** Görüntülenen tarihin ay+yıl (PDF/cache periodLabel’ından bağımsız, tutarlı başlık). */
+export function monthYearHeadingFromIso(iso: string, i18nLanguage?: string): string {
+  const d = new Date(iso + 'T12:00:00');
+  if (Number.isNaN(d.getTime())) return 'Menu';
+  return d.toLocaleDateString(localeTagForApp(i18nLanguage), { month: 'long', year: 'numeric' });
+}
+
+function trMonthIndexFromPeriodLabel(label?: string): number | null {
+  if (!label) return null;
+  const m = label.match(/^(\S+)\s+Ayı$/i);
+  if (!m) return null;
+  const key = m[1].toLocaleUpperCase('tr-TR');
+  const idx = TR_MONTH_ORDER.findIndex((x) => x === key);
+  return idx >= 0 ? idx : null;
+}
+
+/**
+ * PDF’deki dönem (ör. "MART Ayı") eski cache’ten gelince seçilen/bugünün ayıyla çakışmayabiliyor.
+ * Ay uyuşuyorsa kısa ay adı; uyuşmuyorsa takvimdeki ay+yıl.
+ */
+export function menuPeriodHeading(
+  periodLabel: string | undefined,
+  referenceIsoDate: string,
+  i18nLanguage?: string
+): string {
+  const d = new Date(referenceIsoDate + 'T12:00:00');
+  if (Number.isNaN(d.getTime())) {
+    return formatPeriodLabel(periodLabel) || 'Menu';
+  }
+  const pIdx = trMonthIndexFromPeriodLabel(periodLabel);
+  if (pIdx === null) {
+    return monthYearHeadingFromIso(referenceIsoDate, i18nLanguage);
+  }
+  if (pIdx === d.getMonth()) {
+    return formatPeriodLabel(periodLabel);
+  }
+  return monthYearHeadingFromIso(referenceIsoDate, i18nLanguage);
+}
+
 export function formatPeriodLabel(label?: string): string {
   if (!label) return 'Menu';
   const m = label.match(/^(\w+)\s+Ayı$/i);

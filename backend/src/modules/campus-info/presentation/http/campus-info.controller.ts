@@ -30,8 +30,12 @@ export class CampusInfoController {
   static async getFullMenu(_req: Request, res: Response) {
     try {
       let cache = MenuService.getFullMenu();
-      if (!cache) {
-        await MenuService.fetchAndParseMenu();
+      if (!cache || MenuService.isMenuCacheStaleByCalendarMonth()) {
+        try {
+          await MenuService.fetchAndParseMenu();
+        } catch {
+          // boş
+        }
         cache = MenuService.getFullMenu();
       }
       if (!cache) return res.status(404).json({ error: 'Menu not available' });
@@ -66,10 +70,15 @@ export class CampusInfoController {
       return res.status(400).json({ error: 'Invalid date format (use YYYY-MM-DD)' });
     try {
       let data = MenuService.getMenuByDate(date);
+      /**
+       * Önce: sadece cache boşsa fetch ediliyordu → eski ayın cache’i varken yeni aya ait gün
+       * sorgulandığında 404. Tarih bulunamayınca her zaman PDF’i taze çekmeyi dene.
+       */
       if (!data) {
-        const cache = MenuService.getFullMenu();
-        if (!cache) {
+        try {
           await MenuService.fetchAndParseMenu();
+        } catch {
+          // Ağ/403: eski cache ile tekrar dene
         }
         data = MenuService.getMenuByDate(date);
       }

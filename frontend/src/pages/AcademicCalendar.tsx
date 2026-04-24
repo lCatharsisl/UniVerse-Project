@@ -5,61 +5,88 @@ import { useTheme } from '../context/ThemeContext';
 
 const OFFICIAL_CALENDAR_PDF = 'https://oim.yasar.edu.tr/wp-content/uploads/2025/08/2025-2026-Akademik_Takvim_Revize-26.08.2025.pdf';
 
+const MONTH_TR: Record<string, string> = {
+  January: 'Ocak',
+  February: 'Şubat',
+  March: 'Mart',
+  April: 'Nisan',
+  May: 'Mayıs',
+  June: 'Haziran',
+  July: 'Temmuz',
+  August: 'Ağustos',
+  September: 'Eylül',
+  October: 'Ekim',
+  November: 'Kasım',
+  December: 'Aralık',
+};
+
+// Convert English month names (and the "Eve" keyword used for Eid eves) to Turkish.
+// Source data is stored in English so it stays readable and PDF-source-aligned.
+const formatDate = (value: string, lang: string): string => {
+  if (lang !== 'tr' || !value) return value;
+  let result = value;
+  for (const [en, tr] of Object.entries(MONTH_TR)) {
+    result = result.replace(new RegExp(`\\b${en}\\b`, 'g'), tr);
+  }
+  return result.replace(/\bEve\b/g, 'Arefesi');
+};
+
 /* Source: OİDB Official 2025-2026 Academic Calendar (Revised 26.08.2025) */
 const SECTIONS = [
   {
-    title: 'FALL SEMESTER',
+    key: 'fall',
     rows: [
-      { event: 'English Proficiency Exam (Written)', hazirlik: '11 September 2025', onlisans: '–', lisansustu: '–' },
-      { event: 'English Proficiency Exam (Oral)', hazirlik: '12 September 2025', onlisans: '–', lisansustu: '–' },
-      { event: 'Preparatory Placement Test', hazirlik: '22 September 2025', onlisans: '–', lisansustu: '–' },
-      { event: 'Course Registration', hazirlik: '23-26 September 2025', onlisans: '22-23 September 2025', lisansustu: '22-23 September 2025' },
-      { event: 'Start of Classes', hazirlik: '29 September 2025', onlisans: '29 September 2025', lisansustu: '29 September 2025' },
-      { event: 'End of Classes', hazirlik: '09 January 2026', onlisans: '09 January 2026', lisansustu: '09 January 2026' },
-      { event: 'End of Semester Exams', hazirlik: '04-16 January 2026', onlisans: '04-16 January 2026', lisansustu: '04-16 January 2026' },
-      { event: 'Grade Entry Deadline', hazirlik: '17 January 2026', onlisans: '17 January 2026', lisansustu: '17 January 2026' },
+      { eventKey: 'englishProficiencyWritten', hazirlik: '11 September 2025', onlisans: '–', lisansustu: '–' },
+      { eventKey: 'englishProficiencyOral', hazirlik: '12 September 2025', onlisans: '–', lisansustu: '–' },
+      { eventKey: 'preparatoryPlacement', hazirlik: '22 September 2025', onlisans: '–', lisansustu: '–' },
+      { eventKey: 'courseRegistration', hazirlik: '23-26 September 2025', onlisans: '22-23 September 2025', lisansustu: '22-23 September 2025' },
+      { eventKey: 'startClasses', hazirlik: '29 September 2025', onlisans: '29 September 2025', lisansustu: '29 September 2025' },
+      { eventKey: 'endClasses', hazirlik: '09 January 2026', onlisans: '09 January 2026', lisansustu: '09 January 2026' },
+      { eventKey: 'endSemesterExams', hazirlik: '04-16 January 2026', onlisans: '04-16 January 2026', lisansustu: '04-16 January 2026' },
+      { eventKey: 'gradeEntry', hazirlik: '17 January 2026', onlisans: '17 January 2026', lisansustu: '17 January 2026' },
     ],
   },
   {
-    title: 'SPRING SEMESTER',
+    key: 'spring',
     rows: [
-      { event: 'Course Registration', hazirlik: '–', onlisans: '26-30 January 2026', lisansustu: '26-30 January 2026' },
-      { event: 'Start of Classes', hazirlik: '02 February 2026', onlisans: '02 February 2026', lisansustu: '02 February 2026' },
-      { event: 'Course Withdrawal Deadline', hazirlik: '–', onlisans: '20 February 2026', lisansustu: '–' },
-      { event: 'End of Classes', hazirlik: '05 June 2026', onlisans: '05 June 2026', lisansustu: '05 June 2026' },
-      { event: 'End of Semester Exams', hazirlik: '10-23 May 2026', onlisans: '10-23 May 2026', lisansustu: '10-23 May 2026' },
-      { event: 'Grade Entry Deadline', hazirlik: '25 May 2026', onlisans: '25 May 2026', lisansustu: '25 May 2026' },
+      { eventKey: 'courseRegistration', hazirlik: '–', onlisans: '26-30 January 2026', lisansustu: '26-30 January 2026' },
+      { eventKey: 'startClasses', hazirlik: '02 February 2026', onlisans: '02 February 2026', lisansustu: '02 February 2026' },
+      { eventKey: 'courseWithdrawal', hazirlik: '–', onlisans: '20 February 2026', lisansustu: '–' },
+      { eventKey: 'endClasses', hazirlik: '05 June 2026', onlisans: '05 June 2026', lisansustu: '05 June 2026' },
+      { eventKey: 'endSemesterExams', hazirlik: '10-23 May 2026', onlisans: '10-23 May 2026', lisansustu: '10-23 May 2026' },
+      { eventKey: 'gradeEntry', hazirlik: '25 May 2026', onlisans: '25 May 2026', lisansustu: '25 May 2026' },
     ],
   },
   {
-    title: 'SUMMER SCHOOL',
+    key: 'summer',
     rows: [
-      { event: 'Course Registration', hazirlik: '15-23 June 2026', onlisans: '08-09 June 2026', lisansustu: '08-09 June 2026' },
-      { event: 'Start of Classes', hazirlik: '25 June 2026', onlisans: '15 June 2026', lisansustu: '15 June 2026' },
-      { event: 'End of Classes', hazirlik: '13 August 2026', onlisans: '31 July 2026', lisansustu: '31 July 2026' },
-      { event: 'Two-Course Make-up Exams', hazirlik: '–', onlisans: '12-13 August 2026', lisansustu: '–' },
+      { eventKey: 'courseRegistration', hazirlik: '15-23 June 2026', onlisans: '08-09 June 2026', lisansustu: '08-09 June 2026' },
+      { eventKey: 'startClasses', hazirlik: '25 June 2026', onlisans: '15 June 2026', lisansustu: '15 June 2026' },
+      { eventKey: 'endClasses', hazirlik: '13 August 2026', onlisans: '31 July 2026', lisansustu: '31 July 2026' },
+      { eventKey: 'twoCourseMakeup', hazirlik: '–', onlisans: '12-13 August 2026', lisansustu: '–' },
     ],
   },
   {
-    title: 'OFFICIAL HOLIDAYS',
+    key: 'holidays',
     rows: [
-      { event: 'Republic Day', hazirlik: '29 October 2025', onlisans: '29 October 2025', lisansustu: '29 October 2025' },
-      { event: 'New Year Holiday', hazirlik: '01 January 2026', onlisans: '01 January 2026', lisansustu: '01 January 2026' },
-      { event: 'Eid al-Fitr', hazirlik: '19 March Eve, 20-21-22 March 2026', onlisans: '19 March Eve, 20-21-22 March 2026', lisansustu: '19 March Eve, 20-21-22 March 2026' },
-      { event: 'National Sovereignty Day', hazirlik: '23 April 2026', onlisans: '23 April 2026', lisansustu: '23 April 2026' },
-      { event: 'Labor Day', hazirlik: '01 May 2026', onlisans: '01 May 2026', lisansustu: '01 May 2026' },
-      { event: 'Youth and Sports Day', hazirlik: '19 May 2026', onlisans: '19 May 2026', lisansustu: '19 May 2026' },
-      { event: 'Eid al-Adha', hazirlik: '26 May Eve, 27-28-29-30 May 2026', onlisans: '26 May Eve, 27-28-29-30 May 2026', lisansustu: '26 May Eve, 27-28-29-30 May 2026' },
-      { event: 'Democracy and National Unity Day', hazirlik: '15 July 2026', onlisans: '15 July 2026', lisansustu: '15 July 2026' },
-      { event: 'Victory Day', hazirlik: '30 August 2026', onlisans: '30 August 2026', lisansustu: '30 August 2026' },
+      { eventKey: 'republicDay', hazirlik: '29 October 2025', onlisans: '29 October 2025', lisansustu: '29 October 2025' },
+      { eventKey: 'newYear', hazirlik: '01 January 2026', onlisans: '01 January 2026', lisansustu: '01 January 2026' },
+      { eventKey: 'eidFitr', hazirlik: '19 March Eve, 20-21-22 March 2026', onlisans: '19 March Eve, 20-21-22 March 2026', lisansustu: '19 March Eve, 20-21-22 March 2026' },
+      { eventKey: 'sovereigntyDay', hazirlik: '23 April 2026', onlisans: '23 April 2026', lisansustu: '23 April 2026' },
+      { eventKey: 'laborDay', hazirlik: '01 May 2026', onlisans: '01 May 2026', lisansustu: '01 May 2026' },
+      { eventKey: 'youthSports', hazirlik: '19 May 2026', onlisans: '19 May 2026', lisansustu: '19 May 2026' },
+      { eventKey: 'eidAdha', hazirlik: '26 May Eve, 27-28-29-30 May 2026', onlisans: '26 May Eve, 27-28-29-30 May 2026', lisansustu: '26 May Eve, 27-28-29-30 May 2026' },
+      { eventKey: 'democracyDay', hazirlik: '15 July 2026', onlisans: '15 July 2026', lisansustu: '15 July 2026' },
+      { eventKey: 'victoryDay', hazirlik: '30 August 2026', onlisans: '30 August 2026', lisansustu: '30 August 2026' },
     ],
   },
 ];
 
 const AcademicCalendar: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { dimension } = useTheme();
   const isSpace = dimension === 'space';
+  const lang = i18n.language;
 
   return (
     <div
@@ -117,14 +144,14 @@ const AcademicCalendar: React.FC = () => {
         {/* Mobile: Card layout */}
         <div className="md:hidden space-y-6">
           {SECTIONS.map((section) => (
-            <div key={section.title}>
+            <div key={section.key}>
               <h3 className="mb-3 px-2 text-sm font-black uppercase tracking-widest text-primary">
-                {section.title}
+                {t(`academicCalendar.sections.${section.key}`)}
               </h3>
               <div className="space-y-3">
                 {section.rows.map((row, i) => (
                   <div
-                    key={`${section.title}-${i}`}
+                    key={`${section.key}-${i}`}
                     className={`uv-card p-4 ${
                       isSpace ? 'bg-white/5 border-white/10' : 'bg-white border-uv-border'
                     }`}
@@ -134,43 +161,43 @@ const AcademicCalendar: React.FC = () => {
                         isSpace ? 'text-[#e1e1e6]' : 'text-uv-black'
                       }`}
                     >
-                      {row.event}
+                      {t(`academicCalendar.events.${row.eventKey}`)}
                     </p>
                     <div className="mt-3 space-y-1.5 text-xs">
                       <div>
                         <span className={`font-bold ${
                           isSpace ? 'text-[#e1e1e6]/60' : 'text-uv-gray'
                         }`}>
-                          Preparatory:
+                          {t('academicCalendar.mobileLabels.preparatory')}:
                         </span>
                         <span className={`ml-1 ${
                           isSpace ? 'text-[#e1e1e6]/90' : 'text-uv-black'
                         }`}>
-                          {row.hazirlik}
+                          {formatDate(row.hazirlik, lang)}
                         </span>
                       </div>
                       <div>
                         <span className={`font-bold ${
                           isSpace ? 'text-[#e1e1e6]/60' : 'text-uv-gray'
                         }`}>
-                          Assoc/Undergrad:
+                          {t('academicCalendar.mobileLabels.undergrad')}:
                         </span>
                         <span className={`ml-1 ${
                           isSpace ? 'text-[#e1e1e6]/90' : 'text-uv-black'
                         }`}>
-                          {row.onlisans}
+                          {formatDate(row.onlisans, lang)}
                         </span>
                       </div>
                       <div>
                         <span className={`font-bold ${
                           isSpace ? 'text-[#e1e1e6]/60' : 'text-uv-gray'
                         }`}>
-                          Graduate:
+                          {t('academicCalendar.mobileLabels.graduate')}:
                         </span>
                         <span className={`ml-1 ${
                           isSpace ? 'text-[#e1e1e6]/90' : 'text-uv-black'
                         }`}>
-                          {row.lisansustu}
+                          {formatDate(row.lisansustu, lang)}
                         </span>
                       </div>
                     </div>
@@ -199,22 +226,22 @@ const AcademicCalendar: React.FC = () => {
                     }
                   >
                     <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest w-[220px]">
-                      Event
+                      {t('academicCalendar.tableHeaders.event')}
                     </th>
                     <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest">
-                      Preparatory
+                      {t('academicCalendar.tableHeaders.preparatory')}
                     </th>
                     <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest">
-                      Associate / Undergraduate
+                      {t('academicCalendar.tableHeaders.undergrad')}
                     </th>
                     <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest">
-                      Graduate
+                      {t('academicCalendar.tableHeaders.graduate')}
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {SECTIONS.map((section) => (
-                    <React.Fragment key={section.title}>
+                    <React.Fragment key={section.key}>
                       <tr
                         className={
                           isSpace
@@ -223,12 +250,12 @@ const AcademicCalendar: React.FC = () => {
                         }
                       >
                         <td colSpan={4} className="px-4 py-3">
-                          {section.title}
+                          {t(`academicCalendar.sections.${section.key}`)}
                         </td>
                       </tr>
                       {section.rows.map((row, i) => (
                         <tr
-                          key={`${section.title}-${i}`}
+                          key={`${section.key}-${i}`}
                           className={
                             isSpace
                               ? 'border-b border-white/5 hover:bg-white/5'
@@ -240,28 +267,28 @@ const AcademicCalendar: React.FC = () => {
                               isSpace ? 'text-[#e1e1e6]' : 'text-uv-black'
                             }`}
                           >
-                            {row.event}
+                            {t(`academicCalendar.events.${row.eventKey}`)}
                           </td>
                           <td
                             className={`px-4 py-3 text-xs font-medium ${
                               isSpace ? 'text-[#e1e1e6]/80' : 'text-uv-gray'
                             }`}
                           >
-                            {row.hazirlik}
+                            {formatDate(row.hazirlik, lang)}
                           </td>
                           <td
                             className={`px-4 py-3 text-xs font-medium ${
                               isSpace ? 'text-[#e1e1e6]/80' : 'text-uv-gray'
                             }`}
                           >
-                            {row.onlisans}
+                            {formatDate(row.onlisans, lang)}
                           </td>
                           <td
                             className={`px-4 py-3 text-xs font-medium ${
                               isSpace ? 'text-[#e1e1e6]/80' : 'text-uv-gray'
                             }`}
                           >
-                            {row.lisansustu}
+                            {formatDate(row.lisansustu, lang)}
                           </td>
                         </tr>
                       ))}
@@ -278,10 +305,10 @@ const AcademicCalendar: React.FC = () => {
             isSpace ? 'text-[#e1e1e6]/40' : 'text-uv-gray'
           }`}
         >
-          Yaşar University 2025-2026 Academic Calendar
+          {t('academicCalendar.footerTitle')}
         </p>
         <p className={`mt-2 text-center text-[10px] ${isSpace ? 'text-[#e1e1e6]/50' : 'text-uv-gray'}`}>
-          Official and up-to-date calendar is available in the Student Affairs (OİDB) PDF.
+          {t('academicCalendar.footerDesc')}
         </p>
       </div>
     </div>

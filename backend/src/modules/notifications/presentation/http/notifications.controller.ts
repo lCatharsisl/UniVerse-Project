@@ -4,11 +4,15 @@ import { NotificationsService } from '../../infrastructure/notifications.service
 
 export class NotificationsController {
   static async list(req: AuthenticatedRequest, res: Response) {
-    const limitRaw = String(req.query.limit || '');
-    const offsetRaw = String(req.query.offset || '');
+    const q = req.query as { limit?: string; offset?: string; scope?: string };
+    const limitRaw = String(q.limit || '');
+    const offsetRaw = String(q.offset || '');
     const limit = Math.min(Math.max(parseInt(limitRaw || '30', 10) || 30, 1), 100);
     const offset = Math.max(parseInt(offsetRaw || '0', 10) || 0, 0);
-    const out = await NotificationsService.listForUser(req.userId!, { limit, offset });
+    const scopeRaw = q.scope;
+    const scope =
+      scopeRaw === 'personal' || scopeRaw === 'academic' || scopeRaw === 'community' ? scopeRaw : undefined;
+    const out = await NotificationsService.listForUser(req.userId!, { limit, offset, scope });
     return res.json(out);
   }
 

@@ -17,23 +17,23 @@ export const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadStats();
-  }, []);
-
   const loadStats = async () => {
     setLoading(true);
     setError(null);
     try {
       const { data } = await statisticsService.getDashboard();
       setStats(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError('Failed to load dashboard statistics');
       console.error('Load stats error:', err);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadStats();
+  }, []);
 
   if (loading) return <Loading message="Loading dashboard..." />;
   if (error) return <div className="error-container">{error}</div>;

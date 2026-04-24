@@ -21,16 +21,12 @@ _(Alternatif olarak her klasöre girip tek tek `npm install` yapabilirsiniz.)_
 
 ### 2. Çevre Değişkenlerini (.env) Ayarlayın
 
-Proje güvenliği için `.env` dosyaları paylaşılmamıştır. **backend** klasörü içerisinde `.env` adında bir dosya oluşturun ve ortak Supabase bilgilerimizi buraya girin:
+`.env` dosyaları repoda yoktur; kendi Supabase / oturum değerlerinizi **yerelde** tanımlayın.
 
-```env
-PORT=3000
-DB_USER=postgres
-DB_HOST=[SUPABASE_HOST_ADRESI]
-DB_NAME=postgres
-DB_PASSWORD=[ORTAK_SIFRE]
-DB_PORT=5432
-```
+1. [`backend/.env.example`](backend/.env.example) dosyasını `backend/.env` olarak kopyalayın.
+2. Supabase projenizden `DATABASE_URL` (veya `DB_*` alanları) ve en az 32 karakterlik `SESSION_SECRET` değerlerini doldurun.
+
+Ayrıntılı alan listesi için `backend/.env.example` içindeki yorumlara bakın.
 
 ### 3. Sistemi Çalıştırın
 
@@ -39,6 +35,66 @@ Ana dizindeyken (root) şu komutu kullanarak hem Frontend'i hem de Backend'i ayn
 ```bash
 npm run dev
 ```
+
+### 4. CI Kontrollerini Localde Doğrulayın
+
+ GitHub Actions üzerinde çalışan temel CI hattı, backend için `build + test + integration test`, frontend için `smoke test + build` kontrollerini koşturur. Push atmadan önce aynı kontrolleri localde ana dizinden şu komutla çalıştırabilirsiniz:
+
+```bash
+npm run ci
+```
+
+Not: Bu komutun sağlıklı çalışması için önce `backend` ve `frontend` bağımlılıklarının kurulmuş olması gerekir. İlk kurulum için `npm run install:all` yeterlidir.
+
+## Environment Profiles (Dev / Staging / Prod)
+
+Proje şu an tek kod tabanı ile ortam bazlı env değişkenleri üzerinden çalışır. Mevcut akış değişmeden aşağıdaki ayrımı kullanabilirsiniz:
+
+- `development`: lokal geliştirme (`FRONTEND_URL=http://localhost:5173`, `BACKEND_PUBLIC_URL=http://localhost:3000`)
+- `staging`: test/değerlendirme ortamı (staging domain URL'leri, staging DB)
+- `production`: canlı ortam (prod domain URL'leri, prod DB)
+
+Ortak kontrol listesi:
+
+- `SESSION_SECRET` en az 32 karakter
+- `DATABASE_URL` (veya `DB_*`) aktif ortama doğru bakıyor
+- `FRONTEND_URL` ve `BACKEND_PUBLIC_URL` aynı ortamı işaret ediyor
+- Microsoft login kullanılacaksa `MICROSOFT_REDIRECT_URI` ortam URL'si ile eşleşiyor
+- Monitoring kullanılacaksa `MONITORING_ENABLED=true` ve `MONITORING_WEBHOOK_URL` birlikte tanımlı
+
+## Microsoft Login Setup
+
+Yaşar Üniversitesi Microsoft hesabı ile giriş için backend tarafında aşağıdaki environment variable'lar tanımlanmalıdır:
+
+```env
+FRONTEND_URL=http://localhost:5173
+BACKEND_PUBLIC_URL=http://localhost:3000
+MICROSOFT_CLIENT_ID=...
+MICROSOFT_CLIENT_SECRET=...
+MICROSOFT_TENANT_ID=...
+MICROSOFT_REDIRECT_URI=http://localhost:3000/api/auth/microsoft/callback
+```
+
+Microsoft Entra ID tarafında app registration açılırken callback olarak `MICROSOFT_REDIRECT_URI` değeri tanımlanmalıdır.
+
+## Staging Deploy (Manual)
+
+Staging deploy workflow'u (`.github/workflows/staging-deploy.yml`) varsayılan olarak sadece simulation çalıştırır. Canlı staging deploy için manuel tetiklemede:
+
+- `run_live_deploy=true`
+- `confirm_live_deploy=DEPLOY_STAGING`
+
+alanları birlikte verilmelidir.
+
+Canlı staging deploy öncesi GitHub `staging` environment secret'ları:
+
+- `STAGING_SSH_HOST`
+- `STAGING_SSH_PORT` (opsiyonel, default `22`)
+- `STAGING_SSH_USER`
+- `STAGING_SSH_KEY`
+- `STAGING_SSH_KNOWN_HOSTS` (opsiyonel, verilmezse `ssh-keyscan` kullanılır)
+- `STAGING_DEPLOY_PATH`
+- `STAGING_DEPLOY_COMMAND`
 
 ---
 

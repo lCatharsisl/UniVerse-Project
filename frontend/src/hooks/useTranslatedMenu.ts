@@ -14,7 +14,9 @@ interface DayMenu {
   extras?: string[];
 }
 
-const MENU_KEYS: (keyof DayMenu)[] = [
+type MenuValueKey = 'soup' | 'main' | 'side' | 'salad' | 'yogurt' | 'dessert' | 'fruit';
+
+const MENU_KEYS: MenuValueKey[] = [
   'soup', 'main', 'side', 'salad', 'yogurt', 'dessert', 'fruit'
 ];
 

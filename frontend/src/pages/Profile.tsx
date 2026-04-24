@@ -11,7 +11,9 @@ import api from '../api/client';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
+import { FeedAvatarImage } from '../components/FeedAvatarImage';
 import PostDetailModal from '../components/PostDetailModal';
+import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
 import CommunityMySpace from './CommunityMySpace';
 
@@ -22,6 +24,8 @@ const FollowListModal = ({
   type, userId, onClose, onNavigate
 }: { type: 'followers' | 'following'; userId: number; onClose: () => void; onNavigate: (id: number) => void }) => {
   const { t } = useTranslation();
+  const { dimension } = useTheme();
+  const isSpace = dimension === 'space';
   const [list, setList] = useState<FollowUser[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,12 +49,23 @@ const FollowListModal = ({
         className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden max-h-[70vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        {/* Modal header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        {/* Modal header — space’te text-uv-* beyaz, hover açık gri değil yarı saydam koyu */}
+        <div
+          className={`flex items-center justify-between border-b px-5 py-4 ${
+            isSpace ? 'border-white/10' : 'border-gray-100'
+          }`}
+        >
           <h3 className="font-black text-base text-uv-black uppercase tracking-widest">
             {type === 'followers' ? t('profile.followers') : t('profile.following')}
           </h3>
-          <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-gray-100 transition-colors">
+          <button
+            type="button"
+            onClick={onClose}
+            className={`rounded-xl p-1.5 transition-colors ${
+              isSpace ? 'text-white hover:bg-white/10' : 'text-uv-black hover:bg-gray-100'
+            }`}
+            aria-label={t('common.close')}
+          >
             <FiX size={18} />
           </button>
         </div>
@@ -72,13 +87,22 @@ const FollowListModal = ({
                 <button
                   key={u.user_id}
                   onClick={() => { onNavigate(u.user_id); onClose(); }}
-                  className="w-full flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors text-left"
+                  type="button"
+                  className={`flex w-full items-center gap-3 px-5 py-3 text-left transition-colors ${
+                    isSpace ? 'hover:bg-white/10' : 'hover:bg-gray-50'
+                  }`}
                 >
                   <div className="w-10 h-10 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center text-primary font-black shrink-0">
-                    {u.avatar_url
-                      ? <img src={u.avatar_url} className="w-full h-full object-cover" />
-                      : <span className="text-sm">{(u.name || u.email)?.[0]?.toUpperCase()}</span>
-                    }
+                    <FeedAvatarImage
+                      src={resolveMediaUrl(u.avatar_url) || undefined}
+                      initials={
+                        [u.name?.[0], u.surname?.[0]].filter(Boolean).join('').toUpperCase() ||
+                        (u.name || u.email)?.[0]?.toUpperCase() ||
+                        '?'
+                      }
+                      className="text-sm"
+                      imgClassName="w-full h-full object-cover"
+                    />
                   </div>
                   <div className="min-w-0">
                     <p className="font-black text-sm text-uv-black truncate">{u.name} {u.surname}</p>
@@ -125,6 +149,7 @@ const Profile = () => {
   const [reportUserOpen, setReportUserOpen] = useState(false);
   const [reportSuccessMessage, setReportSuccessMessage] = useState<string | null>(null);
   const [userReportStatus, setUserReportStatus] = useState<{ has_reported: boolean; my_report_type: string | null }>({ has_reported: false, my_report_type: null });
+  const [coverLoadError, setCoverLoadError] = useState(false);
 
   const isStaff = currentUser && isAcademic(currentUser.role);
 
@@ -133,6 +158,10 @@ const Profile = () => {
     const t = setTimeout(() => setReportSuccessMessage(null), 3000);
     return () => clearTimeout(t);
   }, [reportSuccessMessage]);
+
+  useEffect(() => {
+    setCoverLoadError(false);
+  }, [targetUserId, profile?.coverUrl]);
 
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const warningManageRef = useRef<HTMLDivElement>(null);
@@ -156,15 +185,6 @@ const Profile = () => {
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [openProfileMenu, warningManageOpen]);
-
-  useEffect(() => { fetchProfileData(); }, [targetUserId]);
-  useEffect(() => {
-    if (activeTab === 'my-items') fetchMyItems();
-    else if (activeTab === 'my-communities' && isOwnProfile) {
-      // Load on tab open for better UX.
-      void fetchMyCommunities();
-    } else fetchActivities();
-  }, [activeTab, targetUserId]);
 
   const fetchMyCommunities = async () => {
     if (!isOwnProfile || !targetUserId) return;
@@ -221,7 +241,7 @@ const Profile = () => {
       const typeMap: any = { posts: 'user_posts', likes: 'user_likes', reposts: 'user_reposts' };
       const res = await api.get(`/social/users/${targetUserId}/activities/${typeMap[activeTab]}`);
       setActivities(res.data.items || []);
-    } catch (err) { console.error('Failed to fetch activities'); }
+    } catch { console.error('Failed to fetch activities'); }
   };
 
   const fetchMyItems = async () => {
@@ -233,8 +253,17 @@ const Profile = () => {
       const l = (lostRes.data.items || []).filter((i: any) => i.user_id === targetUserId).map((i: any) => ({ ...i, __type: 'lost' }));
       const f = (foundRes.data.items || []).filter((i: any) => i.user_id === targetUserId).map((i: any) => ({ ...i, __type: 'found' }));
       setItems([...l, ...f]);
-    } catch (err) { console.error('Failed to fetch items'); }
+    } catch { console.error('Failed to fetch items'); }
   };
+
+  useEffect(() => { fetchProfileData(); }, [targetUserId]);
+  useEffect(() => {
+    if (activeTab === 'my-items') fetchMyItems();
+    else if (activeTab === 'my-communities' && isOwnProfile) {
+      // Load on tab open for better UX.
+      void fetchMyCommunities();
+    } else fetchActivities();
+  }, [activeTab, targetUserId]);
 
   const handleToggleFollow = async () => {
     if (isOwnProfile) return;
@@ -243,7 +272,7 @@ const Profile = () => {
       const followed = res.data.action === 'followed';
       setIsFollowing(followed);
       setStats(prev => ({ ...prev, followers: prev.followers + (followed ? 1 : -1) }));
-    } catch (err) {
+    } catch {
       await themedAlert('Failed to update follow status');
     }
   };
@@ -259,7 +288,7 @@ const Profile = () => {
       setOpenProfileMenu(false);
       setReportSuccessMessage('Report submitted successfully.');
       setUserReportStatus({ has_reported: true, my_report_type: reportType });
-    } catch (err) {
+    } catch {
       await themedAlert('Failed to submit report');
     }
   };
@@ -283,7 +312,7 @@ const Profile = () => {
       setWarningPanel(false);
       setOpenProfileMenu(false);
       fetchProfileData();
-    } catch (err) {
+    } catch {
       await themedAlert('Failed to apply warning');
     }
   };
@@ -300,7 +329,7 @@ const Profile = () => {
       else if (action === 'unban') await api.patch(`/social/users/${targetUserId}/warning`, { action: 'unban' });
       setWarningManageOpen(false);
       fetchProfileData();
-    } catch (err) {
+    } catch {
       await themedAlert('Failed to update');
     }
   };
@@ -311,7 +340,7 @@ const Profile = () => {
       await api.delete(`/social/posts/${postId}`);
       setActivities(activities.filter(p => p.post_id !== postId));
       setOpenMenu(null);
-    } catch (err) {
+    } catch {
       await themedAlert('Failed to delete post');
     }
   };
@@ -334,8 +363,8 @@ const Profile = () => {
     return <CommunityMySpace />;
   }
 
-  const coverSrc = profile.coverUrl || '';
-  const avatarSrc = profile.avatarUrl || '';
+  const coverSrc = resolveMediaUrl(profile.coverUrl || undefined);
+  const avatarSrc = resolveMediaUrl(profile.avatarUrl || undefined);
 
   return (
     <div className={`flex flex-col min-h-screen ${isSpace ? 'bg-[#050510]' : 'bg-white'}`}>
@@ -349,8 +378,13 @@ const Profile = () => {
 
       {/* ── Cover Photo ─────────────────────────────────── */}
       <div className="relative h-36 md:h-56 w-full bg-uv-black overflow-hidden">
-        {coverSrc ? (
-          <img src={coverSrc.startsWith('http') ? coverSrc : `http://localhost:3000${coverSrc}`} className="w-full h-full object-cover" alt="Cover" />
+        {coverSrc && !coverLoadError ? (
+          <img
+            src={coverSrc}
+            className="w-full h-full object-cover"
+            alt="Cover"
+            onError={() => setCoverLoadError(true)}
+          />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/60 to-accent opacity-70" />
         )}
@@ -381,10 +415,16 @@ const Profile = () => {
           {/* Avatar */}
           <div className="relative shrink-0">
             <div className="w-20 h-20 md:w-28 md:h-28 rounded-2xl overflow-hidden border-4 border-white shadow-xl bg-primary/10 flex items-center justify-center text-3xl font-black text-primary">
-              {avatarSrc
-                ? <img src={avatarSrc.startsWith('http') ? avatarSrc : `http://localhost:3000${avatarSrc}`} className="w-full h-full object-cover" alt="Avatar" />
-                : <span>{profile.name?.[0]?.toUpperCase() || '?'}</span>
-              }
+              <FeedAvatarImage
+                src={avatarSrc || undefined}
+                initials={
+                  [profile.name?.[0], profile.surname?.[0]].filter(Boolean).join('').toUpperCase() ||
+                  profile.name?.[0]?.toUpperCase() ||
+                  '?'
+                }
+                className="text-2xl font-black"
+                imgClassName="w-full h-full object-cover"
+              />
             </div>
           </div>
 
@@ -538,7 +578,9 @@ const Profile = () => {
                                   const res = await api.post(`/auth/block/${targetUserId}`);
                                   if (res.data?.action === 'blocked') navigate('/feed');
                                   setOpenProfileMenu(false);
-                                } catch {}
+                                } catch {
+                                  return;
+                                }
                               }}
                               className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-orange-500 hover:bg-orange-500/10 flex items-center gap-2"
                             >
@@ -767,10 +809,16 @@ const Profile = () => {
               >
                 <div className="flex gap-3">
                   <div className="w-9 h-9 md:w-11 md:h-11 bg-primary/10 rounded-xl flex items-center justify-center font-black text-sm text-primary border border-primary/10 overflow-hidden shrink-0">
-                    {post.avatar_url
-                      ? <img src={post.avatar_url} className="w-full h-full object-cover" />
-                      : post.email?.[0]?.toUpperCase() || '?'
-                    }
+                    <FeedAvatarImage
+                      src={resolveMediaUrl(post.avatar_url) || undefined}
+                      initials={
+                        [post.first_name?.[0], post.last_name?.[0]].filter(Boolean).join('').toUpperCase() ||
+                        post.email?.[0]?.toUpperCase() ||
+                        '?'
+                      }
+                      className="text-xs"
+                      imgClassName="w-full h-full object-cover"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
@@ -785,12 +833,28 @@ const Profile = () => {
                             <FiMoreHorizontal size={12} />
                           </button>
                           {openMenu === post.post_id && (
-                            <div className="absolute right-0 mt-1 w-36 bg-white border border-uv-border rounded-xl shadow-xl z-20 py-1.5">
-                              <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/post/${post.post_id}`); setOpenMenu(null); }} className="w-full text-left px-3 py-1.5 text-[9px] font-black uppercase text-uv-black hover:bg-gray-50 flex items-center gap-2">
+                            <div
+                              className={`absolute right-0 z-20 mt-1 w-36 rounded-xl border py-1.5 shadow-xl ${
+                                isSpace ? 'border-white/10 bg-[#0d0d1a]' : 'border-uv-border bg-white'
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/post/${post.post_id}`); setOpenMenu(null); }}
+                                className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[9px] font-black uppercase ${
+                                  isSpace ? 'text-white hover:bg-white/10' : 'text-uv-black hover:bg-gray-50'
+                                }`}
+                              >
                                 <FiLink size={10} /> {t('profile.copyLink')}
                               </button>
                               {(post.user_id === currentUser?.userId || post.reposter_id === currentUser?.userId) && (
-                                <button onClick={() => handleDeletePost(post.post_id)} className="w-full text-left px-3 py-1.5 text-[9px] font-black uppercase text-red-500 hover:bg-red-50 flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePost(post.post_id)}
+                                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[9px] font-black uppercase ${
+                                    isSpace ? 'text-red-400 hover:bg-red-500/20' : 'text-red-500 hover:bg-red-50'
+                                  }`}
+                                >
                                   <FiTrash2 size={10} /> {t('common.delete')}
                                 </button>
                               )}
@@ -825,7 +889,9 @@ const Profile = () => {
                                 const n = Number(p.likes_count) || 0;
                                 return { ...p, has_liked: !p.has_liked, likes_count: p.has_liked ? n - 1 : n + 1 };
                               }));
-                            } catch {}
+                            } catch {
+                              return;
+                            }
                           }}
                           className={`flex items-center gap-0.5 ${post.has_liked ? 'text-pink-500' : 'hover:text-pink-500 transition-colors'}`}
                         >
