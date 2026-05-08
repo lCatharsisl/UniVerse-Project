@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect, @typescript-eslint/no-explicit-any */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
@@ -27,9 +28,14 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { getAuthUserAvatarUrl, getAuthUserInitials } from '../utils/authUserDisplay';
 import { useMessagingUnread } from '../context/MessagingUnreadContext';
+import { useMessagesThreadLayout } from '../context/MessagesThreadLayoutContext';
 import { useTranslation } from 'react-i18next';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
+import { NavIconBadge } from '../components/NavIconBadge';
+import SharedPostMessageCard from '../components/messaging/SharedPostMessageCard';
 import { resolveMediaUrl } from '../utils/resolveMediaUrl';
+import { PULL_REFRESH_EVENT, type PullRefreshRequestDetail } from '../types/pullRefresh';
+import { UV_RESET_VISUAL_VIEWPORT_EVENT } from '../hooks/useVisualKeyboardInset';
 type UserSearchRow = {
   user_id: number;
   first_name?: string;
@@ -92,6 +98,12 @@ type Message = {
   content?: string | null;
   created_at: string;
   attachments?: MessageAttachment[];
+  message_type?: string;
+  shared_post_id?: number | null;
+  shared_post_content?: string | null;
+  shared_post_image_url?: string | null;
+  shared_post_author_first?: string | null;
+  shared_post_author_last?: string | null;
 };
 
 type MediaViewerState = {
@@ -111,6 +123,9 @@ function mapApiMessageToRow(raw: unknown): Message | null {
       }))
     : [];
 
+  const sid = r.shared_post_id != null ? Number(r.shared_post_id) : null;
+  const sharedPostId = Number.isFinite(sid) && sid! > 0 ? sid : null;
+
   return {
     message_id: messageId,
     sender_user_id: Number(r.sender_user_id),
@@ -120,6 +135,12 @@ function mapApiMessageToRow(raw: unknown): Message | null {
     content: r.content != null ? String(r.content) : null,
     created_at: String(r.created_at ?? ''),
     attachments,
+    message_type: r.message_type != null ? String(r.message_type) : 'text',
+    shared_post_id: sharedPostId,
+    shared_post_content: r.shared_post_content != null ? String(r.shared_post_content) : null,
+    shared_post_image_url: r.shared_post_image_url != null ? String(r.shared_post_image_url) : null,
+    shared_post_author_first: r.shared_post_author_first != null ? String(r.shared_post_author_first) : null,
+    shared_post_author_last: r.shared_post_author_last != null ? String(r.shared_post_author_last) : null,
   };
 }
 
@@ -198,6 +219,7 @@ const Messages: React.FC = () => {
     readStoredJson<Conversation[]>('messages:conversation-cache', [])
   );
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
+  const { setMobileMessagesThreadOpen } = useMessagesThreadLayout();
   const [messages, setMessages] = useState<Message[]>([]);
   const [content, setContent] = useState('');
   const [images, setImages] = useState<File[]>([]);
@@ -230,8 +252,23 @@ const Messages: React.FC = () => {
   const [highlightMessageId, setHighlightMessageId] = useState<number | null>(null);
   const activeConversationIdRef = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesThreadRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messagesCacheRef = useRef<Record<number, Message[]>>({});
+  const shouldStickToBottomRef = useRef(true);
+  const lastActiveConversationRef = useRef<number | null>(null);
+  const [isLg, setIsLg] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)').matches : false
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const on = () => setIsLg(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
@@ -420,7 +457,8 @@ const Messages: React.FC = () => {
       setConversations(unique);
       setActiveConversationId((prev) => {
         if (prev && unique.some((conversation) => conversation.conversation_id === prev)) return prev;
-        if (!prev && unique.length === 1) return unique[0].conversation_id;
+        /** Sessiz poll ile tek konuşmayı tekrar seçme — inbox’a dönünce 10 sn’de sohbete zıplamayı keser */
+        if (!prev && unique.length === 1 && !opts?.silent) return unique[0].conversation_id;
         return null;
       });
       void refreshMessagesUnreadCount();
@@ -435,15 +473,46 @@ const Messages: React.FC = () => {
 
   useEffect(() => {
     fetchConversations({ silent: conversations.length > 0 }).catch(() => {});
-    const id = window.setInterval(() => {
+    const listPoll = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
       fetchConversations({ silent: true }).catch(() => {});
+    }, 10000);
+
+    const messagePoll = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
       const conversationId = activeConversationIdRef.current;
-      if (conversationId && typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      if (conversationId) {
         loadConversationMessages(conversationId, { markRead: true, silent: true }).catch(() => {});
       }
-    }, 15000);
-    return () => window.clearInterval(id);
+    }, 3000);
+
+    return () => {
+      window.clearInterval(listPoll);
+      window.clearInterval(messagePoll);
+    };
   }, [conversations.length, fetchConversations, loadConversationMessages]);
+
+  useEffect(() => {
+    const handlePullRefresh = (event: Event) => {
+      const customEvent = event as CustomEvent<PullRefreshRequestDetail>;
+      if (customEvent.detail?.path !== '/messages') return;
+
+      customEvent.preventDefault();
+      customEvent.detail.enqueue(
+        (async () => {
+          await fetchConversations({ silent: true });
+          const conversationId = activeConversationIdRef.current;
+          if (conversationId) {
+            await loadConversationMessages(conversationId, { markRead: true, silent: true });
+          }
+          await refreshMessagesUnreadCount();
+        })()
+      );
+    };
+
+    window.addEventListener(PULL_REFRESH_EVENT, handlePullRefresh);
+    return () => window.removeEventListener(PULL_REFRESH_EVENT, handlePullRefresh);
+  }, [fetchConversations, loadConversationMessages, refreshMessagesUnreadCount]);
 
   useEffect(() => {
     if (!activeConversationId) {
@@ -459,9 +528,55 @@ const Messages: React.FC = () => {
     else setMobilePane('list');
   }, [activeConversationId]);
 
+  /** Mobil: yalnızca tam ekran sohbet (chat pane) açıkken alt tab kaldırılır; inbox’da geri dönünce id kalır, pane list olur */
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    const open = mobilePane === 'chat' && activeConversationId != null;
+    setMobileMessagesThreadOpen(open);
+    return () => setMobileMessagesThreadOpen(false);
+  }, [activeConversationId, mobilePane, setMobileMessagesThreadOpen]);
+
+  /** iOS: inbox’a dönünce viewport/klavye ölçümünü ve kök scroll’u sıfırla */
+  useEffect(() => {
+    if (mobilePane !== 'list' || typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 1279px)');
+    if (!mq.matches) return;
+    const id = window.requestAnimationFrame(() => {
+      window.dispatchEvent(new CustomEvent(UV_RESET_VISUAL_VIEWPORT_EVENT));
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [mobilePane]);
+
+  useEffect(() => {
+    const thread = messagesThreadRef.current;
+    const conversationChanged = lastActiveConversationRef.current !== activeConversationId;
+    lastActiveConversationRef.current = activeConversationId;
+
+    if (!thread) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+      return;
+    }
+
+    if (conversationChanged || shouldStickToBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: conversationChanged ? 'auto' : 'smooth',
+        block: 'end',
+      });
+    }
   }, [messages, activeConversationId]);
+
+  useEffect(() => {
+    const thread = messagesThreadRef.current;
+    if (!thread) return;
+
+    const updateStickiness = () => {
+      const distanceFromBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight;
+      shouldStickToBottomRef.current = distanceFromBottom < 96;
+    };
+
+    updateStickiness();
+    thread.addEventListener('scroll', updateStickiness, { passive: true });
+    return () => thread.removeEventListener('scroll', updateStickiness);
+  }, [activeConversationId]);
 
   useEffect(() => {
     if (!dmParam || !user) return;
@@ -644,15 +759,12 @@ const Messages: React.FC = () => {
 
   const activeHeaderAvatar = activeConversation ? conversationAvatar(activeConversation) : null;
 
-  const getReadLabel = (messageId: number, senderUserId: number) => {
+  const getReadState = (messageId: number, senderUserId: number): 'sent' | 'read' | null => {
     if (!activeConversation || !user || senderUserId !== user.userId) return null;
     const others = activeMembers;
     if (others.length === 0) return null;
     const readBy = others.filter((member) => (member.last_read_message_id || 0) >= messageId).length;
-    if (activeConversation.is_group) {
-      return `Read by ${readBy}/${others.length}`;
-    }
-    return readBy > 0 ? t('messagesPage.read') : t('messagesPage.sent');
+    return readBy > 0 ? 'read' : 'sent';
   };
 
   const isMessageReadByOthers = (messageId: number) => {
@@ -687,7 +799,10 @@ const Messages: React.FC = () => {
       setSearchText('');
       setSearchResults([]);
       await fetchConversations();
-      if (conversationId) setActiveConversationId(conversationId);
+      if (conversationId) {
+        setActiveConversationId(conversationId);
+        setMobilePane('chat');
+      }
     } catch (err: any) {
       setError((err?.response?.data?.error as string) || t('messagesPage.startChatFailed'));
     }
@@ -762,7 +877,6 @@ const Messages: React.FC = () => {
 
     try {
       const res = await api.post(`/messages/conversations/${conversationId}/messages`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 60000,
       });
       const added = mapApiMessageToRow(res.data);
@@ -912,14 +1026,16 @@ const Messages: React.FC = () => {
     ? 'bg-[linear-gradient(180deg,rgba(5,5,15,0.95)_0%,rgba(8,8,20,0.98)_100%)]'
     : 'bg-[linear-gradient(180deg,rgba(248,250,252,0.9)_0%,rgba(255,255,255,0.95)_100%)]';
   const messagesComposerBarClass = isSpace
-    ? 'border-white/10 bg-[#08081a]/95'
-    : 'border-slate-200/80 bg-white/92';
+    ? 'border-white/10 bg-[#08081a]/96'
+    : 'border-white/10 bg-[#0b0b18]/94';
   const messagesInfoAsideClass = isSpace
     ? 'border-white/10 bg-[#0a0a1a]/95'
     : 'border-slate-200/80 bg-white/95';
   const messagesMobileInfoDrawerClass = isSpace
     ? 'border-white/10 bg-[#0a0a1a]/98'
     : 'border-slate-200/80 bg-white/95';
+  const composerBottomInset = 'max(env(safe-area-inset-bottom), 16px)';
+  const composerStickyOffset = '0px';
 
   const infoPanelContent = (onClose: () => void) => (
     <>
@@ -1087,7 +1203,10 @@ const Messages: React.FC = () => {
             )}
             <div className="space-y-1.5">
               {inChatSearchResults.map((m) => {
-                const body = m.content || (m.attachments?.length ? t('messagesPage.attachmentMessageFallback') : '…');
+                const body =
+                  m.message_type === 'post_share' && m.shared_post_id
+                    ? t('messagesPage.postShareSearchHit')
+                    : m.content || (m.attachments?.length ? t('messagesPage.attachmentMessageFallback') : '…');
                 const short = body.length > 120 ? `${body.slice(0, 117)}…` : body;
                 return (
                   <button
@@ -1229,9 +1348,9 @@ const Messages: React.FC = () => {
   );
 
   return (
-    <div className="universe-messages box-border flex h-full max-h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden p-1.5 sm:p-2 md:px-2.5 md:py-2 lg:px-3 lg:py-2.5">
+    <div className="universe-messages box-border flex h-full max-h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden p-0 sm:p-2 md:px-2.5 md:py-2 lg:px-3 lg:py-2.5">
       <div
-        className={`relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[20px] border shadow-[0_30px_90px_rgba(15,23,42,0.12)] sm:rounded-[24px] md:rounded-[28px] lg:rounded-[30px] ${messagesShellBorderBg}`}
+        className={`relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-none border-0 shadow-none sm:rounded-[24px] sm:border md:rounded-[28px] lg:rounded-[30px] sm:shadow-[0_30px_90px_rgba(15,23,42,0.12)] ${messagesShellBorderBg}`}
       >
         <div
           className={`pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:24px_24px] ${isSpace ? 'opacity-15' : 'opacity-40'}`}
@@ -1245,32 +1364,30 @@ const Messages: React.FC = () => {
           />
         )}
         <div
-          className={`relative z-0 grid min-h-0 h-full max-h-full min-w-0 grid-cols-1 gap-2 p-2 sm:gap-3 sm:p-3 lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)] ${showInfoPanel ? '2xl:grid-cols-[minmax(260px,320px)_minmax(0,1fr)_260px]' : ''}`}
+        className={`relative z-0 grid h-full max-h-full min-h-0 min-w-0 grid-cols-1 grid-rows-[minmax(0,1fr)] gap-0 p-0 sm:gap-3 sm:p-3 lg:grid-cols-[minmax(300px,380px)_minmax(0,1fr)] ${showInfoPanel ? '2xl:grid-cols-[minmax(300px,380px)_minmax(0,1fr)_260px]' : ''}`}
         >
           <aside
             className={`flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[20px] border shadow-[0_16px_60px_rgba(15,23,42,0.08)] backdrop-blur sm:rounded-[24px] lg:rounded-[28px] ${messagesInboxColumnClass} ${mobilePane === 'chat' ? 'hidden lg:flex' : 'flex'}`}
           >
-            <div className="border-b border-slate-200/80 space:border-white/10 px-4 pb-4 pt-5">
+            <div className="border-b border-slate-200/80 space:border-white/10 px-3 py-2.5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div
-                    className={`text-xs font-black uppercase tracking-[0.24em] ${isSpace ? 'text-indigo-300' : 'text-indigo-500'}`}
+                    className={`text-[10px] font-black uppercase tracking-[0.24em] ${isSpace ? 'text-indigo-300' : 'text-indigo-500'}`}
                   >
                     {t('messagesPage.inboxLabel')}
                   </div>
-                  <h1 className={`mt-2 text-2xl font-black tracking-tight ${isSpace ? 'text-white' : 'text-slate-950'}`}>
+                  <h1 className={`mt-1 text-base font-black tracking-tight ${isSpace ? 'text-white' : 'text-slate-950'}`}>
                     {t('messagesPage.title')}
                   </h1>
                 </div>
-                <div
-                  className={`rounded-2xl border px-3 py-2 text-right ${isSpace ? 'border-white/10 bg-white/[0.06]' : 'border-slate-200 bg-slate-50'}`}
-                >
+                <div className={`rounded-2xl border px-2.5 py-2 text-right ${isSpace ? 'border-white/10 bg-white/[0.06]' : 'border-slate-200 bg-slate-50'}`}>
                   <div
-                    className={`text-[10px] font-bold uppercase tracking-[0.18em] ${isSpace ? 'text-slate-400' : 'text-slate-400'}`}
+                    className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400"
                   >
                     {t('messagesPage.conversation')}
                   </div>
-                  <div className={`mt-1 text-lg font-black ${isSpace ? 'text-white' : 'text-slate-950'}`}>
+                  <div className={`mt-0.5 text-sm font-black ${isSpace ? 'text-white' : 'text-slate-950'}`}>
                     {conversations.length}
                   </div>
                 </div>
@@ -1506,6 +1623,7 @@ const Messages: React.FC = () => {
               </div>
             )}
 
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
                 <div className="mb-3 flex items-center justify-between px-1">
                 <div className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400 space:text-slate-500">
@@ -1545,7 +1663,6 @@ const Messages: React.FC = () => {
                     const listAvatarSrc = mediaImageSrc(avatar.url);
                     const unreadCount = Number(conversation.unread_count) || 0;
                     const title = conversationTitle(conversation);
-                    const listPeerId = getDmPeerUserId(conversation);
                     const isRowActive = conversation.conversation_id === activeConversationId;
                     return (
                       <div
@@ -1569,74 +1686,33 @@ const Messages: React.FC = () => {
                           className="flex min-w-0 flex-1 items-start gap-3 px-3 py-3 text-left"
                         >
                           <div className="relative shrink-0">
-                            {listPeerId != null ? (
-                              <Link
-                                to={`/profile/${listPeerId}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="block"
-                                aria-label={title}
-                              >
-                                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-slate-900 text-sm font-black text-white">
-                                  {listAvatarSrc ? (
-                                    <img
-                                      src={listAvatarSrc}
-                                      alt=""
-                                      className="h-full w-full object-cover"
-                                    />
-                                  ) : (
-                                    getInitials(avatar.label)
-                                  )}
-                                </div>
-                              </Link>
-                            ) : (
-                              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-slate-900 text-sm font-black text-white">
-                                {listAvatarSrc ? (
-                                  <img
-                                    src={listAvatarSrc}
-                                    alt=""
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : (
-                                  getInitials(avatar.label)
-                                )}
-                              </div>
-                            )}
-                            {unreadCount > 0 && (
-                              <span className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-black text-white">
-                                {unreadCount}
-                              </span>
-                            )}
+                            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-slate-900 text-sm font-black text-white">
+                              {listAvatarSrc ? (
+                                <img
+                                  src={listAvatarSrc}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                getInitials(avatar.label)
+                              )}
+                            </div>
+                            <NavIconBadge count={unreadCount} tone="messages" />
                           </div>
 
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-2">
-                              {listPeerId != null ? (
-                                <Link
-                                  to={`/profile/${listPeerId}`}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className={`min-w-0 flex-1 truncate text-left text-sm font-black no-underline transition hover:underline ${
-                                    isRowActive
-                                      ? isSpace
-                                        ? 'text-white'
-                                        : 'text-slate-900'
-                                      : 'text-slate-950'
-                                  }`}
-                                >
-                                  {title}
-                                </Link>
-                              ) : (
-                                <div
-                                  className={`truncate text-sm font-black ${
-                                    isRowActive
-                                      ? isSpace
-                                        ? 'text-white'
-                                        : 'text-slate-900'
-                                      : 'text-slate-950'
-                                  }`}
-                                >
-                                  {title}
-                                </div>
-                              )}
+                              <div
+                                className={`min-w-0 flex-1 truncate text-left text-sm font-black ${
+                                  isRowActive
+                                    ? isSpace
+                                      ? 'text-white'
+                                      : 'text-slate-900'
+                                    : 'text-slate-950'
+                                }`}
+                              >
+                                {title}
+                              </div>
                               <div
                                 className={`shrink-0 text-[11px] font-medium ${
                                   isRowActive
@@ -1662,71 +1738,37 @@ const Messages: React.FC = () => {
                             >
                               {conversation.last_message_content || t('messagesPage.noMessagesYet')}
                             </div>
-                            <div
-                              className={`mt-2 flex items-center gap-2 text-[11px] font-semibold ${
-                                isRowActive
-                                  ? isSpace
-                                    ? 'text-slate-400'
-                                    : 'text-slate-500'
-                                  : isSpace
-                                    ? 'text-slate-400'
-                                    : 'text-slate-500'
-                              }`}
-                            >
-                              <span
-                                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
-                                  unreadCount > 0
-                                    ? isRowActive
+                            {unreadCount > 0 ? (
+                              <div className="mt-2">
+                                <span
+                                  className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ${
+                                    isRowActive
                                       ? isSpace
                                         ? 'bg-indigo-900/70 text-indigo-100'
                                         : 'bg-indigo-100 text-indigo-800'
                                       : isSpace
                                         ? 'bg-indigo-950/60 text-indigo-200'
                                         : 'bg-indigo-100 text-indigo-700'
-                                    : isRowActive
-                                      ? isSpace
-                                        ? 'bg-white/10 text-slate-300'
-                                        : 'bg-slate-200/80 text-slate-600'
-                                      : isSpace
-                                        ? 'bg-slate-800 text-slate-400'
-                                        : 'bg-slate-100 text-slate-500'
-                                }`}
-                              >
-                                <span
-                                  className={`h-1.5 w-1.5 rounded-full ${
-                                    unreadCount > 0
-                                      ? isSpace
-                                        ? 'bg-indigo-300'
-                                        : 'bg-indigo-500'
-                                      : isSpace
-                                        ? 'bg-slate-500'
-                                        : 'bg-slate-400'
                                   }`}
-                                />
-                                {unreadCount > 0 ? t('messagesPage.newMessages') : t('messagesPage.upToDate')}
-                              </span>
-                              <span
-                                className={`truncate ${
-                                  isRowActive
-                                    ? isSpace
-                                      ? 'text-slate-400'
-                                      : 'text-slate-500'
-                                    : 'text-slate-500'
-                                }`}
-                              >
-                                {conversation.is_group
-                                  ? `${dedupeConversationMembers(conversation.members).length} ${t('messagesPage.participants')}`
-                                  : t('messagesPage.directMessage')}
-                              </span>
-                            </div>
+                                >
+                                  <span
+                                    className={`h-1.5 w-1.5 rounded-full ${
+                                      isSpace ? 'bg-indigo-300' : 'bg-indigo-500'
+                                    }`}
+                                  />
+                                  {unreadCount}
+                                </span>
+                              </div>
+                            ) : null}
                           </div>
                         </button>
 
                         <button
                           type="button"
                           title={t('messagesPage.deleteChat')}
+                          aria-label={t('messagesPage.deleteChat')}
                           onClick={(event) => deleteConversation(conversation, event)}
-                          className="mx-1 my-1 inline-flex w-11 items-center justify-center rounded-[20px] text-slate-400 space:text-slate-500 opacity-0 transition hover:bg-red-50 space:hover:bg-red-950/30 hover:text-red-600 space:hover:text-red-300 group-hover:opacity-100"
+                          className="mx-1 my-1 inline-flex w-11 shrink-0 items-center justify-center rounded-[20px] text-slate-500 transition hover:bg-red-50 hover:text-red-600 space:text-slate-400 space:hover:bg-red-950/30 space:hover:text-red-300"
                         >
                           <FiTrash2 size={16} />
                         </button>
@@ -1736,10 +1778,11 @@ const Messages: React.FC = () => {
                 </div>
               )}
             </div>
+            </div>
           </aside>
 
           <section
-            className={`flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[20px] border shadow-[0_16px_60px_rgba(15,23,42,0.08)] backdrop-blur sm:rounded-[24px] lg:rounded-[28px] ${messagesChatColumnClass} ${mobilePane === 'list' ? 'hidden lg:flex' : 'flex'}`}
+            className={`flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-none border-x-0 border-y shadow-none backdrop-blur sm:rounded-[24px] sm:border sm:shadow-[0_16px_60px_rgba(15,23,42,0.08)] lg:rounded-[28px] ${messagesChatColumnClass} ${mobilePane === 'list' ? 'hidden lg:flex' : 'flex'}`}
           >
             <div className="border-b border-slate-200/80 space:border-white/10 px-4 py-4">
               {error && (
@@ -1751,7 +1794,10 @@ const Messages: React.FC = () => {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setMobilePane('list')}
+                  onClick={() => {
+                    setMobilePane('list');
+                    setActiveConversationId(null);
+                  }}
                   className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 space:border-white/10 bg-white space:bg-slate-800/80 text-slate-500 space:text-slate-300 lg:hidden"
                 >
                   <FiArrowLeft size={18} />
@@ -1849,7 +1895,14 @@ const Messages: React.FC = () => {
               </div>
             </div>
 
-            <div className={`min-h-0 flex-1 overflow-y-auto px-4 py-4 ${messagesThreadScrollClass}`}>
+            <div
+              ref={messagesThreadRef}
+              className={`flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4 ${messagesThreadScrollClass}`}
+              style={{
+                paddingBottom:
+                  activeConversationId && isLg ? `calc(${composerBottomInset} + 11rem)` : undefined,
+              }}
+            >
               {!activeConversationId ? (
                 <div className="flex min-h-full flex-col items-center justify-center px-4 text-center">
                   <div className="flex h-16 w-16 items-center justify-center rounded-[24px] bg-slate-950 text-white shadow-[0_18px_40px_rgba(15,23,42,0.22)]">
@@ -1875,10 +1928,12 @@ const Messages: React.FC = () => {
                   ))}
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="flex min-h-full flex-1 flex-col">
+                  <div className="min-h-0 flex-1" aria-hidden />
+                  <div className="space-y-4">
                   {messages.map((message, index) => {
                     const mine = !!user && message.sender_user_id === user.userId;
-                    const readLabel = getReadLabel(message.message_id, message.sender_user_id);
+                    const readState = getReadState(message.message_id, message.sender_user_id);
                     const canUnsend = mine && !isMessageReadByOthers(message.message_id);
                     const showDayDivider =
                       index === 0 ||
@@ -1895,7 +1950,7 @@ const Messages: React.FC = () => {
                       <React.Fragment key={message.message_id}>
                         {showDayDivider && (
                           <div className="flex items-center justify-center py-2">
-                            <span className="rounded-full border border-slate-200 space:border-slate-600/50 bg-white space:bg-slate-800/90 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400 space:text-slate-500">
+                            <span className="rounded-full border border-slate-200/70 space:border-slate-600/35 bg-white/85 space:bg-slate-800/75 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400 space:text-slate-500">
                               {formatDayLabel(message.created_at)}
                             </span>
                           </div>
@@ -1921,119 +1976,139 @@ const Messages: React.FC = () => {
                             </Link>
                           )}
 
-                          <div className={`max-w-[88%] sm:max-w-[72%] ${mine ? 'items-end' : 'items-start'} flex flex-col`}>
+                          <div className={`max-w-[92%] sm:max-w-[80%] ${mine ? 'items-end' : 'items-start'} flex flex-col`}>
                             {!mine && activeConversation?.is_group && (
-                              <Link
-                                to={`/profile/${message.sender_user_id}`}
-                                className="mb-1 block px-1 text-left text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 no-underline space:text-slate-500 transition hover:text-slate-600 space:hover:text-slate-300"
-                              >
+                              <div className="mb-1 block px-1 text-left text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 space:text-slate-500">
                                 {senderName}
-                              </Link>
+                              </div>
                             )}
 
                             <div
                               data-message-id={message.message_id}
-                              className={`relative overflow-hidden rounded-[26px] border px-4 py-3 shadow-[0_12px_28px_rgba(15,23,42,0.07)] ${
+                              className={`relative flex w-fit max-w-full min-w-0 items-stretch overflow-visible rounded-[26px] border shadow-[0_12px_28px_rgba(15,23,42,0.07)] ${
                                 mine
                                   ? 'border-indigo-200 bg-[linear-gradient(135deg,_#312e81_0%,_#4338ca_58%,_#818cf8_100%)] text-white'
-                                  : 'border-slate-200 space:border-slate-600/40 bg-white space:bg-slate-800/90 text-slate-900 space:text-slate-100'
+                                  : 'border-slate-200/80 space:border-slate-600/30 bg-white/95 space:bg-slate-800/72 text-slate-900 space:text-slate-100'
                               } ${
                                 highlightMessageId === message.message_id
                                   ? 'ring-2 ring-amber-400 ring-offset-2 space:ring-offset-slate-900'
                                   : ''
                               }`}
                             >
-                              {message.content && (
-                                <p className={`whitespace-pre-wrap text-sm leading-6 ${mine ? 'text-white' : 'text-slate-700 space:text-slate-200'}`}>
-                                  {message.content}
-                                </p>
-                              )}
+                              <div className="min-w-0 max-w-full px-4 py-3">
+                                {message.message_type === 'post_share' && message.shared_post_id ? (
+                                  <SharedPostMessageCard
+                                    sharedPostId={message.shared_post_id}
+                                    imageUrl={message.shared_post_image_url}
+                                    authorFirst={message.shared_post_author_first}
+                                    authorLast={message.shared_post_author_last}
+                                    contentPreview={message.shared_post_content}
+                                    badgeLabel={t('messagesPage.postShareBadge')}
+                                    openLabel={t('messagesPage.postShareOpen')}
+                                    emptyContentLabel={t('messagesPage.postShareNoText')}
+                                    variant={mine ? 'mine' : 'theirs'}
+                                  />
+                                ) : null}
+                                {message.content && (
+                                  <p className={`whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-6 ${mine ? 'text-white' : 'text-slate-700 space:text-slate-200'}`}>
+                                    {message.content}
+                                  </p>
+                                )}
 
-                              {!!message.attachments?.length && (
-                                <div className={`mt-3 grid grid-cols-2 gap-2 ${message.attachments.length === 1 ? 'sm:grid-cols-1' : 'sm:grid-cols-2'}`}>
-                                  {message.attachments.map((attachment) => {
-                                    const att = mediaImageSrc(attachment.file_url);
-                                    if (!att) return null;
-                                    return (
-                                      <button
-                                        key={attachment.attachment_id}
-                                        type="button"
-                                        onClick={() => openMediaViewer(att)}
-                                        className="group block overflow-hidden rounded-2xl border border-black/5 text-left"
+                                {!!message.attachments?.length && (
+                                  <div className={`mt-3 grid max-w-full grid-cols-2 gap-2 ${message.attachments.length === 1 ? 'sm:grid-cols-1' : 'sm:grid-cols-2'}`}>
+                                    {message.attachments.map((attachment) => {
+                                      const att = mediaImageSrc(attachment.file_url);
+                                      if (!att) return null;
+                                      return (
+                                        <button
+                                          key={attachment.attachment_id}
+                                          type="button"
+                                          onClick={() => openMediaViewer(att)}
+                                          className="group block overflow-hidden rounded-2xl border border-black/5 text-left"
+                                        >
+                                          <img
+                                            src={att}
+                                            alt="attachment"
+                                            className="h-40 w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                                          />
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+
+                              {mine && (
+                                <div className="flex min-h-0 shrink-0 flex-col items-center justify-between self-stretch gap-0.5 border-l border-white/20 py-1.5 pl-1 pr-1.5 sm:py-2 sm:pl-1.5 sm:pr-2">
+                                  <div className="relative flex shrink-0 justify-center pt-0.5" data-message-menu-root>
+                                    <button
+                                      type="button"
+                                      aria-expanded={messageMenuOpenId === message.message_id}
+                                      aria-haspopup="menu"
+                                      aria-label={t('messagesPage.messageActionsMenu')}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        setMessageMenuOpenId((openId) =>
+                                          openId === message.message_id ? null : message.message_id
+                                        );
+                                      }}
+                                      className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/10 text-current transition hover:bg-black/15 sm:h-7 sm:w-7"
+                                    >
+                                      <FiMoreHorizontal size={13} />
+                                    </button>
+                                    {messageMenuOpenId === message.message_id && (
+                                      <div
+                                        role="menu"
+                                        className="absolute bottom-full right-0 z-30 mb-2 min-w-[10rem] overflow-hidden rounded-2xl border border-slate-200 space:border-white/10 bg-white space:bg-slate-900 py-1 text-slate-900 space:text-slate-100 shadow-[0_18px_45px_rgba(15,23,42,0.16)]"
                                       >
-                                        <img
-                                          src={att}
-                                          alt="attachment"
-                                          className="h-40 w-full object-cover transition duration-300 group-hover:scale-[1.03]"
-                                        />
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )}
-
-                              <div className={`mt-3 flex items-center justify-between gap-3 text-[11px] font-semibold ${mine ? 'text-white/75' : 'text-slate-400 space:text-slate-500'}`}>
-                                <span>{new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                <span className="flex items-center gap-1.5">
-                                  {readLabel && (
-                                    <span className={`font-bold ${mine ? 'text-white' : 'text-indigo-500 space:text-indigo-300'}`}>
-                                      {readLabel}
+                                        <button
+                                          type="button"
+                                          role="menuitem"
+                                          disabled={!canUnsend}
+                                          title={canUnsend ? undefined : t('messagesPage.unsendDisabledRead')}
+                                          onClick={() => {
+                                            if (!canUnsend) return;
+                                            unsendMessage(message.message_id, 'unsendConfirm').catch(() => {});
+                                          }}
+                                          className="w-full px-3 py-2 text-left text-xs font-semibold hover:bg-slate-50 space:hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                        >
+                                          {t('messagesPage.menuUnsend')}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          role="menuitem"
+                                          disabled={!canUnsend}
+                                          title={canUnsend ? undefined : t('messagesPage.unsendDisabledRead')}
+                                          onClick={() => {
+                                            if (!canUnsend) return;
+                                            unsendMessage(message.message_id, 'deleteMessageConfirm').catch(() => {});
+                                          }}
+                                          className="w-full px-3 py-2 text-left text-xs font-semibold text-red-600 space:text-red-300 hover:bg-red-50 space:hover:bg-red-950/40 disabled:cursor-not-allowed disabled:opacity-40"
+                                        >
+                                          {t('messagesPage.menuDelete')}
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {readState && (
+                                    <span
+                                      className="inline-flex shrink-0 items-center justify-center pb-0.5 text-white/90"
+                                      aria-label={readState === 'read' ? t('messagesPage.read') : t('messagesPage.sent')}
+                                      title={readState === 'read' ? t('messagesPage.read') : t('messagesPage.sent')}
+                                    >
+                                      {readState === 'read' ? (
+                                        <span className="relative inline-flex w-4 items-center justify-center">
+                                          <FiCheck size={12} className="-mr-1" />
+                                          <FiCheck size={12} />
+                                        </span>
+                                      ) : (
+                                        <FiCheck size={12} />
+                                      )}
                                     </span>
                                   )}
-                                  {mine && (
-                                    <div className="relative" data-message-menu-root>
-                                      <button
-                                        type="button"
-                                        aria-expanded={messageMenuOpenId === message.message_id}
-                                        aria-haspopup="menu"
-                                        aria-label={t('messagesPage.messageActionsMenu')}
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          setMessageMenuOpenId((openId) =>
-                                            openId === message.message_id ? null : message.message_id
-                                          );
-                                        }}
-                                        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/10 text-current transition hover:bg-black/15"
-                                      >
-                                        <FiMoreHorizontal size={15} />
-                                      </button>
-                                      {messageMenuOpenId === message.message_id && (
-                                        <div
-                                          role="menu"
-                                          className="absolute right-0 top-full z-30 mt-2 min-w-[10rem] overflow-hidden rounded-2xl border border-slate-200 space:border-white/10 bg-white space:bg-slate-900 py-1 text-slate-900 space:text-slate-100 shadow-[0_18px_45px_rgba(15,23,42,0.16)]"
-                                        >
-                                          <button
-                                            type="button"
-                                            role="menuitem"
-                                            disabled={!canUnsend}
-                                            title={canUnsend ? undefined : t('messagesPage.unsendDisabledRead')}
-                                            onClick={() => {
-                                              if (!canUnsend) return;
-                                              unsendMessage(message.message_id, 'unsendConfirm').catch(() => {});
-                                            }}
-                                            className="w-full px-3 py-2 text-left text-xs font-semibold hover:bg-slate-50 space:hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-                                          >
-                                            {t('messagesPage.menuUnsend')}
-                                          </button>
-                                          <button
-                                            type="button"
-                                            role="menuitem"
-                                            disabled={!canUnsend}
-                                            title={canUnsend ? undefined : t('messagesPage.unsendDisabledRead')}
-                                            onClick={() => {
-                                              if (!canUnsend) return;
-                                              unsendMessage(message.message_id, 'deleteMessageConfirm').catch(() => {});
-                                            }}
-                                            className="w-full px-3 py-2 text-left text-xs font-semibold text-red-600 space:text-red-300 hover:bg-red-50 space:hover:bg-red-950/40 disabled:cursor-not-allowed disabled:opacity-40"
-                                          >
-                                            {t('messagesPage.menuDelete')}
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </span>
-                              </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -2041,12 +2116,20 @@ const Messages: React.FC = () => {
                     );
                   })}
                   <div ref={messagesEndRef} className="h-px shrink-0" aria-hidden />
+                  </div>
                 </div>
               )}
             </div>
 
             {activeConversationId ? (
-              <div className={`border-t px-4 pb-[max(env(safe-area-inset-bottom),16px)] pt-4 backdrop-blur ${messagesComposerBarClass}`}>
+              <div
+                className={`z-20 shrink-0 border-t px-4 pt-3 backdrop-blur lg:sticky ${messagesComposerBarClass}`}
+                style={
+                  isLg
+                    ? { bottom: composerStickyOffset, paddingBottom: composerBottomInset }
+                    : undefined
+                }
+              >
                 {imagePreviews.length > 0 && (
                   <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
                     {imagePreviews.map((preview) => (
@@ -2067,30 +2150,30 @@ const Messages: React.FC = () => {
                   </div>
                 )}
 
-                <div className="flex flex-col gap-3 rounded-[28px] border border-slate-200 space:border-white/10 bg-slate-50 space:bg-slate-900/60 p-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
-                  <div className="flex items-end gap-3">
-                    <div className="flex shrink-0 gap-2">
+                <div className="rounded-[28px] bg-[#111122]/96 p-2.5 shadow-[0_10px_24px_rgba(15,23,42,0.18)] ring-1 ring-white/10">
+                  <div className="flex items-end gap-2.5">
+                    <div className="flex shrink-0 gap-2 self-end">
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white space:bg-slate-800 text-slate-500 space:text-slate-300 shadow-sm transition hover:text-indigo-600 space:hover:text-indigo-300"
+                        className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/8 text-slate-300 shadow-sm transition hover:text-indigo-300"
                         title={t('messagesPage.attachPhoto')}
                       >
                         <FiImage size={18} />
                       </button>
-                      <div className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-white space:bg-slate-800 text-slate-400 space:text-slate-500 shadow-sm md:inline-flex">
+                      <div className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-white/8 text-slate-400 shadow-sm md:inline-flex">
                         <FiPaperclip size={18} />
                       </div>
                     </div>
 
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 rounded-[24px] bg-white/8 px-1 py-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
                       <textarea
                         value={content}
                         onChange={(event) => setContent(event.target.value)}
                         onKeyDown={handleComposerKeyDown}
                         rows={1}
                         placeholder={t('messagesPage.writeMessage')}
-                        className="min-h-[84px] w-full resize-none rounded-[24px] border border-transparent space:border-white/10 bg-white space:bg-slate-800/90 px-4 py-3 text-sm leading-6 text-slate-900 space:text-slate-100 placeholder:text-slate-400 space:placeholder:text-slate-500 focus:border-indigo-200 space:focus:border-indigo-500/40 focus:outline-none"
+                        className="min-h-[74px] w-full resize-none rounded-[20px] border-0 bg-transparent px-4 py-3 text-sm leading-6 text-white placeholder:text-slate-400 focus:outline-none"
                       />
                     </div>
 
@@ -2098,20 +2181,11 @@ const Messages: React.FC = () => {
                       type="button"
                       disabled={sending}
                       onClick={() => sendMessage().catch(() => {})}
-                      className="inline-flex h-14 shrink-0 items-center gap-2 rounded-[22px] bg-slate-950 px-5 text-sm font-black text-white transition hover:bg-slate-800 disabled:pointer-events-none disabled:opacity-50"
+                      className="inline-flex h-14 shrink-0 self-end items-center gap-2 rounded-[22px] bg-white text-slate-950 px-5 text-sm font-black transition hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-50"
                     >
                       <FiSend size={16} />
                       {sending ? t('messagesPage.sending') : t('messagesPage.send')}
                     </button>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs font-semibold text-slate-400 space:text-slate-500">
-                    <span>{t('messagesPage.composerHint')}</span>
-                    <span>
-                      {images.length > 0
-                        ? `${images.length} ${t('messagesPage.attachmentsSelected')}`
-                        : t('messagesPage.attachmentsFeature')}
-                    </span>
                   </div>
                 </div>
 

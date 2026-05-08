@@ -290,10 +290,12 @@ export class RemoteServicesService {
     );
   }
 
-  static async deleteLostItem(itemId: number, userId: number): Promise<void> {
+  static async deleteLostItem(itemId: number, userId: number, userRole?: string): Promise<void> {
     const item = await queryOne<any>('SELECT * FROM lost_items WHERE lost_item_id = $1', [itemId]);
     if (!item) throw AppError.notFound('Lost item not found');
-    if (item.user_id !== userId) throw AppError.forbidden('You can only delete your own items');
+    const isOwner = item.user_id === userId;
+    const isPlatformAdmin = userRole === 'admin';
+    if (!isOwner && !isPlatformAdmin) throw AppError.forbidden('You can only delete your own items');
 
     // Hard delete for now, considering constraints it might require deleting images/comments first.
     await transaction(async (client) => {
@@ -303,10 +305,12 @@ export class RemoteServicesService {
     });
   }
 
-  static async deleteFoundItem(itemId: number, userId: number): Promise<void> {
+  static async deleteFoundItem(itemId: number, userId: number, userRole?: string): Promise<void> {
     const item = await queryOne<any>('SELECT * FROM found_items WHERE found_item_id = $1', [itemId]);
     if (!item) throw AppError.notFound('Found item not found');
-    if (item.user_id !== userId) throw AppError.forbidden('You can only delete your own items');
+    const isOwner = item.user_id === userId;
+    const isPlatformAdmin = userRole === 'admin';
+    if (!isOwner && !isPlatformAdmin) throw AppError.forbidden('You can only delete your own items');
 
     // Hard delete
     await transaction(async (client) => {

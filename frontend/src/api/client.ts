@@ -1,7 +1,13 @@
 import axios from 'axios';
+import { getApiBaseUrl } from '../utils/apiBase';
+
+const parsedTimeout = Number(import.meta.env.VITE_API_TIMEOUT_MS);
+const axiosTimeoutMs =
+    Number.isFinite(parsedTimeout) && parsedTimeout >= 3000 ? parsedTimeout : 28000;
 
 const api = axios.create({
-    baseURL: '/api', // Proxied by Vite to localhost:3000
+    baseURL: getApiBaseUrl(),
+    timeout: axiosTimeoutMs,
 });
 
 // Request interceptor to add auth token

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { translateToEnglish } from '../utils/translate';
 
 interface DayMenu {
@@ -47,15 +47,9 @@ export function useTranslatedMenu(
   dinner?: DayMenu,
   breakfast?: DayMenu
 ): { lunch?: DayMenu; dinner?: DayMenu; breakfast?: DayMenu } {
-  const [result, setResult] = useState({
-    lunch,
-    dinner,
-    breakfast,
-  });
+  const [translations, setTranslations] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
-    setResult({ lunch, dinner, breakfast });
-
     const all = [
       ...collectMenuTexts(lunch),
       ...collectMenuTexts(dinner),
@@ -66,22 +60,21 @@ export function useTranslatedMenu(
     if (unique.length === 0) return;
 
     const map = new Map<string, string>();
-    let done = 0;
-
-    unique.forEach((text) => {
-      translateToEnglish(text).then((translated) => {
-        map.set(text, translated);
-        done++;
-        if (done === unique.length) {
-          setResult({
-            lunch: applyTranslations(lunch, map),
-            dinner: applyTranslations(dinner, map),
-            breakfast: applyTranslations(breakfast, map),
-          });
-        }
-      });
+    void Promise.all(
+      unique.map(async (text) => {
+        map.set(text, await translateToEnglish(text));
+      })
+    ).then(() => {
+      setTranslations(new Map(map));
     });
   }, [lunch, dinner, breakfast]);
 
-  return result;
+  return useMemo(
+    () => ({
+      lunch: applyTranslations(lunch, translations),
+      dinner: applyTranslations(dinner, translations),
+      breakfast: applyTranslations(breakfast, translations),
+    }),
+    [breakfast, dinner, lunch, translations]
+  );
 }

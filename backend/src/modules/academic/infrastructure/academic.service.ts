@@ -38,19 +38,31 @@ function calendarDateKey(raw: unknown): string {
   return s.slice(0, 10);
 }
 
+/** İstek gövdesindeki takvim gününü PG `date` ile uyumlu YYYY-MM-DD yapar (ISO timezone kayması önlenir). */
+function normalizeCalendarDateInput(v: unknown): string {
+  const s = String(v ?? '').trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) throw new Error('Invalid date');
+  return `${m[1]}-${m[2]}-${m[3]}`;
+}
+
+/** Sunucu TZ’inden bağımsız: from–to (dahil) aralığındaki hafta içi günleri YYYY-MM-DD listeler. */
 function eachWeekdayBetween(fromIso: string, toIso: string): string[] {
   const out: string[] = [];
-  const cur = new Date(`${fromIso}T12:00:00`);
-  const end = new Date(`${toIso}T12:00:00`);
+  const fp = String(fromIso).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const ep = String(toIso).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!fp || !ep) return out;
+  let cur = new Date(Date.UTC(Number(fp[1]), Number(fp[2]) - 1, Number(fp[3]), 12, 0, 0));
+  const end = new Date(Date.UTC(Number(ep[1]), Number(ep[2]) - 1, Number(ep[3]), 12, 0, 0));
   while (cur <= end) {
-    const dow = cur.getDay();
+    const dow = cur.getUTCDay();
     if (dow >= 1 && dow <= 5) {
-      const y = cur.getFullYear();
-      const m = String(cur.getMonth() + 1).padStart(2, '0');
-      const day = String(cur.getDate()).padStart(2, '0');
+      const y = cur.getUTCFullYear();
+      const m = String(cur.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(cur.getUTCDate()).padStart(2, '0');
       out.push(`${y}-${m}-${day}`);
     }
-    cur.setDate(cur.getDate() + 1);
+    cur.setUTCDate(cur.getUTCDate() + 1);
   }
   return out;
 }
@@ -92,7 +104,7 @@ export class AcademicService {
 
   static async getStaffAvailabilityByDate(staffUserId: number, date: string) {
     return await query(
-      `SELECT d.availability_date_id, d.specific_date, d.start_time::text, d.end_time::text, d.is_active,
+      `SELECT d.availability_date_id, d.specific_date::text AS specific_date, d.start_time::text, d.end_time::text, d.is_active,
               EXISTS (
                 SELECT 1 FROM appointments a
                 WHERE a.staff_user_id = d.staff_user_id
@@ -100,7 +112,15 @@ export class AcademicService {
                   AND a.start_time = d.start_time
                   AND a.end_time = d.end_time
                   AND a.status IN ('pending', 'approved')
-              ) AS is_booked
+              ) AS is_booked,
+              EXISTS (
+                SELECT 1 FROM appointments a
+                WHERE a.staff_user_id = d.staff_user_id
+                  AND a.appointment_date = d.specific_date
+                  AND a.start_time = d.start_time
+                  AND a.end_time = d.end_time
+                  AND a.status = 'approved'
+              ) AS is_slot_locked
        FROM staff_availability_dates d
        WHERE d.staff_user_id = $1 AND d.specific_date = $2::date AND d.is_active = true
        ORDER BY d.start_time`,
@@ -112,7 +132,12 @@ export class AcademicService {
    * Haftalık şablon (staff_availability) + tarih bazlı satırlar (staff_availability_dates) birleşik görünümü.
    * Takvim grid’i bu listeyi bekliyor; endpoint eksik olduğunda frontend hep boş dönüyordu.
    */
-  static async getStaffAvailabilityRange(staffUserId: number, fromIso: string, toIso: string) {
+  static async getStaffAvailabilityRange(
+    staffUserId: number,
+    fromIso: string,
+    toIso: string,
+    viewer?: { userId: number; role: string } | null
+  ) {
     const weekly = await query<{
       weekday: number;
       start_time: string;
@@ -131,6 +156,7 @@ export class AcademicService {
       end_time: string;
       is_active: boolean;
       is_booked: boolean;
+      is_slot_locked: boolean;
     }>(
       `SELECT d.specific_date::text AS specific_date,
               d.start_time::text AS start_time,
@@ -143,7 +169,15 @@ export class AcademicService {
                   AND a.start_time = d.start_time
                   AND a.end_time = d.end_time
                   AND a.status IN ('pending', 'approved')
-              ) AS is_booked
+              ) AS is_booked,
+              EXISTS (
+                SELECT 1 FROM appointments a
+                WHERE a.staff_user_id = d.staff_user_id
+                  AND a.appointment_date = d.specific_date
+                  AND a.start_time = d.start_time
+                  AND a.end_time = d.end_time
+                  AND a.status = 'approved'
+              ) AS is_slot_locked
        FROM staff_availability_dates d
        WHERE d.staff_user_id = $1
          AND d.specific_date >= $2::date
@@ -163,6 +197,7 @@ export class AcademicService {
       start_time: string;
       end_time: string;
       status: string;
+      student_user_id: number;
       student_name: string | null;
       student_surname: string | null;
     }>(
@@ -170,6 +205,7 @@ export class AcademicService {
               a.start_time::text AS start_time,
               a.end_time::text AS end_time,
               a.status,
+              a.student_user_id,
               su.student_name,
               su.student_surname
        FROM appointments a
@@ -177,27 +213,44 @@ export class AcademicService {
        WHERE a.staff_user_id = $1
          AND a.appointment_date >= $2::date
          AND a.appointment_date <= $3::date
-         AND a.status IN ('pending', 'approved')`,
+         AND a.status IN ('pending', 'approved')
+       ORDER BY CASE WHEN a.status = 'approved' THEN 0 ELSE 1 END, a.created_at ASC`,
       [staffUserId, fromIso, toIso]
     );
 
-    /** Slot anahtarı → öğrenci (hoca takviminde isim her zaman API’den gelsin) */
+    /** Slot anahtarı → öğrenci (önce onaylı, yoksa en eski bekleyen talep) — hoca tüm talepleri görür */
     const apptBySlotKey = new Map<
       string,
       { status: string; student_name: string | null; student_surname: string | null }
     >();
+    const heldSlotKeys = new Set<string>();
+    const lockedSlotKeys = new Set<string>();
+    const anyApptKeys = new Set<string>();
+    const isStudentViewer = viewer?.role === 'student';
+    const viewerUserId = viewer?.userId != null ? Number(viewer.userId) : NaN;
+
     for (const a of apptDetails) {
       const dk = `${calendarDateKey(a.appointment_date)}|${slotGridKey(a.start_time, a.end_time)}`;
-      apptBySlotKey.set(dk, {
-        status: a.status,
-        student_name: a.student_name,
-        student_surname: a.student_surname,
-      });
+      anyApptKeys.add(dk);
+      const st = String(a.status ?? '').trim().toLowerCase();
+      if (st === 'approved') {
+        heldSlotKeys.add(dk);
+        lockedSlotKeys.add(dk);
+      } else if (st === 'pending') {
+        const isOtherStudentsPending =
+          isStudentViewer && !Number.isNaN(viewerUserId) && Number(a.student_user_id) !== viewerUserId;
+        if (!isOtherStudentsPending) {
+          heldSlotKeys.add(dk);
+        }
+      }
+      if (!apptBySlotKey.has(dk)) {
+        apptBySlotKey.set(dk, {
+          status: a.status,
+          student_name: a.student_name,
+          student_surname: a.student_surname,
+        });
+      }
     }
-
-    const apptBooked = new Set(
-      apptDetails.map((a) => `${calendarDateKey(a.appointment_date)}|${slotGridKey(a.start_time, a.end_time)}`)
-    );
 
     const weeklyByDowSlot = new Map<string, boolean>();
     for (const w of weekly) {
@@ -209,19 +262,26 @@ export class AcademicService {
       start_time: string;
       end_time: string;
       is_active: boolean;
+      /** Bekleyen veya onaylı talep var (hoca: slot müdahalesi engeli) */
       is_booked: boolean;
+      /** Yalnızca onaylı randevu (öğrenci: slotta tam doluluk) */
+      is_slot_locked: boolean;
       student_name?: string | null;
       student_surname?: string | null;
       appointment_status?: string | null;
     }> = [];
 
     for (const iso of eachWeekdayBetween(fromIso, toIso)) {
-      const dow = new Date(`${iso}T12:00:00`).getDay();
+      const ip = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      const dow = ip
+        ? new Date(Date.UTC(Number(ip[1]), Number(ip[2]) - 1, Number(ip[3]), 12, 0, 0)).getUTCDay()
+        : new Date(`${iso}T12:00:00Z`).getUTCDay();
       for (const [slotStart, slotEnd] of APPOINTMENT_TIME_SLOTS) {
         const sk = slotGridKey(slotStart, slotEnd);
         const dk = `${iso}|${sk}`;
-        const booked = apptBooked.has(dk);
-        const detail = booked ? apptBySlotKey.get(dk) : undefined;
+        const held = heldSlotKeys.has(dk);
+        const locked = lockedSlotKeys.has(dk);
+        const detail = held ? apptBySlotKey.get(dk) : undefined;
         const dr = dateMap.get(dk);
         if (dr) {
           out.push({
@@ -229,7 +289,8 @@ export class AcademicService {
             start_time: toClockHm(dr.start_time),
             end_time: toClockHm(dr.end_time),
             is_active: dr.is_active !== false,
-            is_booked: booked,
+            is_booked: held,
+            is_slot_locked: locked,
             student_name: detail?.student_name ?? null,
             student_surname: detail?.student_surname ?? null,
             appointment_status: detail?.status ?? null,
@@ -243,10 +304,48 @@ export class AcademicService {
             start_time: slotStart,
             end_time: slotEnd,
             is_active: true,
-            is_booked: booked,
+            is_booked: held,
+            is_slot_locked: locked,
             student_name: detail?.student_name ?? null,
             student_surname: detail?.student_surname ?? null,
             appointment_status: detail?.status ?? null,
+          });
+          continue;
+        }
+        /**
+         * Randevu kaydı var ama haftalık şablonda veya staff_availability_dates’te bu (gün,slot)
+         * yoksa eski davranışta hiç satır üretilmiyordu; öğrenci grid’inde hücre boş kalıyordu.
+         * Hoca görünümü randevuyu weekAppointments ile gösterdiği için tutarsızdı.
+         */
+        if (held) {
+          out.push({
+            specific_date: iso,
+            start_time: slotStart,
+            end_time: slotEnd,
+            is_active: true,
+            is_booked: held,
+            is_slot_locked: locked,
+            student_name: detail?.student_name ?? null,
+            student_surname: detail?.student_surname ?? null,
+            appointment_status: detail?.status ?? null,
+          });
+          continue;
+        }
+        /**
+         * Başka öğrencinin bekleyen talebi vardır; öğrenci görünümünde held false kalır.
+         * Haftalık şablonda satır yoksa yine de hücre üret (boş kutu olmasın).
+         */
+        if (anyApptKeys.has(dk)) {
+          out.push({
+            specific_date: iso,
+            start_time: slotStart,
+            end_time: slotEnd,
+            is_active: true,
+            is_booked: false,
+            is_slot_locked: locked,
+            student_name: null,
+            student_surname: null,
+            appointment_status: null,
           });
         }
       }
@@ -293,9 +392,17 @@ export class AcademicService {
 
   static async createAppointment(studentUserId: number, data: any) {
     const staffUserId = Number(data.staffUserId);
-    const date = data.date;
+    const date = normalizeCalendarDateInput(data.date);
     const startTime = data.startTime;
     const endTime = data.endTime;
+
+    const dateOk = await queryOne<{ ok: boolean }>(
+      `SELECT ($1::date >= CURRENT_DATE) AS ok`,
+      [date]
+    );
+    if (!dateOk?.ok) {
+      throw new Error('Appointment date cannot be in the past');
+    }
 
     const staffExists = await queryOne('SELECT 1 FROM staff WHERE user_id = $1', [staffUserId]);
     if (!staffExists) throw new Error('Staff member not found');
@@ -331,15 +438,26 @@ export class AcademicService {
       throw new Error('Selected slot is not available for this date');
     }
 
-    const slotTaken = await queryOne(
+    const slotApproved = await queryOne(
       `SELECT 1 FROM appointments
        WHERE staff_user_id = $1 AND appointment_date = $2::date
          AND start_time = $3::time AND end_time = $4::time
-         AND status IN ('pending', 'approved')`,
+         AND status = 'approved'`,
       [staffUserId, date, startTime, endTime]
     );
-    if (slotTaken) {
+    if (slotApproved) {
       throw new Error('This time slot is already booked');
+    }
+
+    const ownPending = await queryOne(
+      `SELECT 1 FROM appointments
+       WHERE staff_user_id = $1 AND student_user_id = $2 AND appointment_date = $3::date
+         AND start_time = $4::time AND end_time = $5::time
+         AND status = 'pending'`,
+      [staffUserId, studentUserId, date, startTime, endTime]
+    );
+    if (ownPending) {
+      throw new Error('You already have a pending request for this time slot');
     }
 
     const appointment = await transaction(async (client) => {
@@ -347,7 +465,7 @@ export class AcademicService {
         `INSERT INTO appointments
           (staff_user_id, student_user_id, appointment_date, start_time, end_time, topic, notes)
          VALUES ($1, $2, $3::date, $4::time, $5::time, $6, $7)
-         RETURNING appointment_id, staff_user_id, student_user_id, appointment_date, start_time::text, end_time::text, status`,
+         RETURNING appointment_id, staff_user_id, student_user_id, appointment_date::text AS appointment_date, start_time::text, end_time::text, status`,
         [staffUserId, studentUserId, date, startTime, endTime, data.topic || null, data.notes || null]
       );
 
@@ -370,12 +488,13 @@ export class AcademicService {
 
   static async listAppointments(userId: number, role: string, archive: boolean) {
     /**
-     * Aktif: gelecek tarih + sadece bekleyen/onaylı (iptal/red burada olmasın).
-     * Arşiv: geçmiş tarih VEYA iptal/red (gelecekte iptal edilenler burada görünsün).
+     * Aktif: tüm bekleyenler (tarih geçmiş olsa bile takvim + “Pending requests” ile uyumlu);
+     * onaylılar yalnızca bugün ve sonrası (geçmiş onaylı arşivde).
+     * Arşiv: iptal/red veya geçmişte kalmış onaylı randevular (bekleyenler arşive düşmez).
      */
     const archiveFilter = archive
-      ? `(a.appointment_date < CURRENT_DATE OR a.status IN ('cancelled', 'rejected'))`
-      : `(a.appointment_date >= CURRENT_DATE AND a.status IN ('pending', 'approved'))`;
+      ? `(a.status IN ('cancelled', 'rejected') OR (a.appointment_date < CURRENT_DATE AND a.status = 'approved'))`
+      : `(a.status = 'pending' OR (a.appointment_date >= CURRENT_DATE AND a.status = 'approved'))`;
 
     const roleFilter = role === 'staff'
       ? 'a.staff_user_id = $1'
@@ -384,7 +503,7 @@ export class AcademicService {
       : '(a.staff_user_id = $1 OR a.student_user_id = $1)';
 
     return await query(
-      `SELECT a.appointment_id, a.staff_user_id, a.student_user_id, a.appointment_date,
+      `SELECT a.appointment_id, a.staff_user_id, a.student_user_id, a.appointment_date::text AS appointment_date,
               a.start_time::text, a.end_time::text, a.status, a.topic, a.notes,
               a.rejection_reason, a.cancellation_reason, a.created_at, a.updated_at,
               st.staff_name, st.staff_surname, d.department_name,
@@ -401,8 +520,21 @@ export class AcademicService {
   }
 
   static async updateAppointmentStatus(appointmentId: number, userId: number, role: string, data: any) {
-    const appointment = await queryOne<any>(
-      `SELECT * FROM appointments WHERE appointment_id = $1`,
+    const appointment = await queryOne<{
+      appointment_id: number;
+      staff_user_id: number;
+      student_user_id: number;
+      appointment_date: string;
+      start_time: string;
+      end_time: string;
+      status: string;
+    }>(
+      `SELECT appointment_id, staff_user_id, student_user_id,
+              appointment_date::text AS appointment_date,
+              start_time::text AS start_time,
+              end_time::text AS end_time,
+              status
+       FROM appointments WHERE appointment_id = $1`,
       [appointmentId]
     );
     if (!appointment) throw new Error('Appointment not found');
@@ -432,14 +564,38 @@ export class AcademicService {
     const cancellationReason = nextStatus === 'cancelled' ? reason : null;
     const recipientUserId = isStaffOwner ? appointment.student_user_id : appointment.staff_user_id;
 
+    const cascadeRejectReason = 'Another request was approved for this slot.';
+
     const updated = await transaction(async (client) => {
+      if (nextStatus === 'approved') {
+        await client.query(
+          `UPDATE appointments
+           SET status = 'rejected',
+               rejection_reason = $1
+           WHERE staff_user_id = $2
+             AND appointment_date = $3::date
+             AND start_time = $4::time
+             AND end_time = $5::time
+             AND status = 'pending'
+             AND appointment_id <> $6`,
+          [
+            cascadeRejectReason,
+            appointment.staff_user_id,
+            appointment.appointment_date,
+            appointment.start_time,
+            appointment.end_time,
+            appointmentId,
+          ]
+        );
+      }
+
       const updateRes = await client.query(
         `UPDATE appointments
          SET status = $1,
              rejection_reason = COALESCE($2, rejection_reason),
              cancellation_reason = COALESCE($3, cancellation_reason)
          WHERE appointment_id = $4
-         RETURNING appointment_id, staff_user_id, student_user_id, appointment_date, start_time::text, end_time::text, status, rejection_reason, cancellation_reason`,
+         RETURNING appointment_id, staff_user_id, student_user_id, appointment_date::text AS appointment_date, start_time::text, end_time::text, status, rejection_reason, cancellation_reason`,
         [nextStatus, rejectionReason, cancellationReason, appointmentId]
       );
 

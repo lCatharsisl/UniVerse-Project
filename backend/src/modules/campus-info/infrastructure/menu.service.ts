@@ -14,6 +14,9 @@ const LOCAL_PDF_PATH =
   path.join(process.cwd(), 'data', 'yemek-liste.pdf');
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_PDF_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOW_BROWSER_MENU_FETCH =
+  process.env.YASAR_MENU_BROWSER_FALLBACK === '1' ||
+  process.env.YASAR_MENU_BROWSER_FALLBACK === 'true';
 
 /** Sunucu tarafı fetch bazen Cloudflare/WAF tarafından engellenir; tarayıcıya yakın header denemesi. */
 const PDF_FETCH_HEADERS: Record<string, string> = {
@@ -126,6 +129,13 @@ async function fetchRemotePdfBuffer(): Promise<Buffer> {
 
 /** Headless Chrome ile Cloudflare challenge’ını geçip PDF’i indir. */
 async function fetchViaBrowser(): Promise<{ buffer: Buffer; source: string } | null> {
+  if (!ALLOW_BROWSER_MENU_FETCH) {
+    console.warn(
+      '[menu] Headless tarayıcı fallback kapalı. Etkinleştirmek için YASAR_MENU_BROWSER_FALLBACK=1 kullanın.'
+    );
+    return null;
+  }
+
   try {
     const mod = await import('./menu-browser-fetcher');
     const result = await mod.downloadMenuPdfViaBrowser(PDF_URL, FETCH_TIMEOUT_MS + 15_000);
@@ -304,6 +314,8 @@ export function getTodaysMenu(): TodaysMenuResult | null {
     }
   }
 
+  if (!result.lunch && !result.dinner && !result.breakfast) return null;
+
   return result;
 }
 
@@ -316,6 +328,17 @@ export function isMenuCacheStaleByCalendarMonth(): boolean {
   const c = loadCache();
   if (!c?.fetchedAt) return true;
   return isDifferentCalendarMonth(new Date(c.fetchedAt), new Date());
+}
+
+/** Cache’te bugünün tarihi hiçbir öğün bölümünde yok → PDF güncellenmiş olabilir, tazeleme denenmeli. */
+export function shouldRefreshMenuForCoverage(): boolean {
+  const cache = loadCache();
+  if (!cache?.parsed?.sections?.length) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  for (const section of cache.parsed.sections) {
+    if (findDayForDate(section.days, today)) return false;
+  }
+  return true;
 }
 
 export interface MenuByDateResult {

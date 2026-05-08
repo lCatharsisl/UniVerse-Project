@@ -9,6 +9,23 @@ type ConversationMember = {
   role?: 'owner' | 'admin' | 'member';
 };
 
+const MSG_SHARED_POST_JOIN = `
+LEFT JOIN posts sp ON sp.post_id = m.shared_post_id
+LEFT JOIN users spu ON spu.user_id = sp.user_id
+LEFT JOIN students sp_st ON sp_st.user_id = spu.user_id
+LEFT JOIN staff sp_sf ON sp_sf.user_id = spu.user_id
+LEFT JOIN admins sp_ad ON sp_ad.user_id = spu.user_id
+LEFT JOIN communities sp_cm ON sp_cm.user_id = spu.user_id
+`;
+
+const MSG_SHARED_POST_SELECT = `,
+  m.shared_post_id,
+  sp.content AS shared_post_content,
+  sp.image_url AS shared_post_image_url,
+  COALESCE(sp_st.student_name, sp_sf.staff_name, sp_ad.admin_name, sp_cm.community_name, spu.email) AS shared_post_author_first,
+  COALESCE(sp_st.student_surname, sp_sf.staff_surname, sp_ad.admin_surname, '') AS shared_post_author_last
+`;
+
 export class MessagingService {
   static async searchUsers(currentUserId: number, q: string, limit = 20) {
     const rows = await query<any>(
@@ -158,7 +175,10 @@ export class MessagingService {
         c.title,
         c.updated_at,
         lm.message_id AS last_message_id,
-        lm.content AS last_message_content,
+        CASE
+          WHEN lm.message_type = 'post_share' THEN COALESCE(NULLIF(BTRIM(COALESCE(lm.content, '')), ''), 'Post')
+          ELSE lm.content
+        END AS last_message_content,
         lm.message_type AS last_message_type,
         lm.created_at AS last_message_created_at,
         lm.sender_user_id AS last_message_sender_user_id,
@@ -295,12 +315,14 @@ export class MessagingService {
           COALESCE(st.student_name, sf.staff_name, a.admin_name, c.community_name, u.email) AS sender_first_name,
           COALESCE(st.student_surname, sf.staff_surname, a.admin_surname, '') AS sender_last_name,
           COALESCE(st.avatar_url, sf.avatar_url, a.avatar_url, c.avatar_url) AS sender_avatar_url
+          ${MSG_SHARED_POST_SELECT}
         FROM messages m
         JOIN users u ON u.user_id = m.sender_user_id
         LEFT JOIN students st ON st.user_id = u.user_id
         LEFT JOIN staff sf ON sf.user_id = u.user_id
         LEFT JOIN admins a ON a.user_id = u.user_id
         LEFT JOIN communities c ON c.user_id = u.user_id
+        ${MSG_SHARED_POST_JOIN}
         WHERE m.conversation_id = $1 AND m.deleted_at IS NULL
           AND m.message_id <= $4
         ORDER BY m.message_id DESC
@@ -321,12 +343,14 @@ export class MessagingService {
           COALESCE(st.student_name, sf.staff_name, a.admin_name, c.community_name, u.email) AS sender_first_name,
           COALESCE(st.student_surname, sf.staff_surname, a.admin_surname, '') AS sender_last_name,
           COALESCE(st.avatar_url, sf.avatar_url, a.avatar_url, c.avatar_url) AS sender_avatar_url
+          ${MSG_SHARED_POST_SELECT}
         FROM messages m
         JOIN users u ON u.user_id = m.sender_user_id
         LEFT JOIN students st ON st.user_id = u.user_id
         LEFT JOIN staff sf ON sf.user_id = u.user_id
         LEFT JOIN admins a ON a.user_id = u.user_id
         LEFT JOIN communities c ON c.user_id = u.user_id
+        ${MSG_SHARED_POST_JOIN}
         WHERE m.conversation_id = $1 AND m.deleted_at IS NULL
         ORDER BY m.created_at DESC
         LIMIT $2 OFFSET $3
@@ -380,12 +404,14 @@ export class MessagingService {
         COALESCE(st.student_name, sf.staff_name, a.admin_name, c.community_name, u.email) AS sender_first_name,
         COALESCE(st.student_surname, sf.staff_surname, a.admin_surname, '') AS sender_last_name,
         COALESCE(st.avatar_url, sf.avatar_url, a.avatar_url, c.avatar_url) AS sender_avatar_url
+        ${MSG_SHARED_POST_SELECT}
       FROM messages m
       JOIN users u ON u.user_id = m.sender_user_id
       LEFT JOIN students st ON st.user_id = u.user_id
       LEFT JOIN staff sf ON sf.user_id = u.user_id
       LEFT JOIN admins a ON a.user_id = u.user_id
       LEFT JOIN communities c ON c.user_id = u.user_id
+      ${MSG_SHARED_POST_JOIN}
       WHERE m.conversation_id = $1 AND m.deleted_at IS NULL
         AND position(lower($2) in lower(COALESCE(m.content, ''))) > 0
       ORDER BY m.message_id DESC
@@ -534,15 +560,111 @@ export class MessagingService {
     return { success: true, notifications_muted: muted };
   }
 
+  private static async assertPostShareViewable(viewerUserId: number, postId: number): Promise<void> {
+    const row = await queryOne<{ one: number }>(
+      `
+      SELECT 1 AS one
+      FROM posts p
+      WHERE p.post_id = $1
+        AND NOT EXISTS (
+          SELECT 1 FROM blocked_users b
+          WHERE (b.blocker_id = $2 AND b.blocked_id = p.user_id)
+             OR (b.blocker_id = p.user_id AND b.blocked_id = $2)
+        )
+      `,
+      [postId, viewerUserId]
+    );
+    if (!row) throw AppError.notFound('Post not found or inaccessible');
+  }
+
+  private static async getUserShortLabel(userId: number): Promise<string> {
+    const row = await queryOne<{ first_name: string | null; last_name: string | null; email: string }>(
+      `
+      SELECT
+        u.email,
+        COALESCE(st.student_name, sf.staff_name, a.admin_name, c.community_name, SPLIT_PART(u.email, '@', 1)) AS first_name,
+        COALESCE(st.student_surname, sf.staff_surname, a.admin_surname, '') AS last_name
+      FROM users u
+      LEFT JOIN students st ON st.user_id = u.user_id
+      LEFT JOIN staff sf ON sf.user_id = u.user_id
+      LEFT JOIN admins a ON a.user_id = u.user_id
+      LEFT JOIN communities c ON c.user_id = u.user_id
+      WHERE u.user_id = $1
+      `,
+      [userId]
+    );
+    if (!row) return 'UniVerse';
+    const name = `${row.first_name || ''} ${row.last_name || ''}`.trim();
+    return (name.length > 0 ? name : row.email || 'UniVerse').slice(0, 80);
+  }
+
+  private static async notifyRecipientsOfNewMessage(opts: {
+    conversationId: number;
+    senderUserId: number;
+    messageId: number;
+    hasImages: boolean;
+    textPreview: string;
+  }): Promise<void> {
+    const rows = await query<{ user_id: number; notifications_muted: boolean }>(
+      `
+      SELECT cp.user_id, COALESCE(cp.notifications_muted, false) AS notifications_muted
+      FROM conversation_participants cp
+      WHERE cp.conversation_id = $1 AND cp.is_active = true AND cp.user_id <> $2
+      `,
+      [opts.conversationId, opts.senderUserId]
+    );
+    if (!rows.length) return;
+
+    const senderLabel = await MessagingService.getUserShortLabel(opts.senderUserId);
+    let preview = opts.textPreview.trim();
+    if (!preview) {
+      preview = opts.hasImages ? 'Photo' : 'New message';
+    } else if (preview.length > 180) {
+      preview = `${preview.slice(0, 177)}...`;
+    }
+
+    for (const row of rows) {
+      if (row.notifications_muted) continue;
+      await NotificationEmitterService.createSafe({
+        recipientUserId: row.user_id,
+        actorUserId: opts.senderUserId,
+        sourceModule: 'messaging',
+        kind: 'chat_message',
+        title: senderLabel,
+        message: preview,
+        entityType: 'conversation',
+        entityId: opts.conversationId,
+        payload: { conversationId: opts.conversationId, messageId: opts.messageId },
+      });
+    }
+  }
+
   static async sendMessage(
     conversationId: number,
     senderUserId: number,
-    payload: { content?: string; files?: Express.Multer.File[] }
+    payload: { content?: string; files?: Express.Multer.File[]; sharedPostId?: number | string }
   ) {
     const participant = await this.ensureParticipant(conversationId, senderUserId);
     const files = payload.files || [];
+    const rawShared = payload.sharedPostId;
+    let sharedPostId: number | undefined;
+    if (rawShared != null && rawShared !== '') {
+      if (typeof rawShared === 'number' && Number.isFinite(rawShared) && rawShared > 0) {
+        sharedPostId = Math.trunc(rawShared);
+      } else if (typeof rawShared === 'string' && /^\d+$/.test(rawShared.trim())) {
+        const n = parseInt(rawShared.trim(), 10);
+        if (n > 0) sharedPostId = n;
+      }
+    }
+
     const content = (payload.content || '').trim();
-    if (!content && files.length === 0) throw AppError.badRequest('Message content or image is required');
+
+    if (sharedPostId) {
+      if (files.length > 0) throw AppError.badRequest('Cannot attach images when sharing a post');
+      await MessagingService.assertPostShareViewable(senderUserId, sharedPostId);
+    } else if (!content && files.length === 0) {
+      throw AppError.badRequest('Message content or image is required');
+    }
 
     const conversation = await queryOne<{ is_group: boolean }>(
       `SELECT is_group FROM conversations WHERE conversation_id = $1`,
@@ -562,19 +684,31 @@ export class MessagingService {
     }
 
     const attachmentUrls: string[] = [];
-    for (const file of files) {
-      attachmentUrls.push(await storeMessagingImage(file, conversationId));
+    if (!sharedPostId) {
+      for (const file of files) {
+        attachmentUrls.push(await storeMessagingImage(file, conversationId));
+      }
     }
 
     const createdMessageId = await transaction(async (client) => {
-      const messageType = files.length > 0 ? (content ? 'mixed' : 'image') : 'text';
+      let messageType: string;
+      let insertContent: string | null = content || null;
+      let sharedCol: number | null = null;
+
+      if (sharedPostId) {
+        messageType = 'post_share';
+        sharedCol = sharedPostId;
+      } else {
+        messageType = files.length > 0 ? (content ? 'mixed' : 'image') : 'text';
+      }
+
       const inserted = await client.query(
         `
-        INSERT INTO messages (conversation_id, sender_user_id, content, message_type)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO messages (conversation_id, sender_user_id, content, message_type, shared_post_id)
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING message_id
         `,
-        [conversationId, senderUserId, content || null, messageType]
+        [conversationId, senderUserId, insertContent, messageType, sharedCol]
       );
       const messageId = inserted.rows[0].message_id as number;
 
@@ -602,33 +736,24 @@ export class MessagingService {
       return messageId;
     });
 
-    const recipients = await query<{ user_id: number }>(
-      `
-      SELECT user_id
-      FROM conversation_participants
-      WHERE conversation_id = $1
-        AND is_active = true
-        AND user_id <> $2
-        AND COALESCE(notifications_muted, false) = false
-      `,
-      [conversationId, senderUserId]
-    );
-
     const messagePayload = await this.getMessageById(createdMessageId, participant.user_id);
 
-    const recipientIds = recipients.map((r) => r.user_id);
-    setImmediate(() => {
-      NotificationEmitterService.createForRecipientsBulkSafe({
-        recipientUserIds: recipientIds,
-        actorUserId: senderUserId,
-        sourceModule: 'messaging',
-        kind: 'messaging.message',
-        message: 'New message',
-        entityType: 'conversation',
-        entityId: conversationId,
-        payload: { conversationId, messageId: createdMessageId },
-      }).catch((err) => console.error('[messaging] notification emit failed', err));
-    });
+    let notifyPreview = content;
+    if (sharedPostId) {
+      notifyPreview = notifyPreview || 'Post';
+    } else if (!notifyPreview && files.length > 0) {
+      notifyPreview = 'Photo';
+    } else if (!notifyPreview) {
+      notifyPreview = 'New message';
+    }
+
+    void MessagingService.notifyRecipientsOfNewMessage({
+      conversationId,
+      senderUserId,
+      messageId: createdMessageId,
+      hasImages: !sharedPostId && files.length > 0,
+      textPreview: notifyPreview,
+    }).catch(() => {});
 
     return messagePayload;
   }
@@ -789,8 +914,18 @@ export class MessagingService {
         m.sender_user_id,
         m.content,
         m.message_type,
-        m.created_at
+        m.created_at,
+        COALESCE(st.student_name, sf.staff_name, a.admin_name, c.community_name, u.email) AS sender_first_name,
+        COALESCE(st.student_surname, sf.staff_surname, a.admin_surname, '') AS sender_last_name,
+        COALESCE(st.avatar_url, sf.avatar_url, a.avatar_url, c.avatar_url) AS sender_avatar_url
+        ${MSG_SHARED_POST_SELECT}
       FROM messages m
+      JOIN users u ON u.user_id = m.sender_user_id
+      LEFT JOIN students st ON st.user_id = u.user_id
+      LEFT JOIN staff sf ON sf.user_id = u.user_id
+      LEFT JOIN admins a ON a.user_id = u.user_id
+      LEFT JOIN communities c ON c.user_id = u.user_id
+      ${MSG_SHARED_POST_JOIN}
       WHERE m.message_id = $1
       `,
       [messageId]

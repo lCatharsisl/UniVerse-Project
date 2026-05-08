@@ -1,5 +1,6 @@
 import { query, queryOne } from '../../../config/db';
 import { AppError } from '../../../shared/core/errors';
+import { storePublicUpload } from '../../../integrations/mediaObjectStorage';
 import { NotificationEmitterService } from '../../notifications/infrastructure/notificationEmitter.service';
 
 type CreateEventInput = {
@@ -26,6 +27,64 @@ type ApplicationSubmitInput = {
 };
 
 export class CommunityService {
+  private static async getCommunityOwner(communityId: number) {
+    const community = await queryOne<{ community_id: number; user_id: number }>(
+      'SELECT community_id, user_id FROM public.communities WHERE community_id = $1',
+      [communityId]
+    );
+    if (!community) throw AppError.notFound('Community not found');
+    return community;
+  }
+
+  private static async assertCommunityOwner(
+    communityId: number,
+    currentUserId: number,
+    message: string = 'Not authorized'
+  ) {
+    const community = await this.getCommunityOwner(communityId);
+    if (community.user_id !== currentUserId) throw AppError.forbidden(message);
+    return community;
+  }
+
+  private static async getUserRole(userId: number) {
+    return queryOne<{ role: string }>('SELECT role FROM public.users WHERE user_id = $1', [userId]);
+  }
+
+  private static async assertStaffOrAdmin(userId: number, message: string) {
+    const userRole = await this.getUserRole(userId);
+    if (!userRole || !['staff', 'admin'].includes(userRole.role)) {
+      throw AppError.forbidden(message);
+    }
+    return userRole;
+  }
+
+  private static async assertNotCommunityAccount(userId: number, message: string) {
+    const userRole = await this.getUserRole(userId);
+    if (userRole?.role === 'community') throw AppError.forbidden(message);
+    return userRole;
+  }
+
+  private static async getActiveJobPostOwner(jobPostId: number) {
+    const existing = await queryOne<{ created_by_user_id: number | null }>(
+      'SELECT created_by_user_id FROM public.community_job_posts WHERE job_post_id=$1 AND is_active=true',
+      [jobPostId]
+    );
+    if (!existing) throw AppError.notFound('Job post not found');
+    return existing;
+  }
+
+  private static async assertJobPostManager(jobPostId: number, currentUserId: number, action: 'edit' | 'delete') {
+    const userRole = await this.assertStaffOrAdmin(
+      currentUserId,
+      `Only staff can ${action} job posts`
+    );
+    const existing = await this.getActiveJobPostOwner(jobPostId);
+    if (userRole.role !== 'admin' && existing.created_by_user_id && existing.created_by_user_id !== currentUserId) {
+      throw AppError.forbidden(`You can only ${action} your own posts`);
+    }
+    return { userRole, existing };
+  }
+
   static async getFairCommunities(currentUserId: number, categoryCode?: string) {
     const params: any[] = [currentUserId];
     const where = categoryCode
@@ -219,12 +278,14 @@ export class CommunityService {
       `
       SELECT 
         event_id,
+        created_by_user_id,
         title,
         description,
         location,
         start_at,
         end_at,
-        created_at
+        created_at,
+        poster_url
       FROM public.community_events
       WHERE community_id = $1
         AND is_active = true
@@ -284,10 +345,8 @@ export class CommunityService {
   }
 
   static async joinCommunity(communityId: number, userId: number) {
-    const community = await queryOne<any>('SELECT community_id, user_id FROM public.communities WHERE community_id = $1', [communityId]);
-    if (!community) throw AppError.notFound('Community not found');
-
-    const userRole = await queryOne<{ role: string }>('SELECT role FROM public.users WHERE user_id = $1', [userId]);
+    const community = await this.getCommunityOwner(communityId);
+    const userRole = await this.getUserRole(userId);
     if (userRole?.role === 'community' && userId !== community.user_id) {
       throw AppError.forbidden('Only the owner community can join as admin');
     }
@@ -329,9 +388,7 @@ export class CommunityService {
   // Admin: pending community member approvals
   // ─────────────────────────────────────────────────────────────────────────────
   static async getPendingCommunityMemberRequests(communityId: number, currentUserId: number) {
-    const community = await queryOne<any>('SELECT community_id, user_id FROM public.communities WHERE community_id=$1', [communityId]);
-    if (!community) throw AppError.notFound('Community not found');
-    if (community.user_id !== currentUserId) throw AppError.forbidden('Not authorized');
+    await this.assertCommunityOwner(communityId, currentUserId);
 
     const requests = await query<any>(
       `
@@ -364,9 +421,7 @@ export class CommunityService {
   ) {
     if (!['approved', 'rejected'].includes(input.status)) throw AppError.badRequest('Invalid decision status');
 
-    const community = await queryOne<any>('SELECT community_id, user_id FROM public.communities WHERE community_id=$1', [communityId]);
-    if (!community) throw AppError.notFound('Community not found');
-    if (community.user_id !== currentUserId) throw AppError.forbidden('Not authorized');
+    await this.assertCommunityOwner(communityId, currentUserId);
 
     const newIsActive = input.status === 'approved';
 
@@ -407,10 +462,7 @@ export class CommunityService {
   }
 
   static async updateCommunityCategories(communityId: number, currentUserId: number, categories: string[]) {
-    const community = await queryOne<any>('SELECT community_id, user_id FROM public.communities WHERE community_id = $1', [communityId]);
-    if (!community) throw AppError.notFound('Community not found');
-
-    if (community.user_id !== currentUserId) throw AppError.forbidden('Only community owner can edit categories');
+    await this.assertCommunityOwner(communityId, currentUserId, 'Only community owner can edit categories');
 
     const safe = (categories || []).filter((c) => typeof c === 'string' && c.trim().length > 0);
     await query(
@@ -430,9 +482,7 @@ export class CommunityService {
     currentUserId: number,
     input: { avatarUrl?: string | null; coverUrl?: string | null }
   ) {
-    const community = await queryOne<any>('SELECT community_id, user_id FROM public.communities WHERE community_id = $1', [communityId]);
-    if (!community) throw AppError.notFound('Community not found');
-    if (community.user_id !== currentUserId) throw AppError.forbidden('Only community owner can update media');
+    await this.assertCommunityOwner(communityId, currentUserId, 'Only community owner can update media');
 
     await query(
       `
@@ -456,12 +506,14 @@ export class CommunityService {
       `
       SELECT 
         event_id,
+        created_by_user_id,
         title,
         description,
         location,
         start_at,
         end_at,
-        created_at
+        created_at,
+        poster_url
       FROM public.community_events
       WHERE community_id = $1 AND is_active = true
       ORDER BY created_at DESC
@@ -471,12 +523,74 @@ export class CommunityService {
     return { events };
   }
 
+  /** Pulse / kampüs özeti: `start_at` takvim günü (Europe/Istanbul) bugün olan tüm topluluk etkinlikleri. */
+  static async getTodaysCampusEvents() {
+    const events = await query<any>(
+      `
+      SELECT
+        e.event_id,
+        e.community_id,
+        e.created_by_user_id,
+        e.title,
+        e.description,
+        e.location,
+        e.start_at,
+        e.end_at,
+        e.poster_url,
+        c.community_name
+      FROM public.community_events e
+      INNER JOIN public.communities c ON c.community_id = e.community_id
+      WHERE e.is_active = true
+        AND e.start_at IS NOT NULL
+        AND (e.start_at AT TIME ZONE 'Europe/Istanbul')::date = (NOW() AT TIME ZONE 'Europe/Istanbul')::date
+      ORDER BY e.start_at ASC NULLS LAST, e.event_id ASC
+      LIMIT 12
+      `
+    );
+    return { events };
+  }
+
+  /**
+   * Soft-deletes a community event. Platform `admin` role may remove any event.
+   * Otherwise only the user who published the event (`created_by_user_id`) may remove it.
+   * When `communityId` is set, the event must belong to that community (stricter URL).
+   */
+  static async deactivateCommunityEventForUser(
+    eventId: number,
+    currentUserId: number,
+    opts: { isPlatformAdmin: boolean; communityId?: number }
+  ) {
+    const row = await queryOne<{
+      event_id: number;
+      community_id: number;
+      created_by_user_id: number;
+    }>(
+      `
+      SELECT event_id, community_id, created_by_user_id
+      FROM public.community_events
+      WHERE event_id = $1 AND is_active = true
+      `,
+      [eventId]
+    );
+    if (!row) throw AppError.notFound('Event not found');
+    if (opts.communityId != null && row.community_id !== opts.communityId) {
+      throw AppError.notFound('Event not found');
+    }
+    if (!opts.isPlatformAdmin && row.created_by_user_id !== currentUserId) {
+      throw AppError.forbidden('Only the publisher or a platform administrator can remove this event');
+    }
+    await query('UPDATE public.community_events SET is_active = false WHERE event_id = $1', [eventId]);
+    return { ok: true };
+  }
+
+  static async deactivateCampusEventByPlatformAdmin(eventId: number, actorUserId: number) {
+    return this.deactivateCommunityEventForUser(eventId, actorUserId, { isPlatformAdmin: true });
+  }
+
   static async createCommunityEvent(communityId: number, currentUserId: number, input: CreateEventInput) {
     if (!input.title) throw AppError.badRequest('Event title is required');
 
-    const community = await queryOne<any>('SELECT community_id, user_id FROM public.communities WHERE community_id = $1', [communityId]);
-    if (!community) throw AppError.notFound('Community not found');
-    if (community.user_id !== currentUserId) throw AppError.forbidden('Only community owner can create events');
+    await this.assertCommunityOwner(communityId, currentUserId, 'Only community owner can create events');
 
     const inserted = await queryOne<any>(
       `
@@ -498,6 +612,30 @@ export class CommunityService {
     return { eventId: inserted.event_id };
   }
 
+  static async setCommunityEventPoster(communityId: number, eventId: number, currentUserId: number, posterFile: Express.Multer.File) {
+    await this.assertCommunityOwner(communityId, currentUserId, 'Only community owner can update event poster');
+
+    const row = await queryOne<{ event_id: number }>(
+      'SELECT event_id FROM public.community_events WHERE event_id = $1 AND community_id = $2 AND is_active = true',
+      [eventId, communityId]
+    );
+    if (!row) throw AppError.notFound('Event not found');
+
+    if (!posterFile?.buffer || posterFile.buffer.length === 0) {
+      throw AppError.badRequest('Poster file is required');
+    }
+
+    const posterUrl = await storePublicUpload({
+      pathPrefix: `community-events/${eventId}`,
+      buffer: posterFile.buffer,
+      originalFilename: posterFile.originalname || 'poster.jpg',
+      contentType: posterFile.mimetype || 'image/jpeg',
+    });
+    await query('UPDATE public.community_events SET poster_url = $1 WHERE event_id = $2', [posterUrl, eventId]);
+
+    return { posterUrl };
+  }
+
   static async initEventApplication(eventId: number, applicantUserId: number) {
     const event = await queryOne<any>(
       `
@@ -509,8 +647,7 @@ export class CommunityService {
     );
     if (!event) throw AppError.notFound('Event not found');
 
-    const userRole = await queryOne<{ role: string }>('SELECT role FROM public.users WHERE user_id=$1', [applicantUserId]);
-    if (userRole?.role === 'community') throw AppError.forbidden('Community accounts cannot apply');
+    await this.assertNotCommunityAccount(applicantUserId, 'Community accounts cannot apply');
 
     const isMember = await queryOne('SELECT 1 as ok FROM public.community_members WHERE community_id=$1 AND member_user_id=$2 AND is_active=true', [
       event.community_id,
@@ -616,7 +753,7 @@ export class CommunityService {
 
     const event = await queryOne<any>(
       `
-      SELECT event_id, title
+      SELECT event_id, title, poster_url
       FROM public.community_events
       WHERE event_id=$1
       `,
@@ -784,20 +921,7 @@ export class CommunityService {
     if (!['internship', 'job'].includes(input.postType)) throw AppError.badRequest('Invalid post type');
     if (!input.deadlineDate || Number.isNaN(input.deadlineDate.getTime())) throw AppError.badRequest('deadline_date is required');
 
-    const userRole = await queryOne<{ role: string }>('SELECT role FROM public.users WHERE user_id=$1', [currentUserId]);
-    if (!userRole || !['staff', 'admin'].includes(userRole.role)) {
-      throw AppError.forbidden('Only staff can update job posts');
-    }
-
-    const existing = await queryOne<{ created_by_user_id: number | null }>(
-      'SELECT created_by_user_id FROM public.community_job_posts WHERE job_post_id=$1 AND is_active=true',
-      [jobPostId]
-    );
-    if (!existing) throw AppError.notFound('Job post not found');
-
-    if (userRole.role !== 'admin' && existing.created_by_user_id && existing.created_by_user_id !== currentUserId) {
-      throw AppError.forbidden('You can only edit your own posts');
-    }
+    await this.assertJobPostManager(jobPostId, currentUserId, 'edit');
 
     const deadline = input.deadlineDate.toISOString().slice(0, 10);
     await query(
@@ -818,30 +942,14 @@ export class CommunityService {
   }
 
   static async deleteJobBoardPost(jobPostId: number, currentUserId: number) {
-    const userRole = await queryOne<{ role: string }>('SELECT role FROM public.users WHERE user_id=$1', [currentUserId]);
-    if (!userRole || !['staff', 'admin'].includes(userRole.role)) {
-      throw AppError.forbidden('Only staff can delete job posts');
-    }
-
-    const existing = await queryOne<{ created_by_user_id: number | null }>(
-      'SELECT created_by_user_id FROM public.community_job_posts WHERE job_post_id=$1 AND is_active=true',
-      [jobPostId]
-    );
-    if (!existing) throw AppError.notFound('Job post not found');
-
-    if (userRole.role !== 'admin' && existing.created_by_user_id && existing.created_by_user_id !== currentUserId) {
-      throw AppError.forbidden('You can only delete your own posts');
-    }
+    await this.assertJobPostManager(jobPostId, currentUserId, 'delete');
 
     await query('UPDATE public.community_job_posts SET is_active=false WHERE job_post_id=$1', [jobPostId]);
     return { success: true };
   }
 
   static async createJobBoardPost(currentUserId: number, input: CreateJobInput) {
-    const role = await queryOne<{ role: string }>('SELECT role FROM public.users WHERE user_id=$1', [currentUserId]);
-    if (!role || !['staff', 'admin'].includes(role.role)) {
-      throw AppError.forbidden('Only staff can create job/internship posts');
-    }
+    await this.assertStaffOrAdmin(currentUserId, 'Only staff can create job/internship posts');
 
     // Board is global for students; community relation is kept internal for existing schema.
     const community = await queryOne<any>('SELECT community_id FROM public.communities ORDER BY community_id ASC LIMIT 1');
@@ -871,14 +979,10 @@ export class CommunityService {
     if (!['internship', 'job'].includes(input.postType)) throw AppError.badRequest('Invalid post type');
     if (!input.deadlineDate || Number.isNaN(input.deadlineDate.getTime())) throw AppError.badRequest('deadline_date is required');
 
-    const community = await queryOne<any>('SELECT community_id, user_id FROM public.communities WHERE community_id = $1', [communityId]);
-    if (!community) throw AppError.notFound('Community not found');
+    await this.getCommunityOwner(communityId);
 
     // Job / internship postings are managed by staff (not community owners).
-    const userRole = await queryOne<{ role: string }>('SELECT role FROM public.users WHERE user_id=$1', [currentUserId]);
-    if (!userRole || !['staff', 'admin'].includes(userRole.role)) {
-      throw AppError.forbidden('Only staff can create job posts');
-    }
+    await this.assertStaffOrAdmin(currentUserId, 'Only staff can create job posts');
 
     const deadline = input.deadlineDate.toISOString().slice(0, 10);
 
@@ -917,8 +1021,7 @@ export class CommunityService {
     );
     if (!job) throw AppError.notFound('Job post not found');
 
-    const userRole = await queryOne<{ role: string }>('SELECT role FROM public.users WHERE user_id=$1', [applicantUserId]);
-    if (userRole?.role === 'community') throw AppError.forbidden('Community accounts cannot apply');
+    await this.assertNotCommunityAccount(applicantUserId, 'Community accounts cannot apply');
 
     const today = new Date();
     const deadline = job.deadline_date ? new Date(job.deadline_date) : null;
@@ -1126,8 +1229,7 @@ export class CommunityService {
     if (!app) throw AppError.notFound('Application not found');
 
     if (app.applicant_user_id !== requesterUserId) {
-      const userRole = await queryOne<{ role: string }>('SELECT role FROM public.users WHERE user_id=$1', [requesterUserId]);
-      if (!userRole || !['staff', 'admin'].includes(userRole.role)) throw AppError.forbidden('Not authorized');
+      await this.assertStaffOrAdmin(requesterUserId, 'Not authorized');
     }
 
     const post = await queryOne<any>(
@@ -1204,10 +1306,7 @@ export class CommunityService {
     if (!app) throw AppError.notFound('Application not found');
 
     // Decisions for job/intern applications are managed by staff.
-    const userRole = await queryOne<{ role: string }>('SELECT role FROM public.users WHERE user_id=$1', [currentUserId]);
-    if (!userRole || !['staff', 'admin'].includes(userRole.role)) {
-      throw AppError.forbidden('Only staff can decide job applications');
-    }
+    await this.assertStaffOrAdmin(currentUserId, 'Only staff can decide job applications');
     if (app.status !== 'pending') throw AppError.badRequest('Application is not pending');
     if (input.status === 'pending') throw AppError.badRequest('Decision must be approved/rejected/cancelled');
 
@@ -1243,10 +1342,7 @@ export class CommunityService {
   // ─────────────────────────────────────────────────────────────────────────────
   static async getPendingJobApplications(currentUserId: number) {
     // Job application decisions are staff-controlled.
-    const userRole = await queryOne<{ role: string }>('SELECT role FROM public.users WHERE user_id=$1', [currentUserId]);
-    if (!userRole || !['staff', 'admin'].includes(userRole.role)) {
-      throw AppError.forbidden('Only staff can view pending job applications');
-    }
+    await this.assertStaffOrAdmin(currentUserId, 'Only staff can view pending job applications');
 
     const apps = await query<any>(
       `
@@ -1282,9 +1378,7 @@ export class CommunityService {
   }
 
   static async getPendingEventApplications(communityId: number, currentUserId: number) {
-    const community = await queryOne<any>('SELECT community_id, user_id FROM public.communities WHERE community_id=$1', [communityId]);
-    if (!community) throw AppError.notFound('Community not found');
-    if (community.user_id !== currentUserId) throw AppError.forbidden('Not authorized');
+    await this.assertCommunityOwner(communityId, currentUserId);
 
     const apps = await query<any>(
       `
@@ -1464,4 +1558,3 @@ export class CommunityService {
     });
   }
 }
-

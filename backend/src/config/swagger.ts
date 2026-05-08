@@ -1,5 +1,20 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import { SwaggerDefinition } from 'swagger-jsdoc';
+import env from './env';
+
+const servers = [
+  {
+    url: env.BACKEND_PUBLIC_URL ?? 'http://localhost:3000',
+    description: `${env.NODE_ENV} server`,
+  },
+];
+
+if ((env.BACKEND_PUBLIC_URL ?? 'http://localhost:3000') !== 'http://localhost:3000') {
+  servers.push({
+    url: 'http://localhost:3000',
+    description: 'Local development server',
+  });
+}
 
 const swaggerDefinition: SwaggerDefinition = {
   openapi: '3.0.0',
@@ -11,12 +26,7 @@ const swaggerDefinition: SwaggerDefinition = {
       name: 'UniVerse API Support',
     },
   },
-  servers: [
-    {
-      url: 'http://localhost:3000',
-      description: 'Development server',
-    },
-  ],
+  servers,
   components: {
     securitySchemes: {
       bearerAuth: {
@@ -218,10 +228,34 @@ const swaggerDefinition: SwaggerDefinition = {
       },
     },
   },
+  paths: {
+    '/api/bff/dashboard-shell': {
+      get: {
+        tags: ['BFF'],
+        summary: 'Dashboard shell (notifications + messaging unread)',
+        description:
+          'Aggregates data for authenticated home/dashboard views in one request (Backend-for-Frontend).',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Aggregated counters',
+          },
+          '401': {
+            description: 'Unauthorized',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+          },
+        },
+      },
+    },
+  },
   tags: [
     {
       name: 'Authentication',
       description: 'User authentication and authorization endpoints',
+    },
+    {
+      name: 'BFF',
+      description: 'Backend-for-Frontend aggregate endpoints tuned for UniVerse client screens',
     },
     {
       name: 'Rooms',
@@ -244,5 +278,4 @@ const options = {
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
-
 

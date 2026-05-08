@@ -93,6 +93,25 @@ Canlı staging deploy öncesi GitHub `staging` environment secret'ları:
 - `STAGING_DEPLOY_PATH`
 - `STAGING_DEPLOY_COMMAND`
 
+## Staging Deploy (Manual)
+
+Staging deploy workflow'u (`.github/workflows/staging-deploy.yml`) varsayılan olarak sadece simulation çalıştırır. Canlı staging deploy için manuel tetiklemede:
+
+- `run_live_deploy=true`
+- `confirm_live_deploy=DEPLOY_STAGING`
+
+alanları birlikte verilmelidir.
+
+Canlı staging deploy öncesi GitHub `staging` environment secret'ları:
+
+- `STAGING_SSH_HOST`
+- `STAGING_SSH_PORT` (opsiyonel, default `22`)
+- `STAGING_SSH_USER`
+- `STAGING_SSH_KEY`
+- `STAGING_SSH_KNOWN_HOSTS` (opsiyonel, verilmezse `ssh-keyscan` kullanılır)
+- `STAGING_DEPLOY_PATH`
+- `STAGING_DEPLOY_COMMAND`
+
 ---
 
 ## 🛰 Teknolojiler

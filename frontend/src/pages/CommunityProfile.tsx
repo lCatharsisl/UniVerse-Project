@@ -1,12 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { usePagePullRefresh } from '../hooks/usePagePullRefresh';
 import { COMMUNITY_CATEGORY_CODES, COMMUNITY_CATEGORY_LABEL_KEYS, type CommunityCategoryCode } from '../constants/communityCategories';
 import { toImgSrc } from '../utils/resolveMediaUrl';
-import { FiUsers, FiCalendar, FiArrowRight, FiCamera, FiBriefcase, FiX } from 'react-icons/fi';
+import { FiUsers, FiCalendar, FiArrowRight, FiCamera, FiBriefcase, FiX, FiImage, FiTrash2 } from 'react-icons/fi';
+import { themedConfirm } from '../utils/themedDialog';
 
 const formatDateOnly = (raw: string) => {
   const d = (raw || '').split('T')[0];
@@ -42,6 +46,10 @@ const CommunityProfile = () => {
   const { dimension } = useTheme();
   const isSpace = dimension === 'space';
   const isStaff = user?.role === 'staff' || user?.role === 'admin';
+  const isPlatformAdmin = user?.role === 'admin';
+
+  const canRemoveCommunityEvent = (ev: { created_by_user_id?: number } | null | undefined) =>
+    Boolean(ev && (isPlatformAdmin || (user != null && Number(ev.created_by_user_id) === Number(user.userId))));
 
   const [notice, setNotice] = useState<null | { title: string; message?: string; kind: 'info' | 'success' | 'error' }>(null);
   const [membersModalOpen, setMembersModalOpen] = useState(false);
@@ -67,8 +75,9 @@ const CommunityProfile = () => {
   const [profile, setProfile] = useState<any>(null);
   const [selectedCategories, setSelectedCategories] = useState<CommunityCategoryCode[]>([]);
   const [mediaSaving, setMediaSaving] = useState(false);
+  const [eventDetail, setEventDetail] = useState<any | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!communityId) return;
     setLoading(true);
     setError('');
@@ -82,11 +91,15 @@ const CommunityProfile = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [communityId, categories]);
+
+  usePagePullRefresh(
+    (path) => path.startsWith('/community/'),
+    load,
+  );
 
   useEffect(() => {
     load().catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [communityId]);
 
   const eventIdFromQuery = useMemo(() => {
@@ -98,6 +111,8 @@ const CommunityProfile = () => {
     if (!eventIdFromQuery) return;
     const evs = profile?.events;
     if (!Array.isArray(evs) || evs.length === 0) return;
+    const match = evs.find((e: any) => String(e.event_id) === String(eventIdFromQuery));
+    if (match) setEventDetail(match);
     const el = document.getElementById(`uv-event-${eventIdFromQuery}`);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [eventIdFromQuery, profile?.events]);
@@ -215,6 +230,44 @@ const CommunityProfile = () => {
     }
   };
 
+  const closeEventDetail = useCallback(() => {
+    setEventDetail(null);
+    if (eventIdFromQuery && communityId) {
+      navigate(`/community/${communityId}`, { replace: true });
+    }
+  }, [eventIdFromQuery, communityId, navigate]);
+
+  const removeCommunityEvent = async (eventId: number) => {
+    if (!communityId) return;
+    await api.delete(`/community/${communityId}/events/${eventId}`);
+    if (eventDetail?.event_id === eventId) {
+      closeEventDetail();
+    }
+    await load();
+  };
+
+  const tryRemoveCommunityEvent = async (eventId: number) => {
+    const ok = await themedConfirm(t('communityProfile.removeEventConfirm'));
+    if (!ok) return;
+    try {
+      await removeCommunityEvent(eventId);
+    } catch (e: any) {
+      setNotice({
+        kind: 'error',
+        title: e?.response?.data?.error || t('communityProfile.eventDeleteFailed'),
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (!eventDetail) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeEventDetail();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [eventDetail, closeEventDetail]);
+
   if (loading) {
     return (
       <div className={`min-h-screen p-4 md:p-6 ${isSpace ? 'bg-[#050510]' : 'bg-white'}`}>
@@ -249,7 +302,11 @@ const CommunityProfile = () => {
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
             {isAdmin && (
               <label
-                className={`absolute inset-0 z-[2] cursor-pointer group ${mediaSaving ? 'pointer-events-none opacity-70' : ''}`}
+                className={`absolute right-3 top-3 z-[2] flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border transition-opacity group ${
+                  mediaSaving ? 'pointer-events-none opacity-70' : ''
+                } ${
+                  isSpace ? 'border-white/20 bg-black/50 text-white' : 'border-uv-border bg-white/90 text-uv-black'
+                }`}
                 title={t('communityProfile.changeCover')}
               >
                 <input
@@ -259,13 +316,7 @@ const CommunityProfile = () => {
                   disabled={mediaSaving}
                   onChange={(e) => updateMedia({ coverFile: e.target.files?.[0] || null }).catch(() => {})}
                 />
-                <span
-                  className={`absolute right-3 top-3 w-9 h-9 rounded-xl border flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 ${
-                    isSpace ? 'bg-black/50 border-white/20 text-white' : 'bg-white/90 border-uv-border text-uv-black'
-                  }`}
-                >
-                  <FiCamera size={16} />
-                </span>
+                <FiCamera size={16} className="opacity-90 group-hover:opacity-100" />
               </label>
             )}
             <button
@@ -277,7 +328,8 @@ const CommunityProfile = () => {
               <FiArrowRight className="rotate-180" />
             </button>
 
-            <div className="absolute left-4 bottom-3 flex items-center gap-3">
+            {/* z-[4]: kapak değiştirme alanı artık full-bleed değil; eskiden inset-0 label tüm tıklamaları kapığına yutuyordu. */}
+            <div className="absolute left-4 bottom-3 z-[4] flex items-center gap-3">
               <label
                 className={`relative cursor-pointer group ${mediaSaving ? 'pointer-events-none opacity-70' : ''}`}
                 title={t('communityProfile.changeAvatar')}
@@ -500,43 +552,106 @@ const CommunityProfile = () => {
             <p className={`text-sm ${isSpace ? 'text-white/60' : 'text-uv-gray'}`}>{t('communityProfile.noEvents')}</p>
           ) : (
             <div className="space-y-3">
-              {events.map((ev: any) => (
+              {events.map((ev: any) => {
+                const posterSrc = toImgSrc(ev.poster_url);
+                return (
                 <div
                   key={ev.event_id}
                   id={`uv-event-${ev.event_id}`}
                   className={`rounded-2xl p-4 border ${isSpace ? 'border-white/10 bg-white/5' : 'border-uv-border bg-white'}`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className={`font-black ${isSpace ? 'text-white' : 'text-uv-black'}`}>{ev.title}</div>
-                      <div className={`text-xs ${isSpace ? 'text-white/60' : 'text-uv-gray'} mt-1`}>
-                        {ev.location || t('communityProfile.noLocation')}
-                      </div>
-                      <div className={`text-[10px] font-bold uppercase tracking-widest mt-2 ${isSpace ? 'text-white/50' : 'text-uv-gray'}`}>
-                        {ev.start_at ? `${t('communityProfile.startAt')}: ${new Date(ev.start_at).toLocaleString()}` : ''}
-                        {ev.end_at ? ` · ${t('communityProfile.endAt')}: ${new Date(ev.end_at).toLocaleString()}` : ''}
+                  <div className="flex items-start gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setEventDetail(ev)}
+                      className={`relative w-24 shrink-0 overflow-hidden rounded-xl border md:w-28 ${
+                        isSpace ? 'border-white/15 bg-white/5' : 'border-uv-border bg-gray-100'
+                      } aspect-[210/297]`}
+                      aria-label={t('communityProfile.eventPosterView')}
+                    >
+                      {posterSrc ? (
+                        <img src={posterSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                      ) : (
+                        <div
+                          className={`absolute inset-0 flex flex-col items-center justify-center p-2 text-center ${
+                            isSpace ? 'text-white/35' : 'text-uv-gray'
+                          }`}
+                        >
+                          <FiImage size={22} className="opacity-50" />
+                          <span className="mt-1 text-[8px] font-black uppercase leading-tight tracking-tighter">
+                            {t('communityProfile.eventPosterPlaceholder')}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                      <button type="button" onClick={() => setEventDetail(ev)} className="w-full text-left">
+                        <div className={`font-black ${isSpace ? 'text-white' : 'text-uv-black'}`}>{ev.title}</div>
+                        <div className={`text-xs ${isSpace ? 'text-white/60' : 'text-uv-gray'} mt-1`}>
+                          {ev.location || t('communityProfile.noLocation')}
+                        </div>
+                        <div
+                          className={`text-[10px] font-bold uppercase tracking-widest mt-2 ${
+                            isSpace ? 'text-white/50' : 'text-uv-gray'
+                          }`}
+                        >
+                          {ev.start_at ? `${t('communityProfile.startAt')}: ${new Date(ev.start_at).toLocaleString()}` : ''}
+                          {ev.end_at ? ` · ${t('communityProfile.endAt')}: ${new Date(ev.end_at).toLocaleString()}` : ''}
+                        </div>
+                      </button>
+                      <div className="flex flex-wrap items-start justify-end gap-2">
+                        {isMember && !isAdmin ? (
+                          <button
+                            type="button"
+                            onClick={() => applyToEvent(ev.event_id)}
+                            className="bg-primary text-white font-black py-2 px-4 rounded-2xl hover:brightness-95 transition-all active:scale-[0.98] text-[12px]"
+                          >
+                            {t('communityProfile.eventJoin')}
+                          </button>
+                        ) : !isAdmin ? (
+                          <div
+                            className={`text-[10px] font-black uppercase tracking-widest ${
+                              isSpace ? 'text-white/40' : 'text-uv-gray'
+                            }`}
+                          >
+                            {t('communityProfile.joinFirst')}
+                          </div>
+                        ) : (
+                          <div
+                            className={`text-[10px] font-black uppercase tracking-widest ${
+                              isSpace ? 'text-white/40' : 'text-uv-gray'
+                            }`}
+                          >
+                            {t('communityProfile.adminCannotApply')}
+                          </div>
+                        )}
                       </div>
                     </div>
-                    {isMember && !isAdmin ? (
+                  </div>
+                  {canRemoveCommunityEvent(ev) ? (
+                    <div
+                      className={`mt-3 flex border-t pt-3 ${isSpace ? 'border-white/10' : 'border-uv-border'}`}
+                    >
                       <button
                         type="button"
-                        onClick={() => applyToEvent(ev.event_id)}
-                        className="bg-primary text-white font-black py-2 px-4 rounded-2xl hover:brightness-95 transition-all active:scale-[0.98] text-[12px]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void tryRemoveCommunityEvent(ev.event_id);
+                        }}
+                        className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 py-2.5 text-xs font-black uppercase tracking-widest transition-colors ${
+                          isSpace
+                            ? 'border-red-400/50 text-red-300 hover:bg-red-500/15'
+                            : 'border-red-300 text-red-700 hover:bg-red-50'
+                        }`}
                       >
-                        {t('communityProfile.eventJoin')}
+                        <FiTrash2 size={15} className="shrink-0" aria-hidden />
+                        {t('communityProfile.removeEventButton')}
                       </button>
-                    ) : !isAdmin ? (
-                      <div className={`text-[10px] font-black uppercase tracking-widest ${isSpace ? 'text-white/40' : 'text-uv-gray'}`}>
-                        {t('communityProfile.joinFirst')}
-                      </div>
-                    ) : (
-                      <div className={`text-[10px] font-black uppercase tracking-widest ${isSpace ? 'text-white/40' : 'text-uv-gray'}`}>
-                        {t('communityProfile.adminCannotApply')}
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : null}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -661,6 +776,92 @@ const CommunityProfile = () => {
           </div>
         ) : null}
 
+        {eventDetail && typeof document !== 'undefined'
+          ? createPortal(
+              <div
+                className="fixed inset-0 z-[200] overflow-y-auto touch-pan-y"
+                data-no-pull-refresh="true"
+              >
+                <div
+                  role="presentation"
+                  className="flex min-h-[100dvh] w-full justify-center bg-black/70 px-4 py-8 sm:px-6 sm:py-10"
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget) closeEventDetail();
+                  }}
+                >
+                  <div
+                    className={`relative w-full max-w-3xl rounded-3xl border p-4 shadow-2xl md:p-6 ${
+                      isSpace ? 'border-white/10 bg-[#0d0d1a]' : 'border-uv-border bg-white'
+                    }`}
+                    role="dialog"
+                    aria-modal="true"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      onClick={closeEventDetail}
+                      className={`absolute right-3 top-3 z-[2] rounded-xl p-2 ${isSpace ? 'text-white/70 hover:bg-white/10' : 'text-uv-gray hover:bg-gray-100'}`}
+                      aria-label={t('common.close')}
+                    >
+                      <FiX size={20} />
+                    </button>
+                    <div className="pr-12">
+                      <h3 className={`text-xl font-black ${isSpace ? 'text-white' : 'text-uv-black'}`}>{eventDetail.title}</h3>
+                      <p className={`mt-1 text-sm ${isSpace ? 'text-white/60' : 'text-uv-gray'}`}>
+                        {eventDetail.location || t('communityProfile.noLocation')}
+                      </p>
+                      <p className={`mt-2 text-xs font-bold uppercase tracking-widest ${isSpace ? 'text-white/45' : 'text-uv-gray'}`}>
+                        {eventDetail.start_at ? `${t('communityProfile.startAt')}: ${new Date(eventDetail.start_at).toLocaleString()}` : ''}
+                        {eventDetail.end_at ? ` · ${t('communityProfile.endAt')}: ${new Date(eventDetail.end_at).toLocaleString()}` : ''}
+                      </p>
+                      {eventDetail.description ? (
+                        <p
+                          className={`mt-3 whitespace-pre-wrap text-sm leading-relaxed ${isSpace ? 'text-white/85' : 'text-uv-black'}`}
+                        >
+                          {eventDetail.description}
+                        </p>
+                      ) : null}
+                      {canRemoveCommunityEvent(eventDetail) ? (
+                        <button
+                          type="button"
+                          onClick={() => void tryRemoveCommunityEvent(eventDetail.event_id)}
+                          className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 py-2.5 text-xs font-black uppercase tracking-widest transition-colors ${
+                            isSpace
+                              ? 'border-red-400/50 text-red-300 hover:bg-red-500/15'
+                              : 'border-red-300 text-red-700 hover:bg-red-50'
+                          }`}
+                        >
+                          <FiTrash2 size={15} className="shrink-0" aria-hidden />
+                          {t('communityProfile.removeEventButton')}
+                        </button>
+                      ) : null}
+                    </div>
+                    {toImgSrc(eventDetail.poster_url) ? (
+                      <div className="mt-4 w-full">
+                        <img
+                          src={toImgSrc(eventDetail.poster_url)!}
+                          alt=""
+                          className={`block w-full max-w-full h-auto rounded-2xl border shadow-lg ${
+                            isSpace ? 'border-white/15' : 'border-uv-border'
+                          }`}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className={`mt-4 flex min-h-[120px] items-center justify-center rounded-2xl border border-dashed p-6 text-center text-sm font-bold ${
+                          isSpace ? 'border-white/20 text-white/50' : 'border-uv-border text-uv-gray'
+                        }`}
+                      >
+                        {t('communityProfile.eventPosterPlaceholder')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )
+          : null}
+
         {notice && (
           <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
             <div className={`absolute inset-0 ${isSpace ? 'bg-black/60' : 'bg-black/40'}`} onClick={() => setNotice(null)} />
@@ -695,4 +896,3 @@ const CommunityProfile = () => {
 };
 
 export default CommunityProfile;
-

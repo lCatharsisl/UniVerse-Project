@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FiClock, FiMapPin, FiLayers, FiCalendar } from 'react-icons/fi';
 import { useTheme } from '../context/ThemeContext';
 
@@ -60,6 +61,7 @@ function isRoomOccupied(
 }
 
 const FreeRooms: React.FC = () => {
+  const { t } = useTranslation();
   const { dimension } = useTheme();
   const isSpace = dimension === 'space';
 
@@ -119,7 +121,7 @@ const FreeRooms: React.FC = () => {
                 isSpace ? 'text-white' : 'text-uv-black'
               }`}
             >
-              Free Rooms
+              {t('freeRooms.title')}
             </h2>
           </div>
         </div>
@@ -135,7 +137,7 @@ const FreeRooms: React.FC = () => {
           {/* Day - required */}
           <div>
             <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-uv-gray mb-2">
-              <FiCalendar /> Day <span className="text-primary">*</span>
+              <FiCalendar /> {t('freeRooms.dayLabel')} <span className="text-primary">*</span>
             </label>
             <select
               value={selectedDay}
@@ -144,10 +146,10 @@ const FreeRooms: React.FC = () => {
                 isSpace ? 'bg-white/5 text-white border-white/10' : 'bg-white text-uv-black border-uv-border'
               }`}
             >
-              <option value="">Select</option>
+              <option value="">{t('freeRooms.selectPlaceholder')}</option>
               {DAYS.map((d) => (
                 <option key={d} value={d}>
-                  {d}
+                  {t(`freeRooms.days.${d}`)}
                 </option>
               ))}
             </select>
@@ -156,7 +158,7 @@ const FreeRooms: React.FC = () => {
           {/* Building - optional */}
           <div>
             <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-uv-gray mb-2">
-              <FiMapPin /> Building
+              <FiMapPin /> {t('freeRooms.buildingLabel')}
             </label>
             <select
               value={selectedBuilding}
@@ -168,7 +170,7 @@ const FreeRooms: React.FC = () => {
                 isSpace ? 'bg-white/5 text-white border-white/10' : 'bg-white text-uv-black border-uv-border'
               }`}
             >
-              <option value="">All campus</option>
+              <option value="">{t('freeRooms.allCampus')}</option>
               {BUILDINGS.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
@@ -180,7 +182,7 @@ const FreeRooms: React.FC = () => {
           {/* Room - optional */}
           <div>
             <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-uv-gray mb-2">
-              <FiLayers /> Room
+              <FiLayers /> {t('freeRooms.roomLabel')}
             </label>
             <select
               value={selectedRoom}
@@ -189,7 +191,7 @@ const FreeRooms: React.FC = () => {
                 isSpace ? 'bg-white/5 text-white border-white/10' : 'bg-white text-uv-black border-uv-border'
               }`}
             >
-              <option value="">All</option>
+              <option value="">{t('freeRooms.allRooms')}</option>
               {rooms.map((r) => (
                 <option key={r} value={r}>
                   {r}
@@ -201,7 +203,7 @@ const FreeRooms: React.FC = () => {
           {/* Time - optional */}
           <div>
             <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-uv-gray mb-2">
-              <FiClock /> Time
+              <FiClock /> {t('freeRooms.timeLabel')}
             </label>
             <select
               value={selectedSlot}
@@ -210,7 +212,7 @@ const FreeRooms: React.FC = () => {
                 isSpace ? 'bg-white/5 text-white border-white/10' : 'bg-white text-uv-black border-uv-border'
               }`}
             >
-              <option value="">All day</option>
+              <option value="">{t('freeRooms.allDay')}</option>
               {TIME_SLOTS.map((s) => (
                 <option key={s} value={s}>
                   {s}
@@ -230,7 +232,7 @@ const FreeRooms: React.FC = () => {
             }`}
           >
             <p className={`text-sm font-bold ${isSpace ? 'text-[#e1e1e6]/60' : 'text-uv-gray'}`}>
-              Select a day to list free rooms.
+              {t('freeRooms.emptyState')}
             </p>
           </div>
         ) : (
@@ -271,7 +273,7 @@ const FreeRooms: React.FC = () => {
                       isSpace ? 'text-emerald-400' : 'text-emerald-600'
                     }`}
                   >
-                    Free
+                    {t('freeRooms.free')}
                   </span>
                 )}
               </div>

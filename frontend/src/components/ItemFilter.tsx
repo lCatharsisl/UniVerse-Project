@@ -23,7 +23,7 @@ export const ItemFilter: React.FC<ItemFilterProps> = ({ onFilter, onReset }) => 
     isResolved: '',
   });
 
-  const handleChange = (field: keyof FilterOptions, value: any) => {
+  const handleChange = (field: keyof FilterOptions, value: FilterOptions[keyof FilterOptions]) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
 

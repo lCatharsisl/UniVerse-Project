@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { FiMapPin, FiClock, FiCheckCircle, FiArrowLeft, FiMoreHorizontal } from 'react-icons/fi';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
+import AdminModerationMenu from '../components/AdminModerationMenu';
 
 interface Comment {
     comment_id: number;
@@ -143,6 +145,20 @@ const ItemDetail = () => {
                                 </span>
                                 <span className="text-gray-500 text-sm">@{item.poster_email?.split('@')[0] || 'anonymous'}</span>
                             </div>
+                            <div className="flex items-center justify-end gap-1 shrink-0">
+                            <AdminModerationMenu
+                                visible={Boolean(user?.role === 'admin' && !isOwner)}
+                                onDelete={async () => {
+                                    try {
+                                        const endpoint =
+                                            type === 'lost' ? `/services/lost-items/${id}` : `/services/found-items/${id}`;
+                                        await api.delete(endpoint);
+                                        navigate('/lost-found');
+                                    } catch {
+                                        await themedAlert('Failed to delete report');
+                                    }
+                                }}
+                            />
                             <div className="relative">
                                 <button 
                                     onClick={() => setOpenMenu(!openMenu)}
@@ -168,6 +184,7 @@ const ItemDetail = () => {
                                         )}
                                     </div>
                                 )}
+                            </div>
                             </div>
                          </div>
                     </div>

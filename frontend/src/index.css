@@ -1,7 +1,5 @@
 @import "tailwindcss";
 
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;900&display=swap");
-
 :root {
   --uv-primary: #4f46e5; /* Indigo */
   --uv-accent: #f59e0b; /* Orange */
@@ -9,6 +7,7 @@
   --uv-gray: #6b7280;
   --uv-border: #f3f4f6;
   --uv-glass: rgba(255, 255, 255, 0.7);
+  --uv-text-scale: 1;
 }
 
 @theme {
@@ -21,18 +20,39 @@
 }
 
 html {
-  font-size: 13px;
+  font-size: calc(14px * var(--uv-text-scale));
+  background: #c8102e;
+  overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overflow-x: hidden;
+  /* Çift dokunma ile yakınlaştırmayı azaltır; tam kilidi viewport meta sağlar */
+  touch-action: manipulation;
 }
 
 @media (min-width: 768px) {
   html {
-    font-size: 15px;
+    font-size: calc(15.5px * var(--uv-text-scale));
   }
 }
 
 body {
   @apply bg-white text-uv-black antialiased;
   font-family: var(--font-family-sans);
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+  touch-action: manipulation;
+}
+
+#root {
+  min-height: 100dvh;
+  overflow-x: clip;
+}
+
+html[data-theme='space'] {
+  background: #050510;
 }
 
 /* MARGINAL UI ELEMENTS */
@@ -65,9 +85,10 @@ body {
   @apply flex items-center gap-3 px-3 py-2 rounded-tr-xl rounded-bl-xl text-sm transition-all hover:bg-primary/5 hover:text-primary w-fit cursor-pointer font-medium;
 }
 
-@media (min-width: 768px) {
+/* Masaüstü sol menü (xl+): daha okunaklı tipografi ve tıklama alanı */
+@media (min-width: 1280px) {
   .sidebar-link {
-    @apply px-4 py-2.5 text-base rounded-tr-2xl rounded-bl-2xl;
+    @apply gap-3 px-4 py-2 text-base font-semibold rounded-tr-2xl rounded-bl-2xl;
   }
 }
 
@@ -94,7 +115,13 @@ body {
 }
 
 .modal-content {
-  @apply bg-white rounded-tl-[3rem] rounded-br-[3rem] rounded-tr-xl rounded-bl-xl w-full max-w-xl p-6 shadow-2xl relative overflow-hidden;
+  @apply rounded-tl-[3rem] rounded-br-[3rem] rounded-tr-xl rounded-bl-xl w-full max-w-xl p-6 shadow-2xl relative overflow-hidden;
+}
+
+.space-dimension .modal-content {
+  background: rgba(13, 13, 31, 0.95);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* CUSTOM SCROLLBAR */
@@ -278,4 +305,34 @@ body {
   .minimal-card {
     @apply bg-white rounded-2xl border border-gray-100 shadow-sm p-4;
   }
+}
+
+/* GPU compositing hints — animate only compositor-friendly props */
+.motion-safe\:transform-gpu,
+[data-framer-motion],
+.framer-motion-element {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+/* Feed cards: contain layout to prevent layout thrashing */
+.feed-card {
+  contain: layout style;
+}
+
+/* Hub ⋮ menu: force opaque paint (semi-transparent feed cards + contain can ghost the panel) */
+.hub-feed-post-menu-space {
+  background-color: rgb(5, 5, 12) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
+  mix-blend-mode: normal;
+}
+
+.hub-feed-post-menu-ground {
+  background-color: rgb(243, 244, 246) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
+  mix-blend-mode: normal;
 }

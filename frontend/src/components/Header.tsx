@@ -66,6 +66,7 @@ const Header = () => {
                                 <span className="font-medium">{user.email.split('@')[0]}</span>
                             </Link>
                             <button
+                                type="button"
                                 onClick={logout}
                                 className="text-gray-400 hover:text-red-600 transition-colors"
                                 title="Logout"

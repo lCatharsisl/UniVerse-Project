@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react-hooks/preserve-manual-memoization */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -14,6 +15,7 @@ import {
   normalizeApptTime,
   slotGridKey,
   startOfWeekMondayIso,
+  todayLocalIso,
   toClockHm,
   weekDayDatesFromMonday,
 } from '../constants/appointmentTimeSlots';
@@ -28,6 +30,8 @@ type AvailabilitySlot = {
   endTime?: string;
   is_booked?: boolean;
   isBooked?: boolean;
+  /** Yalnızca onaylı randevu (öğrenci slot listesi) */
+  is_slot_locked?: boolean;
   is_active?: boolean;
 };
 
@@ -124,6 +128,27 @@ const Appointments = () => {
   useEffect(() => {
     loadMyData().catch(() => {});
   }, []);
+
+  const earliestNavWeekMondayIso = startOfWeekMondayIso();
+  const minSelectableDayIso = todayLocalIso();
+
+  useEffect(() => {
+    if (weekMondayIso < earliestNavWeekMondayIso) setWeekMondayIso(earliestNavWeekMondayIso);
+  }, [weekMondayIso, earliestNavWeekMondayIso]);
+
+  useEffect(() => {
+    if (!isStaff && bookingWeekMondayIso < earliestNavWeekMondayIso) {
+      setBookingWeekMondayIso(earliestNavWeekMondayIso);
+    }
+  }, [isStaff, bookingWeekMondayIso, earliestNavWeekMondayIso]);
+
+  useEffect(() => {
+    if (!selectedDate) return;
+    if (calendarDateKey(selectedDate) < minSelectableDayIso) {
+      setSelectedDate('');
+      setSelectedSlot(null);
+    }
+  }, [selectedDate, minSelectableDayIso]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedName(filters.name), 300);
@@ -252,7 +277,10 @@ const Appointments = () => {
       .map((s) => ({
         startTime: (s.start_time || s.startTime || '').slice(0, 5),
         endTime: (s.end_time || s.endTime || '').slice(0, 5),
-        booked: Boolean(s.is_booked ?? s.isBooked),
+        booked:
+          s.is_slot_locked !== undefined && s.is_slot_locked !== null
+            ? isTruthyBooked(s.is_slot_locked)
+            : isTruthyBooked(s.is_booked ?? s.isBooked),
       }))
       .forEach((slot) => {
         const key = `${slot.startTime}-${slot.endTime}`;
@@ -274,6 +302,7 @@ const Appointments = () => {
   const handleStaffAvailabilityToggle = useCallback(
     async (dateIso: string, start: string, end: string, available: boolean) => {
       if (!isStaff || !user?.userId) return;
+      if (calendarDateKey(dateIso) < todayLocalIso()) return;
       const key = slotGridKey(start, end);
       const slotKeyFn = (s: { start_time?: string; end_time?: string }) =>
         slotGridKey(toClockHm(s.start_time || ''), toClockHm(s.end_time || ''));
@@ -351,6 +380,7 @@ const Appointments = () => {
     for (const row of weekRangeSlots) {
       const iso = calendarDateKey(row.specific_date);
       if (!workDays.has(iso)) continue;
+      if (iso < todayLocalIso()) continue;
       if (row.is_active === false) continue;
       if (isTruthyBooked(row.is_booked)) continue;
       const dow = new Date(`${iso}T12:00:00`).getDay();
@@ -397,7 +427,7 @@ const Appointments = () => {
     try {
       await api.post('/academic/appointments', {
         staffUserId: selectedStaff,
-        date: selectedDate,
+        date: calendarDateKey(selectedDate),
         startTime: selectedSlot.startTime,
         endTime: selectedSlot.endTime,
         topic,
@@ -422,6 +452,7 @@ const Appointments = () => {
     await api.patch(`/academic/appointments/${id}/status`, { status, reason });
     await loadMyData();
     if (isStaff) await loadWeekRange();
+    else if (selectedStaff) await loadStudentWeekRange();
   };
 
   const markRead = async (id: number) => {
@@ -490,13 +521,20 @@ const Appointments = () => {
               weekMondayIso={weekMondayIso}
               rangeSlots={weekRangeSlots}
               weekAppointments={staffWeekAppointments}
-              onPrevWeek={() => setWeekMondayIso((w) => addDaysIso(w, -7))}
+              onPrevWeek={() =>
+                setWeekMondayIso((w) => {
+                  const prev = addDaysIso(w, -7);
+                  return prev < earliestNavWeekMondayIso ? w : prev;
+                })
+              }
               onNextWeek={() => setWeekMondayIso((w) => addDaysIso(w, 7))}
               onThisWeek={() => setWeekMondayIso(startOfWeekMondayIso())}
               onAvailabilityToggle={(dateIso, start, end, available) => void handleStaffAvailabilityToggle(dateIso, start, end, available)}
               saving={saving}
               isSpace={isSpace}
               t={t}
+              earliestNavWeekMondayIso={earliestNavWeekMondayIso}
+              minSelectableDayIso={minSelectableDayIso}
             />
             <div className={`mt-4 flex flex-col gap-3 pt-4 border-t ${isSpace ? 'border-white/10' : 'border-uv-border'}`}>
               <p className={`text-xs font-medium max-w-xl ${isSpace ? 'text-white/50' : 'text-uv-gray'}`}>{t('appointments.setAsDefaultHint')}</p>
@@ -596,7 +634,10 @@ const Appointments = () => {
                   rangeSlots={studentWeekRangeSlots}
                   weekAppointments={studentWeekAppointments}
                   onPrevWeek={() => {
-                    setBookingWeekMondayIso((w) => addDaysIso(w, -7));
+                    setBookingWeekMondayIso((w) => {
+                      const prev = addDaysIso(w, -7);
+                      return prev < earliestNavWeekMondayIso ? w : prev;
+                    });
                     setSelectedDate('');
                     setSelectedSlot(null);
                   }}
@@ -611,13 +652,15 @@ const Appointments = () => {
                     setSelectedSlot(null);
                   }}
                   onSlotSelect={(dateIso, start, end) => {
-                    setSelectedDate(dateIso);
+                    setSelectedDate(calendarDateKey(dateIso));
                     setSelectedSlot({ startTime: start, endTime: end });
                   }}
                   selectedBookingKey={selectedBookingKey}
                   saving={saving}
                   isSpace={isSpace}
                   t={t}
+                  earliestNavWeekMondayIso={earliestNavWeekMondayIso}
+                  minSelectableDayIso={minSelectableDayIso}
                 />
                 {selectedDate && selectedSlot && (
                   <p className={`text-xs font-bold ${isSpace ? 'text-emerald-300/90' : 'text-primary'}`}>

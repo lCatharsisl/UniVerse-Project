@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { FiX, FiImage, FiZap, FiWifi, FiSend } from 'react-icons/fi';
+import { FiX, FiImage, FiZap, FiSend } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/client';
@@ -19,6 +19,12 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
   const isSpace = dimension === 'space';
   const modalAvatarUrl = getAuthUserAvatarUrl(user);
   const modalInitials = getAuthUserInitials(user);
+  const modalDisplayName = String(
+    user?.profile?.student_name ||
+    user?.profile?.staff_name ||
+    user?.email?.split('@')[0] ||
+    t('postModal.liveConnection')
+  );
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -62,9 +68,7 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
         formData.append('images', selectedImage);
       }
 
-      await api.post('/social/posts', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await api.post('/social/posts', formData);
       onClose();
       window.location.reload();
     } catch {
@@ -76,7 +80,9 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
 
   const node = (
     <div
-      className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-uv-black/60 backdrop-blur-md"
+      className={`fixed inset-0 z-[500] flex items-center justify-center p-4 backdrop-blur-2xl ${
+        isSpace ? 'bg-black/40' : 'bg-black/15'
+      }`}
       role="presentation"
       onClick={onClose}
     >
@@ -84,27 +90,41 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
         role="dialog"
         aria-modal="true"
         aria-labelledby="post-modal-title"
-        className={`modal-content relative z-[1] flex w-full max-w-xl flex-col overflow-visible rounded-tl-[3rem] rounded-br-[3rem] rounded-tr-xl rounded-bl-xl p-4 shadow-2xl md:p-6 mx-3 md:mx-0 ${
-          isSpace ? 'border border-white/10 bg-[#0a0a1a]' : ''
+        className={`modal-content relative z-[1] flex w-full max-w-2xl flex-col overflow-hidden rounded-3xl border p-4 shadow-2xl backdrop-blur-xl md:p-6 ${
+          isSpace
+            ? 'border-white/10 bg-[#0d0d1f]/80 text-white'
+            : 'border-white/40 bg-white/70 text-uv-black'
         }`}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div
-            id="post-modal-title"
-            className="flex items-center gap-2 rounded-br-2xl border-b border-r border-primary/10 bg-primary/10 px-4 py-2"
-          >
-            <FiWifi className="shrink-0 text-primary animate-pulse" aria-hidden />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
-              {t('postModal.liveConnection')}
-            </span>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border ${
+                isSpace ? 'border-white/10 bg-white/5' : 'border-uv-border bg-gray-50'
+              }`}
+            >
+              {modalAvatarUrl ? (
+                <img src={modalAvatarUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                modalInitials
+              )}
+            </div>
+            <div className="min-w-0">
+              <div id="post-modal-title" className="text-sm font-black uppercase tracking-[0.18em] text-primary">
+                {modalDisplayName}
+              </div>
+              <div className={`text-[11px] font-semibold ${isSpace ? 'text-white/55' : 'text-uv-gray'}`}>
+                {t('postModal.placeholder')}
+              </div>
+            </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors md:h-10 md:w-10 ${
-              isSpace ? 'text-white/70 hover:bg-white/10' : 'text-uv-gray hover:bg-gray-100'
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition-colors ${
+              isSpace ? 'border-white/10 text-white/70 hover:bg-white/10' : 'border-uv-border text-uv-gray hover:bg-gray-100'
             }`}
             aria-label={t('common.close')}
           >
@@ -112,9 +132,9 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
           </button>
         </div>
 
-        <div className="flex gap-4 md:gap-5">
+        <div className="flex gap-3 md:gap-5">
           <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-tl-xl rounded-br-xl border border-primary/20 bg-primary/5 text-sm font-black text-primary shadow-inner md:h-14 md:w-14 md:rounded-tl-2xl md:rounded-br-2xl md:text-xl overflow-hidden`}
+            className={`hidden h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-primary/20 bg-primary/5 text-sm font-black text-primary shadow-inner md:flex md:h-14 md:w-14 md:text-xl`}
           >
             {modalAvatarUrl ? (
               <img src={modalAvatarUrl} alt="" className="h-full w-full object-cover" />
@@ -131,7 +151,7 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
               autoCorrect="off"
               spellCheck
               rows={5}
-              className={`min-h-[120px] w-full resize-none border-none bg-transparent text-base font-semibold outline-none ring-0 focus:ring-0 md:min-h-[160px] md:text-2xl md:font-black ${
+              className={`min-h-[150px] w-full resize-none border-none bg-transparent text-lg font-semibold outline-none ring-0 focus:ring-0 md:min-h-[220px] md:text-2xl md:font-black ${
                 isSpace
                   ? 'text-white placeholder:text-white/35'
                   : 'text-uv-black placeholder:text-primary/30'
@@ -142,25 +162,25 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
             />
 
             {previewUrl && selectedImage && (
-              <div className="relative mt-2 mb-6">
+              <div className="relative mt-3 mb-4">
                 {selectedImage.type.startsWith('video/') ? (
                   <video
                     src={previewUrl}
                     controls
                     playsInline
-                    className="max-h-[300px] w-full rounded-tl-[3rem] rounded-br-[3rem] border-4 border-white object-contain bg-black shadow-2xl"
+                    className={`max-h-[320px] w-full rounded-2xl border object-contain shadow-2xl ${isSpace ? 'border-white/10 bg-black' : 'border-uv-border bg-black'}`}
                   />
                 ) : (
                   <img
                     src={previewUrl}
                     alt=""
-                    className="max-h-[300px] w-full rounded-tl-[3rem] rounded-br-[3rem] border-4 border-white object-cover shadow-2xl"
+                    className={`max-h-[320px] w-full rounded-2xl border object-cover shadow-2xl ${isSpace ? 'border-white/10' : 'border-uv-border'}`}
                   />
                 )}
                 <button
                   type="button"
                   onClick={() => setSelectedImage(null)}
-                  className="absolute top-4 right-4 rounded-xl bg-uv-black/80 p-2 text-white hover:bg-uv-black"
+                  className="absolute top-3 right-3 rounded-xl bg-uv-black/80 p-2 text-white hover:bg-uv-black"
                   aria-label={t('common.close')}
                 >
                   <FiX size={20} />
@@ -169,13 +189,13 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
             )}
 
             <div
-              className={`mt-2 flex items-center justify-between border-t pt-3 md:mt-4 md:pt-4 ${
+              className={`mt-3 flex items-center justify-between border-t pt-3 md:mt-4 md:pt-4 ${
                 isSpace ? 'border-white/10' : 'border-gray-50'
               }`}
             >
               <div className="flex items-center gap-1.5 md:gap-2">
                 <label
-                  className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg transition-all md:h-12 md:w-12 md:rounded-xl ${
+                  className={`flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl transition-all md:h-12 md:w-12 md:rounded-2xl ${
                     isSpace
                       ? 'bg-white/5 text-white/60 hover:bg-primary/15 hover:text-primary'
                       : 'bg-gray-50 text-uv-gray hover:bg-primary/10 hover:text-primary'
@@ -190,7 +210,7 @@ const PostModal: React.FC<PostModalProps> = ({ onClose }) => {
                   <FiImage size={20} />
                 </label>
                 <span
-                  className={`flex h-9 w-9 items-center justify-center rounded-lg md:h-12 md:w-12 md:rounded-xl ${
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl md:h-12 md:w-12 md:rounded-2xl ${
                     isSpace ? 'bg-white/5 text-white/40' : 'bg-gray-50 text-uv-gray/60'
                   }`}
                   aria-hidden

@@ -22,44 +22,40 @@ interface SearchParams {
 export const lostFoundService = {
   // Get all lost items
   getLostItems: (params?: SearchParams) =>
-    apiClient.get<{ items: LostItem[]; total: number }>('/lost-items', { params }),
+    apiClient.get<{ items: LostItem[]; total: number }>('/services/lost-items', { params }),
 
   // Get all found items
   getFoundItems: (params?: SearchParams) =>
-    apiClient.get('/found-items', { params }),
+    apiClient.get('/services/found-items', { params }),
 
   // Search lost items (full-text search)
   searchLostItems: (searchTerm: string) =>
-    apiClient.post('/lost-items/search', { searchTerm }),
+    apiClient.post('/services/lost-items/search', { searchTerm }),
 
   // Search found items (full-text search)
   searchFoundItems: (searchTerm: string) =>
-    apiClient.post('/found-items/search', { searchTerm }),
+    apiClient.post('/services/found-items/search', { searchTerm }),
 
   // Create lost item with images
   createLostItem: (data: FormData) =>
-    apiClient.post('/lost-items', data, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
+    apiClient.post('/services/lost-items', data),
 
   // Create found item with images
   createFoundItem: (data: FormData) =>
-    apiClient.post('/found-items', data, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
+    apiClient.post('/services/found-items', data),
 
   // Resolve lost item
   resolveLostItem: (id: number) =>
-    apiClient.patch(`/lost-items/${id}/resolve`),
+    apiClient.patch(`/services/lost-items/${id}/resolve`),
 
   // Resolve found item
   resolveFoundItem: (id: number) =>
-    apiClient.patch(`/found-items/${id}/resolve`),
+    apiClient.patch(`/services/found-items/${id}/resolve`),
 
   // Get recent items (last 30 days)
   getRecentLostItems: () =>
-    apiClient.get('/lost-items/recent'),
+    apiClient.get('/services/lost-items/recent'),
 
   getRecentFoundItems: () =>
-    apiClient.get('/found-items/recent'),
+    apiClient.get('/services/found-items/recent'),
 };

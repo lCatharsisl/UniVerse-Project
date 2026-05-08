@@ -8,9 +8,11 @@ import { communityModule } from '../../modules/community/index';
 import { messagingModule } from '../../modules/messaging/index';
 import { notificationsModule } from '../../modules/notifications/index';
 import { searchModule } from '../../modules/search/index';
+import { bffModule } from '../../modules/bff/index';
 
 const router = Router();
 
+router.use('/bff', bffModule.router);
 router.use('/auth', identityModule.router);
 router.use('/social', socialModule.router);
 router.use('/academic', academicModule.router);
