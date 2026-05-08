@@ -149,7 +149,7 @@ runCommand(
 spawnService(
   "backend",
   process.execPath,
-  [path.join(rootDir, "backend/dist/server.js")],
+  [path.join(rootDir, "backend/node_modules/tsx/dist/cli.mjs"), "watch", "src/server.ts"],
   {
     cwd: path.join(rootDir, "backend"),
     // backend/package.json `dev` ile aynı: local DB (Supabase vb.) self-signed zinciri Node'u reddeder

@@ -1,6 +1,5 @@
 import express, { Express } from 'express';
 import cors from 'cors';
-import path from 'path';
 import swaggerUi from 'swagger-ui-express';
 import helmet from 'helmet';
 import env from './config/env';
@@ -80,9 +79,6 @@ app.use(requestIdMiddleware);
 app.use(requestLoggingMiddleware);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Serve uploaded files statically (local disk uploads)
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Swagger documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {

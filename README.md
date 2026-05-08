@@ -74,20 +74,24 @@ Ortak kontrol listesi:
 - Microsoft login kullanılacaksa `MICROSOFT_REDIRECT_URI` ortam URL'si ile eşleşiyor
 - Monitoring kullanılacaksa `MONITORING_ENABLED=true` ve `MONITORING_WEBHOOK_URL` birlikte tanımlı
 
-## Microsoft Login Setup
+## Staging Deploy (Manual)
 
-Yaşar Üniversitesi Microsoft hesabı ile giriş için backend tarafında aşağıdaki environment variable'lar tanımlanmalıdır:
+Staging deploy workflow'u (`.github/workflows/staging-deploy.yml`) varsayılan olarak sadece simulation çalıştırır. Canlı staging deploy için manuel tetiklemede:
 
-```env
-FRONTEND_URL=http://localhost:5173
-BACKEND_PUBLIC_URL=http://localhost:3000
-MICROSOFT_CLIENT_ID=...
-MICROSOFT_CLIENT_SECRET=...
-MICROSOFT_TENANT_ID=...
-MICROSOFT_REDIRECT_URI=http://localhost:3000/api/auth/microsoft/callback
-```
+- `run_live_deploy=true`
+- `confirm_live_deploy=DEPLOY_STAGING`
 
-Microsoft Entra ID tarafında app registration açılırken callback olarak `MICROSOFT_REDIRECT_URI` değeri tanımlanmalıdır.
+alanları birlikte verilmelidir.
+
+Canlı staging deploy öncesi GitHub `staging` environment secret'ları:
+
+- `STAGING_SSH_HOST`
+- `STAGING_SSH_PORT` (opsiyonel, default `22`)
+- `STAGING_SSH_USER`
+- `STAGING_SSH_KEY`
+- `STAGING_SSH_KNOWN_HOSTS` (opsiyonel, verilmezse `ssh-keyscan` kullanılır)
+- `STAGING_DEPLOY_PATH`
+- `STAGING_DEPLOY_COMMAND`
 
 ## Staging Deploy (Manual)
 
