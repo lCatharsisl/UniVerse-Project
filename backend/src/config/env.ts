@@ -25,6 +25,13 @@ const envSchema = z.object({
   CORS_ORIGINS: z.string().optional(),
   MONITORING_ENABLED: z.coerce.boolean().optional().default(false),
   MONITORING_WEBHOOK_URL: z.string().url().optional(),
+
+  // Microsoft Entra ID (optional)
+  MICROSOFT_CLIENT_ID: z.string().optional(),
+  MICROSOFT_CLIENT_SECRET: z.string().optional(),
+  MICROSOFT_TENANT_ID: z.string().optional(),
+  MICROSOFT_REDIRECT_URI: z.string().url().optional(),
+
   AUTHORIZATION_AUDIT_ENABLED: z.coerce.boolean().optional().default(false),
   TRACEPARENT_LOGGING_ENABLED: z.coerce.boolean().optional().default(true),
   SECRET_PROVIDER: z.enum(['env', 'file', 'azure-keyvault']).optional().default('env'),
