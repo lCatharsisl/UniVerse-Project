@@ -12,6 +12,8 @@ frontend/dist-ssr/
 # Environment Variables (CRITICAL: Do not commit sensitive data)
 .env
 .env.*
+!.env.example
+!**/.env.example
 backend/.env
 backend/.env.*
 
@@ -42,6 +44,8 @@ Desktop.ini
 # Testing
 coverage/
 backend/coverage/
+frontend/playwright-report/
+frontend/test-results/
 
 # Local temporary files
 /tmp/
