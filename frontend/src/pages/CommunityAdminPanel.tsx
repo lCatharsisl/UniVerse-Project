@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../api/client';
 import { useTheme } from '../context/ThemeContext';
-import { FiCalendar, FiAlertTriangle } from 'react-icons/fi';
+import { FiCalendar, FiAlertTriangle, FiImage, FiX } from 'react-icons/fi';
 import { themedAlert, themedPrompt } from '../utils/themedDialog';
 import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 
@@ -27,6 +28,22 @@ const CommunityAdminPanel = () => {
   const [eventLocation, setEventLocation] = useState('');
   const [eventStartAt, setEventStartAt] = useState('');
   const [eventEndAt, setEventEndAt] = useState('');
+  const [posterFile, setPosterFile] = useState<File | null>(null);
+  const [posterPreview, setPosterPreview] = useState<string | null>(null);
+  const posterInputRef = useRef<HTMLInputElement>(null);
+  /** Blocks double-clicks and overlapping submits (each successful POST creates a new event). */
+  const createEventInFlightRef = useRef(false);
+  const [publishingEvent, setPublishingEvent] = useState(false);
+
+  useEffect(() => {
+    if (!posterFile) {
+      setPosterPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(posterFile);
+    setPosterPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [posterFile]);
 
   const load = async () => {
     if (!communityId) return;
@@ -63,22 +80,48 @@ const CommunityAdminPanel = () => {
 
   const createEvent = async () => {
     if (!communityId) return;
+    if (!eventTitle.trim()) {
+      await themedAlert(t('communityAdmin.eventTitleRequired'));
+      return;
+    }
+    if (createEventInFlightRef.current) return;
+    createEventInFlightRef.current = true;
+    setPublishingEvent(true);
     try {
-      await api.post(`/community/${communityId}/events`, {
-        title: eventTitle,
+      const res = await api.post(`/community/${communityId}/events`, {
+        title: eventTitle.trim(),
         description: eventDescription || null,
         location: eventLocation || null,
         start_at: eventStartAt ? new Date(eventStartAt).toISOString() : null,
         end_at: eventEndAt ? new Date(eventEndAt).toISOString() : null,
       });
+      const eventId = res.data?.eventId;
+      if (posterFile && eventId != null) {
+        const fd = new FormData();
+        fd.append('poster', posterFile);
+        try {
+          await api.post(`/community/${communityId}/events/${eventId}/poster`, fd);
+        } catch (pe: any) {
+          const server = typeof pe?.response?.data?.error === 'string' ? pe.response.data.error.trim() : '';
+          const net =
+            !pe?.response && typeof pe?.message === 'string' && pe.message.length > 0 ? pe.message : '';
+          const extra = [server, net].filter(Boolean).join('\n\n');
+          await themedAlert(extra ? `${t('communityAdmin.posterUploadFailed')}\n\n${extra}` : t('communityAdmin.posterUploadFailed'));
+        }
+      }
+
       setEventTitle('');
       setEventDescription('');
       setEventLocation('');
       setEventStartAt('');
       setEventEndAt('');
+      setPosterFile(null);
       await load();
     } catch (e: any) {
       await themedAlert(e?.response?.data?.error || 'Failed to create event');
+    } finally {
+      createEventInFlightRef.current = false;
+      setPublishingEvent(false);
     }
   };
 
@@ -177,6 +220,65 @@ const CommunityAdminPanel = () => {
             />
           </div>
 
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={posterInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/jpg"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  setPosterFile(f ?? null);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => posterInputRef.current?.click()}
+                className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-xs font-black uppercase tracking-widest transition-colors ${
+                  isSpace ? 'border-white/15 text-white/80 hover:bg-white/10' : 'border-uv-border text-uv-gray hover:bg-white'
+                }`}
+              >
+                <FiImage size={16} />
+                {t('communityAdmin.eventPosterLabel')}
+              </button>
+              {posterFile ? (
+                <button
+                  type="button"
+                  onClick={() => setPosterFile(null)}
+                  className={`inline-flex items-center gap-1 rounded-2xl border px-3 py-2 text-[10px] font-black uppercase tracking-widest ${
+                    isSpace ? 'border-white/15 text-white/60 hover:bg-white/10' : 'border-uv-border text-uv-gray hover:bg-gray-50'
+                  }`}
+                >
+                  <FiX size={14} />
+                  {t('communityAdmin.eventPosterClear')}
+                </button>
+              ) : null}
+            </div>
+            <p className={`text-[10px] font-bold ${isSpace ? 'text-white/45' : 'text-uv-gray'}`}>{t('communityAdmin.eventPosterHint')}</p>
+            <div
+              className={`mx-auto flex w-full max-w-[200px] flex-col overflow-hidden rounded-2xl border md:max-w-[220px] ${
+                isSpace ? 'border-white/15 bg-white/5' : 'border-uv-border bg-white'
+              }`}
+            >
+              <div className="relative aspect-[210/297] w-full">
+                {posterPreview ? (
+                  <img src={posterPreview} alt="" className="absolute inset-0 h-full w-full object-contain" />
+                ) : (
+                  <div
+                    className={`absolute inset-0 flex flex-col items-center justify-center gap-1 p-3 text-center ${
+                      isSpace ? 'text-white/35' : 'text-uv-gray'
+                    }`}
+                  >
+                    <FiImage size={28} className="opacity-50" />
+                    <span className="text-[9px] font-black uppercase tracking-widest">{t('communityAdmin.eventPosterPreviewEmpty')}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           <textarea
             value={eventDescription}
             onChange={(e) => setEventDescription(e.target.value)}
@@ -186,10 +288,11 @@ const CommunityAdminPanel = () => {
 
           <button
             type="button"
-            onClick={createEvent}
-            className="w-full bg-primary text-white font-black py-3 rounded-2xl hover:brightness-95 transition-all active:scale-[0.98]"
+            disabled={publishingEvent}
+            onClick={() => void createEvent()}
+            className="w-full bg-primary text-white font-black py-3 rounded-2xl hover:brightness-95 transition-all active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none"
           >
-            {t('communityAdmin.createEventButton')}
+            {publishingEvent ? t('communityAdmin.publishingEvent') : t('communityAdmin.createEventButton')}
           </button>
         </section>
         )}
@@ -306,4 +409,3 @@ const CommunityAdminPanel = () => {
 };
 
 export default CommunityAdminPanel;
-

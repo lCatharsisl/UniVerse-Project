@@ -1,13 +1,5 @@
-import path from 'node:path';
+import './loadDotenv';
 import { z } from 'zod';
-import dotenv from 'dotenv';
-
-const backendRoot = path.resolve(__dirname, '../..');
-// Önce backend kökündeki dosyalar — npm/cwd repo kökünde olsa bile Supabase DATABASE_URL yüklensin
-dotenv.config({ path: path.join(backendRoot, '_env') });
-dotenv.config({ path: path.join(backendRoot, '.env') });
-// İsteğe bağlı: çalışma dizinindeki .env (monorepo köküne koyanlar için ek anahtarlar)
-dotenv.config();
 
 const envSchema = z.object({
   // Database
@@ -20,7 +12,9 @@ const envSchema = z.object({
 
   // Server
   PORT: z.coerce.number().default(3000),
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  /** Boş değilse `app.listen(PORT, host)` — LAN’da doğrudan API için örn. `0.0.0.0` */
+  LISTEN_HOST: z.string().min(1).optional(),
+  NODE_ENV: z.enum(['development', 'staging', 'production', 'test']).default('development'),
 
   // Security
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
@@ -32,12 +26,31 @@ const envSchema = z.object({
   MONITORING_ENABLED: z.coerce.boolean().optional().default(false),
   MONITORING_WEBHOOK_URL: z.string().url().optional(),
 
-  // Microsoft Entra ID
+  // Microsoft Entra ID (optional)
   MICROSOFT_CLIENT_ID: z.string().optional(),
   MICROSOFT_CLIENT_SECRET: z.string().optional(),
   MICROSOFT_TENANT_ID: z.string().optional(),
   MICROSOFT_REDIRECT_URI: z.string().url().optional(),
 
+  AUTHORIZATION_AUDIT_ENABLED: z.coerce.boolean().optional().default(false),
+  TRACEPARENT_LOGGING_ENABLED: z.coerce.boolean().optional().default(true),
+  SECRET_PROVIDER: z.enum(['env', 'file', 'azure-keyvault']).optional().default('env'),
+  SECRETS_FILE_PATH: z.string().optional(),
+  AZURE_KEY_VAULT_URL: z.string().url().optional(),
+  /** JSON: { \"SESSION_SECRET\": \"session-secret-custom-name-in-vault\" } */
+  AZURE_KEY_VAULT_MAPPING: z.string().optional(),
+  MALWARE_SCAN_MODE: z.enum(['disabled', 'mock', 'virustotal']).optional().default('disabled'),
+  MALWARE_SCAN_FAIL_ON_ERROR: z.coerce.boolean().optional().default(false),
+  VIRUSTOTAL_API_KEY: z.string().optional(),
+
+  /** Varsayılan: admin@yasar.edu.tr — ayrılmış platform yöneticisi kimliği (kayıtta engellenir, şifre politikası bağlanır) */
+  PLATFORM_ADMIN_EMAIL: z.string().email().optional(),
+
+  /** Web Push (VAPID). Üçü de tanımlı değilse push gönderilmez; tanımlıysa gönderilir. */
+  VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+  VAPID_PRIVATE_KEY: z.string().min(1).optional(),
+  /** mailto:you@example.com veya https://your-site.com */
+  VAPID_SUBJECT: z.string().min(1).optional(),
 });
 
 type Env = z.infer<typeof envSchema>;
@@ -64,4 +77,3 @@ try {
 }
 
 export default env;
-

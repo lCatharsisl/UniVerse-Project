@@ -521,7 +521,7 @@ const CampusMap: React.FC = () => {
   );
 
   return (
-    <div className={`flex flex-col h-[100dvh] overflow-hidden ${isSpace ? 'bg-[#050510]' : 'bg-white'}`}>
+    <div className={`flex h-[100dvh] min-h-0 flex-1 flex-col overflow-hidden ${isSpace ? 'bg-[#050510]' : 'bg-white'}`}>
       {/* Header */}
       <div className={`flex-shrink-0 sticky top-0 backdrop-blur-xl border-b z-30 px-4 lg:px-6 py-3 lg:py-4 flex items-center justify-between gap-3 ${isSpace ? 'bg-[#0a0a1a]/80 border-white/5' : 'bg-white/90 border-gray-100'}`}>
         <div className="flex items-center gap-3">
@@ -562,18 +562,21 @@ const CampusMap: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex flex-col xl:flex-row flex-1 min-h-0 overflow-hidden">
-        {/* Map */}
-        <div className={`flex-[3] flex flex-col p-3 lg:p-5 border-b xl:border-b-0 xl:border-r ${isSpace ? 'border-white/5' : 'border-gray-50'} min-w-0 h-full`}>
-          <div className="relative flex-1 rounded-[1.5rem] lg:rounded-[2rem] overflow-hidden bg-uv-black shadow-2xl min-h-[280px]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden xl:flex-row xl:overflow-hidden">
+        {/* Sol blok: harita → rota panelleri; mobilde doğal yükseklik (flex-1 sıkıştırıp üst üste bindirmesin) */}
+        <div
+          className={`flex min-h-0 min-w-0 flex-none flex-col gap-3 border-b p-3 lg:p-5 xl:flex-1 xl:border-b-0 xl:border-r ${isSpace ? 'border-white/5' : 'border-gray-50'}`}
+        >
+          <div className="relative z-0 min-h-0 flex-1 overflow-hidden rounded-[1.5rem] bg-uv-black shadow-2xl lg:rounded-[2rem] min-h-[200px] sm:min-h-[240px]">
             {mapInner}
           </div>
 
-          {/* Bottom panels */}
-          <AnimatePresence>
+          {/* Rota / hedef panelleri — haritanın ALTINDA ayrı akış; INDEX ile üst üste binmesin */}
+          <div className="relative z-10 w-full shrink-0 space-y-2">
+          <AnimatePresence mode="sync">
             {/* Target locked panel */}
             {selectedPoint && !guidedMode && pathNodes.length === 0 && (
-              <motion.div initial={{ opacity: 0, height: 0, marginTop: 0 }} animate={{ opacity: 1, height: 'auto', marginTop: 10 }} exit={{ opacity: 0, height: 0, marginTop: 0 }} className="overflow-hidden shrink-0">
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden shrink-0">
                 <div className={`rounded-xl p-3 lg:p-4 relative overflow-hidden flex items-center justify-between gap-4 ${isSpace ? 'bg-primary/10 text-white' : 'bg-[#111827] text-white'}`}>
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-9 h-9 bg-primary/20 rounded-xl flex items-center justify-center text-primary shrink-0"><FiTarget size={18} /></div>
@@ -591,7 +594,7 @@ const CampusMap: React.FC = () => {
 
             {/* Guided mode hint */}
             {guidedMode && (
-              <motion.div initial={{ opacity: 0, height: 0, marginTop: 0 }} animate={{ opacity: 1, height: 'auto', marginTop: 10 }} exit={{ opacity: 0, height: 0, marginTop: 0 }} className="overflow-hidden shrink-0">
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden shrink-0">
                 <div className="rounded-xl p-3 bg-red-500 text-white flex items-center gap-3">
                   <FiMapPin size={18} className="animate-bounce shrink-0" />
                   <div>
@@ -605,7 +608,7 @@ const CampusMap: React.FC = () => {
 
             {/* Path result */}
             {pathNodes.length > 0 && (
-              <motion.div initial={{ opacity: 0, height: 0, marginTop: 0 }} animate={{ opacity: 1, height: 'auto', marginTop: 10 }} exit={{ opacity: 0, height: 0, marginTop: 0 }} className="overflow-hidden shrink-0">
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden shrink-0">
                 <div className={`rounded-xl p-3 ${isSpace ? 'bg-white/5 border border-white/10' : 'bg-gray-50 border border-gray-100'}`}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -629,7 +632,7 @@ const CampusMap: React.FC = () => {
             )}
 
             {noPath && (
-              <motion.div initial={{ opacity: 0, height: 0, marginTop: 0 }} animate={{ opacity: 1, height: 'auto', marginTop: 10 }} exit={{ opacity: 0, height: 0, marginTop: 0 }} className="overflow-hidden shrink-0">
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden shrink-0">
                 <div className="rounded-xl p-3 bg-red-500/10 border border-red-500/20 flex items-center gap-2">
                   <FiAlertCircle className="text-red-400" size={14} />
                   <span className="text-xs font-black text-red-400">Bu iki nokta arasında yol bulunamadı.</span>
@@ -638,15 +641,25 @@ const CampusMap: React.FC = () => {
               </motion.div>
             )}
           </AnimatePresence>
+          </div>
         </div>
 
-        {/* Right Panel */}
-        <div className={`w-full xl:w-[285px] flex-shrink-0 p-3 lg:p-4 flex flex-col h-full min-h-0 ${isSpace ? 'bg-[#0a0a1a]/20 border-white/5' : 'bg-gray-50/30 border-gray-50'}`}>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className={`font-black text-base flex items-center gap-2 tracking-tighter ${isSpace ? 'text-white' : 'text-uv-black'}`}>
-              <FiList className="text-primary" size={15} /> INDEX
+        {/* Sağ panel: xl’de yan sütun; dar ekranda haritanın ALTINDA tam genişlik */}
+        <div
+          className={`flex min-h-0 w-full shrink-0 flex-col p-2.5 sm:p-3 xl:h-full xl:w-[220px] xl:p-2.5 2xl:w-[232px] ${
+            isSpace ? 'bg-[#0a0a1a]/20' : 'bg-gray-50/30'
+          }`}
+        >
+          <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
+            <h3
+              className={`flex min-w-0 items-center gap-1.5 text-sm font-black tracking-tighter xl:text-[13px] ${isSpace ? 'text-white' : 'text-uv-black'}`}
+            >
+              <FiList className="shrink-0 text-primary" size={14} />{' '}
+              <span className="truncate">INDEX</span>
             </h3>
-            <span className="bg-primary/10 text-primary text-[9px] font-black px-2 py-0.5 rounded-full uppercase">{filteredPoints.length} PTS</span>
+            <span className="shrink-0 whitespace-nowrap rounded-full bg-primary/10 px-1.5 py-0.5 text-[7px] font-black uppercase text-primary">
+              {filteredPoints.length} PTS
+            </span>
           </div>
 
           {guidedMode && (
@@ -655,32 +668,39 @@ const CampusMap: React.FC = () => {
             </div>
           )}
 
-          <div className="space-y-1.5 flex-1 overflow-y-auto pr-1 scrollbar-hide">
+          <div className="scrollbar-hide min-h-0 max-h-[min(42vh,420px)] flex-1 space-y-1 overflow-y-auto overflow-x-hidden pr-0.5 xl:max-h-none">
             {filteredPoints.map((point) => {
               const isStart = point.id === startPoint;
               const isEnd = point.id === destPoint;
               const isOnPath = pathNodes.includes(point.id);
               const isActive = selectedPoint === point.id;
               return (
-                <motion.div key={point.id} layout
+                <motion.div
+                  key={point.id}
                   onClick={() => guidedMode ? computePath(0, 0, point.id) : setSelectedPoint(point.id)}
-                  className={`rounded-xl p-2.5 cursor-pointer transition-all border-l-2 ${
+                  className={`min-w-0 cursor-pointer rounded-lg border-l-2 p-2 transition-all xl:rounded-md xl:p-1.5 ${
                     isStart ? 'bg-green-500/10 border-l-green-500'
                     : isEnd ? 'bg-red-500/10 border-l-red-500'
                     : isOnPath ? 'bg-red-500/5 border-l-red-400'
                     : isActive ? (isSpace ? 'bg-primary/10 border-l-primary shadow-lg' : 'bg-white border-l-primary shadow-lg')
                     : isSpace ? 'bg-white/5 border-l-transparent hover:bg-white/10' : 'bg-white/40 border-l-transparent hover:bg-white'
                   }`}>
-                  <div className="flex justify-between items-start mb-0.5">
-                    <span className={`w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-black ${isStart ? 'bg-green-500 text-white' : isEnd ? 'bg-red-500 text-white' : isOnPath ? 'bg-red-500 text-white' : isActive ? 'bg-primary text-white' : isSpace ? 'bg-primary/20 text-primary' : 'bg-[#111827] text-white'}`}>
-                      {point.label || point.id}
-                    </span>
-                    <span className="text-[7px] font-black uppercase tracking-wide text-gray-500">{point.type}</span>
+                  <div className="min-w-0 text-[13px] font-black leading-tight sm:text-[14px] xl:text-[15px] 2xl:text-base">
+                    <div className="mb-0.5 flex min-w-0 items-center justify-between gap-1.5">
+                      <span className="min-w-0 flex-1 truncate text-left text-[0.5em] font-black uppercase leading-tight tracking-wide text-gray-500">
+                        {point.type}
+                      </span>
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[8px] font-black ${isStart ? 'bg-green-500 text-white' : isEnd ? 'bg-red-500 text-white' : isOnPath ? 'bg-red-500 text-white' : isActive ? 'bg-primary text-white' : isSpace ? 'bg-primary/20 text-primary' : 'bg-[#111827] text-white'}`}
+                      >
+                        {point.label || point.id}
+                      </span>
+                    </div>
+                    <h4 className={`truncate leading-tight ${isSpace ? 'text-white' : 'text-uv-black'}`}>{point.name}</h4>
                   </div>
-                  <h4 className={`font-black text-xs truncate ${isSpace ? 'text-white' : 'text-uv-black'}`}>{point.name}</h4>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <FiCornerDownRight size={9} className="text-primary" />
-                    <span className="text-[8px] font-bold uppercase truncate text-uv-gray">{point.building}</span>
+                  <div className="mt-0.5 flex min-w-0 items-center gap-0.5">
+                    <FiCornerDownRight size={8} className="shrink-0 text-primary" />
+                    <span className="min-w-0 truncate text-[7px] font-bold uppercase text-uv-gray">{point.building}</span>
                   </div>
                 </motion.div>
               );

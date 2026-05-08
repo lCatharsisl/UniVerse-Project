@@ -1,7 +1,10 @@
 import bcrypt from 'bcryptjs';
 import { PoolClient } from 'pg';
 import { randomBytes } from 'crypto';
+import { and, eq } from 'drizzle-orm';
 import { query, queryOne, transaction } from '../../../config/db';
+import { getDb } from '../../../database/drizzle';
+import { users } from '../../../database/schema/users';
 import { AppError } from '../../../shared/core/errors';
 import { Result } from '../../../shared/core/result';
 import {
@@ -9,6 +12,10 @@ import {
   extractYasarStaffLocalPart,
   normalizeStaffRegistrationEmail,
 } from './yasarStaffEmailCandidates';
+import {
+  assertStrongPasswordForPlatformAdmin,
+  isReservedPlatformAdminEmail,
+} from '../../../security/platformAdmin';
 
 export class IdentityService {
   private static readonly SALT_ROUNDS = 10;
@@ -17,6 +24,12 @@ export class IdentityService {
   static async register(data: any) {
     try {
       const normalizedEmail = normalizeStaffRegistrationEmail(data.email);
+
+      if (isReservedPlatformAdminEmail(normalizedEmail)) {
+        throw AppError.badRequest(
+          'This email is reserved for the platform administrator and cannot be used for registration.'
+        );
+      }
 
       if (data.role === 'student' || data.role === 'community') {
         if (!normalizedEmail.endsWith('@stu.yasar.edu.tr')) {
@@ -184,6 +197,11 @@ export class IdentityService {
         return Result.fail('Invalid credentials');
       }
 
+      /** Tek oturum: eski bearer tokenların platform yöneticisi hesaplarında süresiz erişimi olmasın. */
+      if (isReservedPlatformAdminEmail(user.email)) {
+        await query('DELETE FROM user_sessions WHERE user_id = $1', [user.user_id]);
+      }
+
       const sessionToken = await this.createSession(query, user.user_id, userAgent, ipAddress);
 
       return Result.ok({
@@ -209,150 +227,6 @@ export class IdentityService {
         );
       }
       return Result.fail(error.message || 'Login failed');
-    }
-  }
-
-  static async loginWithMicrosoft(
-    data: {
-      email: string;
-      microsoftOid: string;
-      microsoftTid: string;
-      inferredRole: 'student' | 'staff' | null;
-      firstName: string;
-      lastName: string;
-      displayName?: string;
-    },
-    userAgent?: string,
-    ipAddress?: string
-  ) {
-    try {
-      return await transaction(async (client) => {
-        const normalizedEmail = data.email.toLowerCase();
-        const linkedUserResult = await client.query(
-          `SELECT * FROM users
-           WHERE microsoft_tid = $1
-             AND microsoft_oid = $2
-           LIMIT 1`,
-          [data.microsoftTid, data.microsoftOid]
-        );
-
-        let user = linkedUserResult.rows[0] || null;
-
-        if (!user) {
-          const existingByEmailResult = await client.query(
-            'SELECT * FROM users WHERE email = $1 LIMIT 1',
-            [normalizedEmail]
-          );
-          const existingByEmail = existingByEmailResult.rows[0] || null;
-
-          if (existingByEmail) {
-            if (!existingByEmail.is_active) {
-              throw AppError.badRequest('Account is deactivated');
-            }
-
-            if (
-              existingByEmail.microsoft_tid &&
-              existingByEmail.microsoft_oid &&
-              (
-                existingByEmail.microsoft_tid !== data.microsoftTid ||
-                existingByEmail.microsoft_oid !== data.microsoftOid
-              )
-            ) {
-              throw AppError.badRequest('This account is already linked to another Microsoft identity');
-            }
-
-            const updatedUserResult = await client.query(
-              `UPDATE users
-               SET microsoft_tid = $1,
-                   microsoft_oid = $2,
-                   is_email_verified = true
-               WHERE user_id = $3
-               RETURNING *`,
-              [data.microsoftTid, data.microsoftOid, existingByEmail.user_id]
-            );
-
-            user = updatedUserResult.rows[0];
-          } else {
-            if (!data.inferredRole) {
-              throw AppError.badRequest('Only Yaşar University Microsoft accounts can sign in');
-            }
-
-            const generatedPassword = randomBytes(48).toString('hex');
-            const passwordHash = await bcrypt.hash(generatedPassword, this.SALT_ROUNDS);
-            const createdUserResult = await client.query(
-              `INSERT INTO users (
-                email,
-                password_hash,
-                role,
-                is_email_verified,
-                is_active,
-                microsoft_tid,
-                microsoft_oid
-              )
-              VALUES ($1, $2, $3, true, true, $4, $5)
-              RETURNING *`,
-              [normalizedEmail, passwordHash, data.inferredRole, data.microsoftTid, data.microsoftOid]
-            );
-
-            user = createdUserResult.rows[0];
-
-            if (data.inferredRole === 'student') {
-              const studentNumber = normalizedEmail.split('@')[0];
-              await client.query(
-                `INSERT INTO students (
-                  user_id,
-                  student_number,
-                  student_name,
-                  student_surname,
-                  department_id
-                )
-                VALUES ($1, $2, $3, $4, $5)`,
-                [
-                  user.user_id,
-                  studentNumber,
-                  data.firstName || studentNumber,
-                  data.lastName || '',
-                  null,
-                ]
-              );
-            } else {
-              await client.query(
-                `INSERT INTO staff (
-                  user_id,
-                  staff_name,
-                  staff_surname,
-                  department_id
-                )
-                VALUES ($1, $2, $3, $4)`,
-                [
-                  user.user_id,
-                  data.firstName || data.displayName || normalizedEmail.split('@')[0],
-                  data.lastName || '',
-                  null,
-                ]
-              );
-            }
-          }
-        }
-
-        if (!user.is_active) {
-          throw AppError.badRequest('Account is deactivated');
-        }
-
-        const sessionToken = await this.createSession(client, user.user_id, userAgent, ipAddress);
-
-        return Result.ok({
-          token: sessionToken,
-          user: {
-            id: user.user_id,
-            email: user.email,
-            role: user.role,
-          },
-        });
-      });
-    } catch (error: any) {
-      console.error('Microsoft Login Error:', error);
-      return Result.fail(error.message || 'Microsoft sign-in failed');
     }
   }
 
@@ -409,14 +283,29 @@ export class IdentityService {
   }
 
   static async getCurrentUser(userId: number) {
-    const user = await queryOne<any>(
-      `SELECT user_id, email, role, is_email_verified, profile_image_url,
-              COALESCE(warning_tier, 0) AS warning_tier, COALESCE(is_banned, false) AS is_banned
-       FROM users WHERE user_id = $1 AND is_active = true`,
-      [userId]
-    );
+    const rows = await getDb()
+      .select({
+        user_id: users.userId,
+        email: users.email,
+        role: users.role,
+        is_email_verified: users.isEmailVerified,
+        profile_image_url: users.profileImageUrl,
+        warning_tier: users.warningTier,
+        is_banned: users.isBanned,
+      })
+      .from(users)
+      .where(and(eq(users.userId, userId), eq(users.isActive, true)))
+      .limit(1);
 
-    if (!user) throw AppError.notFound('User not found');
+    const user =
+      rows[0] &&
+      ({
+        ...rows[0],
+        warning_tier: rows[0].warning_tier ?? 0,
+        is_banned: rows[0].is_banned ?? false,
+      } as Record<string, unknown>);
+
+    if (!user || typeof user.role !== 'string') throw AppError.notFound('User not found');
 
     let profile: Record<string, unknown> | undefined;
 
@@ -446,13 +335,13 @@ export class IdentityService {
     }
 
     return {
-      userId: user.user_id,
-      email: user.email,
-      role: user.role,
-      isEmailVerified: user.is_email_verified,
-      profileImageUrl: user.profile_image_url || undefined,
-      warningTier: user.warning_tier ?? 0,
-      isBanned: user.is_banned ?? false,
+      userId: user.user_id as number,
+      email: user.email as string,
+      role: user.role as string,
+      isEmailVerified: Boolean(user.is_email_verified),
+      profileImageUrl: (user.profile_image_url as string | null) || undefined,
+      warningTier: (user.warning_tier as number | null | undefined) ?? 0,
+      isBanned: Boolean(user.is_banned ?? false),
       profile,
     };
   }
@@ -460,10 +349,14 @@ export class IdentityService {
   static async updateProfile(userId: number, data: any) {
     try {
       const r = await transaction(async (client) => {
-        const user = await client.query('SELECT role, password_hash FROM users WHERE user_id = $1', [userId]);
+        const user = await client.query(
+          'SELECT role, password_hash, email FROM users WHERE user_id = $1',
+          [userId]
+        );
         if (user.rows.length === 0) throw AppError.notFound('User not found');
         const role = user.rows[0].role;
         const password_hash = user.rows[0].password_hash;
+        const accountEmail = String(user.rows[0].email ?? '');
 
         // Update password if provided
         if (data.password) {
@@ -473,6 +366,9 @@ export class IdentityService {
           const isMatch = await bcrypt.compare(data.currentPassword, password_hash);
           if (!isMatch) {
             throw AppError.badRequest('Current password is incorrect.');
+          }
+          if (isReservedPlatformAdminEmail(accountEmail)) {
+            assertStrongPasswordForPlatformAdmin(data.password);
           }
           const passwordHash = await bcrypt.hash(data.password, this.SALT_ROUNDS);
           await client.query('UPDATE users SET password_hash = $1 WHERE user_id = $2', [passwordHash, userId]);
@@ -795,6 +691,11 @@ export class IdentityService {
   // ─── Deactivate Account ──────────────────────────────────────────────────────
   static async deactivateAccount(userId: number) {
     try {
+      const row = await queryOne<{ email: string }>('SELECT email FROM users WHERE user_id = $1', [userId]);
+      if (!row) return Result.fail('User not found');
+      if (isReservedPlatformAdminEmail(row.email)) {
+        return Result.fail('Platform administrator account cannot be deactivated from the client.');
+      }
       await query(`UPDATE users SET is_active = false WHERE user_id = $1`, [userId]);
       await query(`DELETE FROM user_sessions WHERE user_id = $1`, [userId]);
       return Result.ok();

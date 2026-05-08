@@ -1,21 +1,22 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth, isAcademic } from '../context/AuthContext';
 import { 
   FiHeart, FiRepeat, FiMessageCircle, FiArrowLeft, FiCalendar,
-  FiMapPin, FiLink, FiEdit, FiUserPlus, FiUserCheck,
+  FiMapPin, FiLink, FiEdit,
   FiGrid, FiMoreVertical, FiMoreHorizontal, FiTrash2, FiX, FiUsers,
-  FiLinkedin, FiGithub, FiGlobe, FiInstagram, FiSettings, FiLock, FiMessageSquare
+  FiLinkedin, FiGithub, FiGlobe, FiInstagram, FiSettings, FiLock
 } from 'react-icons/fi';
 import api from '../api/client';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
 import { FeedAvatarImage } from '../components/FeedAvatarImage';
-import PostDetailModal from '../components/PostDetailModal';
+import PostAttachment from '../components/PostAttachment';
 import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 import { themedAlert, themedConfirm } from '../utils/themedDialog';
 import CommunityMySpace from './CommunityMySpace';
+import { usePagePullRefresh } from '../hooks/usePagePullRefresh';
 
 // ─── Follow List Modal ────────────────────────────────────────────────────────
 interface FollowUser { user_id: number; email: string; name: string; surname: string; avatar_url?: string; }
@@ -132,9 +133,10 @@ const Profile = () => {
 
   const [profile, setProfile] = useState<any>(null);
   const [stats, setStats] = useState({ followers: 0, following: 0, isFollowing: false });
-  const [isFollowing, setIsFollowing] = useState(false);
   const [activeTab, setActiveTab] = useState<'posts' | 'reposts' | 'likes' | 'my-items' | 'my-communities'>('posts');
   const [activities, setActivities] = useState<any[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [tabCache, setTabCache] = useState<Record<string, any[]>>({});
   const [items, setItems] = useState<any[]>([]);
   const [myCommunities, setMyCommunities] = useState<any[]>([]);
   const [myCommunitiesStatus, setMyCommunitiesStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
@@ -143,13 +145,14 @@ const Profile = () => {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const [openProfileMenu, setOpenProfileMenu] = useState(false);
   const [followModal, setFollowModal] = useState<'followers' | 'following' | null>(null);
-  const [selectedPost, setSelectedPost] = useState<any | null>(null);
+  const [followBusy, setFollowBusy] = useState(false);
   const [warningPanel, setWarningPanel] = useState(false);
   const [warningManageOpen, setWarningManageOpen] = useState(false);
   const [reportUserOpen, setReportUserOpen] = useState(false);
   const [reportSuccessMessage, setReportSuccessMessage] = useState<string | null>(null);
   const [userReportStatus, setUserReportStatus] = useState<{ has_reported: boolean; my_report_type: string | null }>({ has_reported: false, my_report_type: null });
   const [coverLoadError, setCoverLoadError] = useState(false);
+  const [expandedMedia, setExpandedMedia] = useState<{ src: string; alt: string } | null>(null);
 
   const isStaff = currentUser && isAcademic(currentUser.role);
 
@@ -203,23 +206,19 @@ const Profile = () => {
     }
   };
 
-  const fetchProfileData = async () => {
+  const fetchProfileData = useCallback(async () => {
     if (!targetUserId) { setLoading(false); return; }
     setLoading(true);
     try {
-      // Fetch profile first (critical)
       const profileRes = await api.get(`/auth/profile/${targetUserId}`);
       setProfile(profileRes.data);
 
-      // Fetch stats (non-critical, don't fail profile on error)
       api.get(`/social/users/${targetUserId}/stats`)
         .then(r => {
           setStats(r.data);
-          setIsFollowing(r.data.isFollowing || false);
         })
         .catch(() => {});
 
-      // Fetch report status (non-critical)
       if (!isOwnProfile) {
         api.get(`/social/users/${targetUserId}/my-report`)
           .then(r => setUserReportStatus(r.data))
@@ -233,16 +232,25 @@ const Profile = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [targetUserId, isOwnProfile]);
 
-  const fetchActivities = async () => {
+  const fetchActivities = useCallback(async (tab = activeTab) => {
     if (!targetUserId) return;
+    const cacheKey = `${targetUserId}-${tab}`;
+    if (tabCache[cacheKey]) {
+      setActivities(tabCache[cacheKey]);
+      return;
+    }
+    setActivitiesLoading(true);
     try {
       const typeMap: any = { posts: 'user_posts', likes: 'user_likes', reposts: 'user_reposts' };
-      const res = await api.get(`/social/users/${targetUserId}/activities/${typeMap[activeTab]}`);
-      setActivities(res.data.items || []);
+      const res = await api.get(`/social/users/${targetUserId}/activities/${typeMap[tab]}`);
+      const fetched = res.data.items || [];
+      setTabCache(prev => ({ ...prev, [cacheKey]: fetched }));
+      setActivities(fetched);
     } catch { console.error('Failed to fetch activities'); }
-  };
+    finally { setActivitiesLoading(false); }
+  }, [targetUserId, tabCache, activeTab]);
 
   const fetchMyItems = async () => {
     try {
@@ -256,26 +264,25 @@ const Profile = () => {
     } catch { console.error('Failed to fetch items'); }
   };
 
-  useEffect(() => { fetchProfileData(); }, [targetUserId]);
+  useEffect(() => {
+    setTabCache({});
+    fetchProfileData();
+  }, [targetUserId]);
+
   useEffect(() => {
     if (activeTab === 'my-items') fetchMyItems();
     else if (activeTab === 'my-communities' && isOwnProfile) {
-      // Load on tab open for better UX.
       void fetchMyCommunities();
-    } else fetchActivities();
+    } else fetchActivities(activeTab);
   }, [activeTab, targetUserId]);
 
-  const handleToggleFollow = async () => {
-    if (isOwnProfile) return;
-    try {
-      const res = await api.post(`/social/users/${targetUserId}/follow`);
-      const followed = res.data.action === 'followed';
-      setIsFollowing(followed);
-      setStats(prev => ({ ...prev, followers: prev.followers + (followed ? 1 : -1) }));
-    } catch {
-      await themedAlert('Failed to update follow status');
-    }
-  };
+  usePagePullRefresh(
+    (path) => path.startsWith('/profile'),
+    () => {
+      setTabCache({});
+      return fetchProfileData();
+    },
+  );
 
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
@@ -345,6 +352,29 @@ const Profile = () => {
     }
   };
 
+  const handleToggleFollow = async () => {
+    if (!targetUserId || !currentUser || followBusy || currentUser.isBanned) return;
+    setFollowBusy(true);
+    setStats((s) => ({
+      ...s,
+      isFollowing: !s.isFollowing,
+      followers: !s.isFollowing ? s.followers + 1 : Math.max(0, s.followers - 1),
+    }));
+    try {
+      await api.post(`/social/users/${targetUserId}/follow`);
+    } catch {
+      try {
+        const r = await api.get(`/social/users/${targetUserId}/stats`);
+        setStats(r.data);
+      } catch {
+        /* keep optimistic state if stats refetch fails */
+      }
+      await themedAlert(t('profile.followToggleFailed'));
+    } finally {
+      setFollowBusy(false);
+    }
+  };
+
   if (loading) return (
     <div className="flex-1 flex items-center justify-center">
       <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full" />
@@ -379,12 +409,18 @@ const Profile = () => {
       {/* ── Cover Photo ─────────────────────────────────── */}
       <div className="relative h-36 md:h-56 w-full bg-uv-black overflow-hidden">
         {coverSrc && !coverLoadError ? (
-          <img
-            src={coverSrc}
-            className="w-full h-full object-cover"
-            alt="Cover"
-            onError={() => setCoverLoadError(true)}
-          />
+          <button
+            type="button"
+            onClick={() => setExpandedMedia({ src: coverSrc, alt: 'Cover' })}
+            className="absolute inset-0 block"
+          >
+            <img
+              src={coverSrc}
+              className="w-full h-full object-cover"
+              alt="Cover"
+              onError={() => setCoverLoadError(true)}
+            />
+          </button>
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/60 to-accent opacity-70" />
         )}
@@ -410,26 +446,144 @@ const Profile = () => {
 
       {/* ── Profile Card ─────────────────────────────────── */}
       <div className="px-3 md:px-6 -mt-10 md:-mt-16 relative z-10">
-        <div className={`rounded-2xl p-4 md:p-6 shadow-xl border flex flex-col sm:flex-row gap-4 md:gap-6 items-start ${isSpace ? 'bg-[#0d0d1a] border-white/10' : 'bg-white border-gray-100'}`}>
+        <div className={`relative rounded-2xl p-4 md:p-6 shadow-xl border flex flex-col gap-4 md:gap-6 items-start ${isSpace ? 'bg-[#0d0d1a] border-white/10' : 'bg-white border-gray-100'} lg:grid lg:grid-cols-[auto_minmax(0,1fr)_minmax(11rem,15rem)] lg:items-start`}>
+          <div className="absolute right-4 top-4 z-20 lg:right-6 lg:top-6" ref={profileMenuRef}>
+            <button
+              onClick={() => setOpenProfileMenu(!openProfileMenu)}
+              className={`p-2 border rounded-xl transition-colors ${isSpace ? 'border-white/20 text-white hover:bg-white/10' : 'border-uv-border hover:bg-gray-50'}`}
+            >
+              <FiMoreVertical size={16} />
+            </button>
+            <AnimatePresence>
+              {openProfileMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className={`absolute right-0 left-auto mt-2 w-48 max-w-[min(12rem,calc(100vw-1.5rem))] py-2 rounded-xl shadow-xl z-20 ${isSpace ? 'bg-[#0d0d1a] border border-white/10' : 'bg-white border border-uv-border'}`}
+                >
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(window.location.href); setOpenProfileMenu(false); }}
+                    className={`w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 ${isSpace ? 'text-white hover:bg-white/10' : 'text-uv-black hover:bg-gray-50'}`}
+                  >
+                    <FiLink size={13} /> {t('profile.copyProfileLink')}
+                  </button>
+                  {isOwnProfile && (
+                    <button
+                      onClick={() => { navigate('/settings'); setOpenProfileMenu(false); }}
+                      className={`w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 ${isSpace ? 'text-white hover:bg-white/10' : 'text-uv-black hover:bg-gray-50'}`}
+                    >
+                      <FiSettings size={13} /> {t('profile.settings')}
+                    </button>
+                  )}
+                  {!isOwnProfile && (
+                    isStaff ? (
+                      <>
+                        <button onClick={() => setWarningPanel(!warningPanel)} className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 flex items-center gap-2">
+                          {t('profile.giveWarning')}
+                        </button>
+                        {warningPanel && (
+                          <div className="border-t border-red-500/20 pt-2 mt-1">
+                            <p className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-red-400">{t('profile.warningType')}</p>
+                            {[1, 2, 3, 4].map((tier) => (
+                              <button key={tier} onClick={() => handleGiveWarning(tier as 1 | 2 | 3 | 4)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">
+                                {tier === 4 ? t('profile.ban') : `Tier ${tier}`}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await api.post(`/auth/block/${targetUserId}`);
+                              if (res.data?.action === 'blocked') navigate('/feed');
+                              setOpenProfileMenu(false);
+                            } catch {
+                              return;
+                            }
+                          }}
+                          className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-orange-500 hover:bg-orange-500/10 flex items-center gap-2"
+                        >
+                          {t('profile.blockUser')}
+                        </button>
+                        <button onClick={() => setReportUserOpen(!reportUserOpen)} className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 flex items-center gap-2">
+                          {t('profile.reportUser')}
+                          {userReportStatus.has_reported && <span className="text-[9px] normal-case font-bold text-red-400">(Reported)</span>}
+                        </button>
+                        {reportUserOpen && (
+                          <div className="border-t border-red-500/20 pt-2 mt-1">
+                            {userReportStatus.has_reported ? (
+                              <>
+                                <p className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-red-400">{t('profile.youReportedAs')}</p>
+                                <p className="px-3 py-1 text-xs font-bold capitalize text-red-400">{userReportStatus.my_report_type || 'other'}</p>
+                                <button onClick={handleRemoveReportUser} className="w-full text-left px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/20">
+                                  {t('profile.removeReport')}
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <p className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-red-400">{t('profile.reportType')}</p>
+                                {REPORT_TYPES.map((type) => (
+                                  <button key={type} onClick={() => handleReportUser(type)} className="w-full text-left px-3 py-2 text-xs font-bold capitalize text-red-400 hover:bg-red-500/20 hover:text-red-300">
+                                    {type}
+                                  </button>
+                                ))}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="absolute right-4 top-[4.5rem] flex w-[11.5rem] gap-2 lg:hidden">
+            <button
+              onClick={() => setFollowModal('followers')}
+              className={`min-w-0 flex-1 rounded-2xl border px-3 py-2 text-left transition-opacity hover:opacity-80 ${isSpace ? 'border-white/10 bg-white/5' : 'border-gray-100 bg-gray-50'}`}
+            >
+              <p className={`text-lg font-black leading-none ${isSpace ? 'text-white' : 'text-uv-black'}`}>{stats.followers}</p>
+              <p className="mt-1 text-[8px] font-black uppercase text-uv-gray tracking-widest truncate">{t('profile.followers')}</p>
+            </button>
+            <button
+              onClick={() => setFollowModal('following')}
+              className={`min-w-0 flex-1 rounded-2xl border px-3 py-2 text-left transition-opacity hover:opacity-80 ${isSpace ? 'border-white/10 bg-white/5' : 'border-gray-100 bg-gray-50'}`}
+            >
+              <p className={`text-lg font-black leading-none ${isSpace ? 'text-white' : 'text-uv-black'}`}>{stats.following}</p>
+              <p className="mt-1 text-[8px] font-black uppercase text-uv-gray tracking-widest truncate">{t('profile.following')}</p>
+            </button>
+          </div>
 
           {/* Avatar */}
           <div className="relative shrink-0">
-            <div className="w-20 h-20 md:w-28 md:h-28 rounded-2xl overflow-hidden border-4 border-white shadow-xl bg-primary/10 flex items-center justify-center text-3xl font-black text-primary">
-              <FeedAvatarImage
-                src={avatarSrc || undefined}
-                initials={
-                  [profile.name?.[0], profile.surname?.[0]].filter(Boolean).join('').toUpperCase() ||
-                  profile.name?.[0]?.toUpperCase() ||
-                  '?'
-                }
-                className="text-2xl font-black"
-                imgClassName="w-full h-full object-cover"
-              />
-            </div>
+            <button
+              type="button"
+              onClick={() => avatarSrc && setExpandedMedia({ src: avatarSrc, alt: `${profile.name} ${profile.surname}` })}
+              className="block"
+            >
+              <div className="w-20 h-20 md:w-28 md:h-28 rounded-2xl overflow-hidden border-4 border-white shadow-xl bg-primary/10 flex items-center justify-center text-3xl font-black text-primary">
+                <FeedAvatarImage
+                  src={avatarSrc || undefined}
+                  initials={
+                    [profile.name?.[0], profile.surname?.[0]].filter(Boolean).join('').toUpperCase() ||
+                    profile.name?.[0]?.toUpperCase() ||
+                    '?'
+                  }
+                  className="text-2xl font-black"
+                  imgClassName="w-full h-full object-cover"
+                />
+              </div>
+            </button>
           </div>
 
           {/* Info */}
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 pr-[12rem] lg:pr-0 flex-1 lg:pt-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className={`text-xl md:text-3xl font-black tracking-tighter leading-tight ${isSpace ? 'text-white' : 'text-uv-black'}`}>
                 {profile.name} {profile.surname}
@@ -460,166 +614,47 @@ const Profile = () => {
             <p className="text-primary font-bold text-[9px] md:text-xs tracking-widest uppercase mt-0.5">
               {profile.role}{profile.title && ` · ${profile.title}`}{profile.departmentName && ` · ${profile.departmentName}`}
             </p>
+          </div>
 
-            {/* Followers / Following — tıklanabilir */}
-            <div className="flex gap-5 mt-3">
-              <button
-                onClick={() => setFollowModal('followers')}
-                className={`text-left hover:opacity-70 transition-opacity ${isOwnProfile ? 'cursor-pointer' : ''}`}
-              >
-                <p className={`text-base md:text-xl font-black ${isSpace ? 'text-white' : 'text-uv-black'}`}>{stats.followers}</p>
-                <p className="text-[8px] md:text-[10px] font-black uppercase text-uv-gray tracking-widest">{t('profile.followers')}</p>
-              </button>
-              <button
-                onClick={() => setFollowModal('following')}
-                className="text-left hover:opacity-70 transition-opacity"
-              >
-                <p className={`text-base md:text-xl font-black ${isSpace ? 'text-white' : 'text-uv-black'}`}>{stats.following}</p>
-                <p className="text-[8px] md:text-[10px] font-black uppercase text-uv-gray tracking-widest">{t('profile.following')}</p>
-              </button>
+          <div className="relative hidden w-full lg:block lg:w-[15rem] lg:shrink-0 lg:self-start lg:pt-0 lg:pl-2">
+            <div className="pt-12 lg:pt-10 flex flex-col gap-2 lg:gap-3 items-end lg:items-stretch">
+              <div className="flex w-full gap-2 lg:gap-3">
+                <button
+                  onClick={() => setFollowModal('followers')}
+                  className={`min-w-0 flex-1 rounded-2xl border px-3 py-2 text-left transition-opacity hover:opacity-80 ${isSpace ? 'border-white/10 bg-white/5' : 'border-gray-100 bg-gray-50'}`}
+                >
+                  <p className={`text-lg md:text-xl font-black leading-none ${isSpace ? 'text-white' : 'text-uv-black'}`}>{stats.followers}</p>
+                  <p className="mt-1 text-[8px] md:text-[10px] font-black uppercase text-uv-gray tracking-widest truncate">{t('profile.followers')}</p>
+                </button>
+                <button
+                  onClick={() => setFollowModal('following')}
+                  className={`min-w-0 flex-1 rounded-2xl border px-3 py-2 text-left transition-opacity hover:opacity-80 ${isSpace ? 'border-white/10 bg-white/5' : 'border-gray-100 bg-gray-50'}`}
+                >
+                  <p className={`text-lg md:text-xl font-black leading-none ${isSpace ? 'text-white' : 'text-uv-black'}`}>{stats.following}</p>
+                  <p className="mt-1 text-[8px] md:text-[10px] font-black uppercase text-uv-gray tracking-widest truncate">{t('profile.following')}</p>
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-2 w-full sm:w-auto sm:items-start sm:flex-col md:flex-row mt-auto sm:mt-0">
-            {!isOwnProfile && (
-              <button
-                onClick={handleToggleFollow}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl font-black text-xs transition-all ${
-                  isFollowing
-                    ? isSpace
-                      ? 'bg-white/10 text-white border border-white/15 hover:bg-red-500/15 hover:text-red-400 hover:border-red-400/40'
-                      : 'bg-gray-100 text-gray-900 hover:bg-red-50 hover:text-red-600'
-                    : 'bg-primary text-white shadow-lg shadow-primary/25 hover:brightness-110'
-                }`}
-              >
-                {isFollowing ? <><FiUserCheck size={13} /> {t('profile.followingActive')}</> : <><FiUserPlus size={13} /> {t('profile.follow')}</>}
-              </button>
-            )}
-            {!isOwnProfile && (
+          {!isOwnProfile && currentUser && !currentUser.isBanned && (
+            <div className={`col-span-full w-full min-w-0 border-t pt-3 lg:pt-4 ${isSpace ? 'border-white/10' : 'border-uv-border/50'}`}>
               <button
                 type="button"
-                onClick={() => navigate(`/messages?dm=${targetUserId}`)}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl font-black text-xs transition-all ${
-                  isSpace
-                    ? 'bg-white/10 text-white border border-white/15 hover:bg-white/15'
-                    : 'bg-white border border-uv-border text-gray-900 hover:bg-gray-50'
-                }`}
+                disabled={followBusy}
+                onClick={() => void handleToggleFollow()}
+                className={`flex w-full min-h-[44px] items-center justify-center rounded-2xl px-4 py-2.5 text-xs font-black uppercase tracking-widest transition-all sm:max-w-sm ${
+                  stats.isFollowing
+                    ? isSpace
+                      ? 'border border-white/20 bg-white/10 text-white hover:bg-white/15'
+                      : 'border border-uv-border bg-gray-50 text-uv-black hover:bg-gray-100'
+                    : 'bg-primary text-white shadow-md shadow-primary/25 hover:opacity-95 active:scale-[0.99]'
+                } ${followBusy ? 'pointer-events-none opacity-60' : ''}`}
               >
-                <FiMessageSquare size={13} /> {t('profile.message')}
+                {followBusy ? t('common.loading') : stats.isFollowing ? t('profile.followingActive') : t('profile.follow')}
               </button>
-            )}
-            {!isOwnProfile && profile.role === 'staff' && (
-              <button
-                onClick={() => navigate(`/appointments?staff=${targetUserId}`)}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl font-black text-xs transition-all ${
-                  isSpace
-                    ? 'bg-white/15 text-white border border-white/20 hover:bg-white/25'
-                    : 'bg-uv-black text-white hover:opacity-90'
-                }`}
-              >
-                <FiCalendar size={13} /> {t('profile.bookAppointment')}
-              </button>
-            )}
-
-            <div className="relative" ref={profileMenuRef}>
-              <button
-                onClick={() => setOpenProfileMenu(!openProfileMenu)}
-                className={`p-2 border rounded-xl transition-colors ${isSpace ? 'border-white/20 text-white hover:bg-white/10' : 'border-uv-border hover:bg-gray-50'}`}
-              >
-                <FiMoreVertical size={16} />
-              </button>
-              <AnimatePresence>
-                {openProfileMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    className={`absolute right-0 left-auto mt-2 w-48 max-w-[min(12rem,calc(100vw-1.5rem))] py-2 rounded-xl shadow-xl z-20 ${isSpace ? 'bg-[#0d0d1a] border border-white/10' : 'bg-white border border-uv-border'}`}
-                  >
-                    <button
-                      onClick={() => { navigator.clipboard.writeText(window.location.href); setOpenProfileMenu(false); }}
-                      className={`w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 ${isSpace ? 'text-white hover:bg-white/10' : 'text-uv-black hover:bg-gray-50'}`}
-                    >
-                      <FiLink size={13} /> {t('profile.copyProfileLink')}
-                    </button>
-                    {isOwnProfile && (
-                      <>
-                        <button
-                          onClick={() => { navigate('/settings'); setOpenProfileMenu(false); }}
-                          className={`w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 ${isSpace ? 'text-white hover:bg-white/10' : 'text-uv-black hover:bg-gray-50'}`}
-                        >
-                          <FiSettings size={13} /> {t('profile.settings')}
-                        </button>
-                      </>
-                    )}
-                    {!isOwnProfile && (
-                      isStaff ? (
-                        <>
-                          <button onClick={() => setWarningPanel(!warningPanel)} className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 flex items-center gap-2">
-                            {t('profile.giveWarning')}
-                          </button>
-                          {warningPanel && (
-                            <div className="border-t border-red-500/20 pt-2 mt-1">
-                              <p className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-red-400">{t('profile.warningType')}</p>
-{[1, 2, 3, 4].map((tier) => (
-                                <button key={tier} onClick={() => handleGiveWarning(tier as 1 | 2 | 3 | 4)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300">
-                                    {tier === 4 ? t('profile.ban') : `Tier ${tier}`}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                            <button
-                              onClick={async () => {
-                                try {
-                                  const res = await api.post(`/auth/block/${targetUserId}`);
-                                  if (res.data?.action === 'blocked') navigate('/feed');
-                                  setOpenProfileMenu(false);
-                                } catch {
-                                  return;
-                                }
-                              }}
-                              className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-orange-500 hover:bg-orange-500/10 flex items-center gap-2"
-                            >
-                              {t('profile.blockUser')}
-                            </button>
-                          <button onClick={() => setReportUserOpen(!reportUserOpen)} className="w-full text-left px-4 py-2 text-xs font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 flex items-center gap-2">
-                            {t('profile.reportUser')}
-                            {userReportStatus.has_reported && <span className="text-[9px] normal-case font-bold text-red-400">(Reported)</span>}
-                          </button>
-                          {reportUserOpen && (
-                            <div className="border-t border-red-500/20 pt-2 mt-1">
-                              {userReportStatus.has_reported ? (
-                                <>
-                                  <p className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-red-400">{t('profile.youReportedAs')}</p>
-                                  <p className="px-3 py-1 text-xs font-bold capitalize text-red-400">{userReportStatus.my_report_type || 'other'}</p>
-                                  <button onClick={handleRemoveReportUser} className="w-full text-left px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/20">
-                                    {t('profile.removeReport')}
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  <p className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-red-400">{t('profile.reportType')}</p>
-                                  {REPORT_TYPES.map((type) => (
-                                    <button key={type} onClick={() => handleReportUser(type)} className="w-full text-left px-3 py-2 text-xs font-bold capitalize text-red-400 hover:bg-red-500/20 hover:text-red-300">
-                                      {type}
-                                    </button>
-                                  ))}
-                                </>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -693,20 +728,29 @@ const Profile = () => {
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
-              className={`px-4 py-1.5 rounded-lg text-[9px] md:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab
-                ? 'bg-white text-primary shadow-sm'
+              className={`relative px-4 py-1.5 rounded-lg text-[9px] md:text-xs font-black uppercase tracking-widest transition-colors whitespace-nowrap ${activeTab === tab
+                ? 'text-primary'
                 : isSpace ? 'text-white/50 hover:text-white' : 'text-uv-gray hover:text-uv-black'
               }`}
             >
-              {t(
-                `profile.${
-                  tab === 'my-items'
-                    ? 'myItems'
-                    : tab === 'my-communities'
-                      ? 'myCommunitiesTab'
-                      : tab
-                }`
+              {activeTab === tab && (
+                <motion.div
+                  layoutId="profile-tab-pill"
+                  className={`absolute inset-0 rounded-lg ${isSpace ? 'bg-white/15' : 'bg-white shadow-sm'}`}
+                  transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+                />
               )}
+              <span className="relative z-10">
+                {t(
+                  `profile.${
+                    tab === 'my-items'
+                      ? 'myItems'
+                      : tab === 'my-communities'
+                        ? 'myCommunitiesTab'
+                        : tab
+                  }`
+                )}
+              </span>
             </button>
           ))}
         </div>
@@ -715,6 +759,14 @@ const Profile = () => {
 
       {/* ── Content ─────────────────────────────────────── */}
       <div className="px-3 md:px-6 mt-5 pb-20 flex-1">
+        <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] }}
+        >
         {activeTab === 'my-items' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {items.length === 0 ? (
@@ -799,13 +851,28 @@ const Profile = () => {
           </div>
         ) : (
           <div className="space-y-0 divide-y divide-gray-100">
-            {activities.length === 0 ? (
+            {activitiesLoading ? (
+              <div className="space-y-0 divide-y divide-gray-100">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="py-4 animate-pulse">
+                    <div className="flex gap-3">
+                      <div className={`w-9 h-9 md:w-11 md:h-11 rounded-xl shrink-0 ${isSpace ? 'bg-white/10' : 'bg-gray-100'}`} />
+                      <div className="flex-1 space-y-2 pt-1">
+                        <div className={`h-2.5 rounded-full w-1/3 ${isSpace ? 'bg-white/10' : 'bg-gray-100'}`} />
+                        <div className={`h-2.5 rounded-full w-2/3 ${isSpace ? 'bg-white/10' : 'bg-gray-100'}`} />
+                        <div className={`h-2.5 rounded-full w-1/2 ${isSpace ? 'bg-white/10' : 'bg-gray-100'}`} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : activities.length === 0 ? (
               <div className="p-16 text-center text-uv-gray font-black uppercase tracking-widest text-[9px] opacity-40">{t('profile.emptyTransmission')}</div>
             ) : activities.map(post => (
               <div
                 key={post.post_id}
                 className={`py-4 transition-all group cursor-pointer ${isSpace ? 'hover:bg-white/3' : 'hover:bg-gray-50/50'}`}
-                onClick={() => setSelectedPost(post)}
+                onClick={() => navigate(`/post/${post.post_id}`)}
               >
                 <div className="flex gap-3">
                   <div className="w-9 h-9 md:w-11 md:h-11 bg-primary/10 rounded-xl flex items-center justify-center font-black text-sm text-primary border border-primary/10 overflow-hidden shrink-0">
@@ -863,16 +930,30 @@ const Profile = () => {
                         </div>
                       </div>
                     </div>
-                    <p className={`text-sm leading-relaxed ${isSpace ? 'text-white/80' : 'text-uv-black'}`}>{post.content}</p>
-                    <div className="flex items-center gap-5 mt-3 text-uv-gray">
+                    <p className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${isSpace ? 'text-white/80' : 'text-uv-black'}`}>
+                      {post.content}
+                    </p>
+                    {post.image_url ? (
+                      <div className="mt-2 min-w-0" onClick={(e) => e.stopPropagation()}>
+                        <PostAttachment
+                          path={post.image_url}
+                          className={`cursor-pointer overflow-hidden rounded-xl border shadow-sm ${
+                            isSpace ? 'border-white/15' : 'border-uv-border/50'
+                          }`}
+                          mediaClassName="max-h-[min(50vh,420px)] w-full object-cover"
+                          onClick={() => navigate(`/post/${post.post_id}`)}
+                        />
+                      </div>
+                    ) : null}
+                    <div className="mt-3 flex items-center gap-5 text-uv-gray">
                       <button
-                        onClick={e => { e.stopPropagation(); setSelectedPost(post); }}
+                        onClick={e => { e.stopPropagation(); navigate(`/post/${post.post_id}`); }}
                         className="flex items-center gap-1 hover:text-primary transition-colors"
                       >
                         <FiMessageCircle size={13} /><span className="text-[9px] font-black">{post.comments_count}</span>
                       </button>
                       <button
-                        onClick={e => { e.stopPropagation(); setSelectedPost(post); }}
+                        onClick={e => { e.stopPropagation(); navigate(`/post/${post.post_id}`); }}
                         className={`flex items-center gap-1 ${post.has_reposted ? 'text-green-500' : 'hover:text-green-500 transition-colors'}`}
                       >
                         <FiRepeat size={13} /><span className="text-[9px] font-black">{post.reposts_count}</span>
@@ -898,7 +979,7 @@ const Profile = () => {
                           <FiHeart size={13} className={post.has_liked ? 'fill-current' : ''} />
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); setSelectedPost({ ...post, _openLikers: true }); }}
+                          onClick={(e) => { e.stopPropagation(); navigate(`/post/${post.post_id}`); }}
                           className={`text-[9px] font-black ml-0.5 hover:underline ${post.has_liked ? 'text-pink-500' : 'text-uv-gray hover:text-pink-400'}`}
                         >
                           {post.likes_count}
@@ -911,21 +992,9 @@ const Profile = () => {
             ))}
           </div>
         )}
+        </motion.div>
+        </AnimatePresence>
       </div>
-
-      {/* ── Post Detail Modal ──────────────────────────────── */}
-      <AnimatePresence>
-        {selectedPost && (
-          <PostDetailModal
-            post={selectedPost}
-            onClose={() => setSelectedPost(null)}
-            onUpdate={updated => {
-              setActivities(prev => prev.map(p => p.post_id === updated.post_id ? { ...p, ...updated } : p));
-              setSelectedPost(updated);
-            }}
-          />
-        )}
-      </AnimatePresence>
 
       {/* ── Follow List Modal ─────────────────────────────── */}
       <AnimatePresence>
@@ -936,6 +1005,35 @@ const Profile = () => {
             onClose={() => setFollowModal(null)}
             onNavigate={(id) => navigate(`/profile/${id}`)}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {expandedMedia && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[220] bg-black/88 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={() => setExpandedMedia(null)}
+          >
+            <button
+              type="button"
+              onClick={() => setExpandedMedia(null)}
+              className="absolute right-4 top-4 rounded-2xl border border-white/15 bg-white/10 p-3 text-white transition hover:bg-white/15"
+            >
+              <FiX size={20} />
+            </button>
+            <motion.img
+              initial={{ scale: 0.96, opacity: 0.9 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.98, opacity: 0.9 }}
+              src={expandedMedia.src}
+              alt={expandedMedia.alt}
+              className="max-h-[88vh] max-w-[92vw] rounded-3xl object-contain shadow-[0_28px_70px_rgba(0,0,0,0.45)]"
+              onClick={(event) => event.stopPropagation()}
+            />
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

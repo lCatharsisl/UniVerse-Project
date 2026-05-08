@@ -8,7 +8,9 @@ export function requestLoggingMiddleware(req: Request, res: Response, next: Next
 
   res.on('finish', () => {
     const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-    logger.info('HTTP request completed', {
+    const traceparent =
+      typeof req.headers['traceparent'] === 'string' ? req.headers['traceparent'] : undefined;
+    const logPayload: Record<string, unknown> = {
       requestId,
       method: req.method,
       path: req.originalUrl,
@@ -16,7 +18,11 @@ export function requestLoggingMiddleware(req: Request, res: Response, next: Next
       durationMs: Math.round(durationMs * 100) / 100,
       userAgent: req.headers['user-agent'],
       ip: req.ip,
-    });
+    };
+    if (env.TRACEPARENT_LOGGING_ENABLED && traceparent) {
+      logPayload.traceparent = traceparent;
+    }
+    logger.info('HTTP request completed', logPayload);
   });
 
   next();

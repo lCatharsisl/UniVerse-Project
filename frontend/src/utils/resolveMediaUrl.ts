@@ -1,12 +1,25 @@
+import { getUploadsBaseUrl } from './apiBase';
+
+function supabasePublicObjectUrl(uploadsNormalizedPath: string): string | undefined {
+  const projectUrl = import.meta.env.VITE_SUPABASE_URL?.trim().replace(/\/+$/, '');
+  if (!projectUrl) return undefined;
+  const bucket = String(import.meta.env.VITE_SUPABASE_STORAGE_BUCKET ?? 'uploads').trim();
+  let key = uploadsNormalizedPath.replace(/^\/+/, '');
+  if (key.toLowerCase().startsWith('uploads/')) {
+    key = key.slice('uploads'.length).replace(/^\/+/, '');
+  }
+  if (!key) return undefined;
+  return `${projectUrl}/storage/v1/object/public/${bucket}/${key}`;
+}
+
 /**
  * Resolves upload paths from the API (`/uploads/...`) to an absolute browser URL.
  * - HTTPS (Supabase vb.) olduğu gibi döner.
  * - Yerel diske yazılmış `/uploads/...` yolları backend'in static handler'ına yönlendirilir.
  *   Dosya silinmişse `<img onError>` (örn. FeedAvatarImage) baş harf avatar'a düşer.
- * - Geliştirmede `VITE_UPLOADS_BASE_URL` yoksa varsayılan `http://localhost:3000` (Vite 5173 yerine API'ye gider).
+ * - Geliştirmede kök tanımlı değilse göreli `/uploads/...` (aynı origin + Vite proxy; tablet için gerekli).
+ * - Production'da `VITE_UPLOADS_BASE_URL` veya `VITE_API_BASE_URL` tanımlayın (ayrı Render servisleri).
  */
-const LEGACY_DISK_AVATAR_OR_COVER = /^\/uploads\/(avatar|cover)-/i;
-
 export function resolveMediaUrl(path: string | null | undefined): string {
   if (path == null || path === '') return '';
   const p = path.trim();
@@ -19,12 +32,12 @@ export function resolveMediaUrl(path: string | null | undefined): string {
     .replace(/^\/?uploads\//, '/uploads/');
   const normalized = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
 
-  const explicit = (import.meta.env.VITE_UPLOADS_BASE_URL as string | undefined)?.replace(/\/$/, '');
-  const base =
-    explicit ?? (import.meta.env.DEV ? 'http://localhost:3000' : '');
+  const base = getUploadsBaseUrl();
   if (base) {
-    return `${base}${normalized}`;
+    return `${base.replace(/\/$/, '')}${normalized}`;
   }
+  const supa = supabasePublicObjectUrl(normalized);
+  if (supa) return supa;
   return normalized;
 }
 

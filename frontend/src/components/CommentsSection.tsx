@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { commentsService } from '../api/services/commentsService';
 import { LoadingButton } from './LoadingButton';
 import '../styles/components.css';
@@ -40,7 +40,7 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadComments = async () => {
+  const loadComments = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -52,11 +52,15 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [itemId, itemType]);
 
   useEffect(() => {
-    loadComments();
-  }, [itemType, itemId]);
+    const timeoutId = window.setTimeout(() => {
+      void loadComments();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadComments]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

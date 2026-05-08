@@ -17,6 +17,7 @@ import {
   FiUser,
   FiSettings,
   FiCompass,
+  FiGlobe,
   FiLogOut,
 } from 'react-icons/fi';
 import { useTheme } from '../context/ThemeContext';
@@ -27,9 +28,11 @@ import { NavIconBadge } from './NavIconBadge';
 
 interface BottomNavProps {
   onPostClick: () => void;
+  /** Mesajlar + klavye: iOS’ta tab bar görsel viewport ortasında kalmasın */
+  slideOffscreen?: boolean;
 }
 
-const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
+const BottomNav: React.FC<BottomNavProps> = ({ onPostClick, slideOffscreen = false }) => {
   const { t } = useTranslation();
   const { dimension } = useTheme();
   const { user, logout } = useAuth();
@@ -68,7 +71,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
       [
         { icon: <FiSearch className="text-xl shrink-0" />, label: t('bottomNav.search'), path: '/search' },
         { icon: <FiCompass className="text-xl shrink-0" />, label: t('bottomNav.fair'), path: '/explore' },
-        { icon: <FiSearch className="text-xl shrink-0" />, label: t('sidebar.discover'), path: '/discover' },
+        { icon: <FiGlobe className="text-xl shrink-0" />, label: t('sidebar.discover'), path: '/discover' },
         { icon: <FiBox className="text-xl shrink-0" />, label: t('bottomNav.lAndF'), path: '/lost-found' },
         { icon: <FiMap className="text-xl shrink-0" />, label: t('bottomNav.map'), path: '/campus-map' },
         { icon: <FiCalendar className="text-xl shrink-0" />, label: t('sidebar.appointments'), path: '/appointments' },
@@ -110,9 +113,9 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
   return (
     <>
       <nav
-        className={`fixed bottom-0 left-0 right-0 z-[60] flex items-center justify-around px-1 py-2 border-t backdrop-blur-xl md:hidden ${
+        className={`fixed bottom-0 left-0 right-0 z-[60] flex items-center justify-around px-1 py-2 border-t backdrop-blur-xl xl:hidden transition-[transform,opacity] duration-200 ease-out ${
           isSpace ? 'bg-[#0a0a1a]/95 border-white/10' : 'bg-white/95 border-gray-100'
-        }`}
+        } ${slideOffscreen ? 'translate-y-full opacity-0 pointer-events-none' : ''}`}
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 8px)' }}
       >
         {barItems.slice(0, 2).map((item) => (
@@ -176,7 +179,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-[65] bg-black/50 md:hidden"
+              className="fixed inset-0 z-[65] bg-black/50 xl:hidden"
               onClick={() => setMoreOpen(false)}
             />
             <motion.div
@@ -187,7 +190,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-              className={`fixed left-0 right-0 bottom-0 z-[70] max-h-[min(78vh,520px)] rounded-t-3xl border-t shadow-2xl flex flex-col md:hidden ${
+              className={`fixed left-0 right-0 bottom-0 z-[70] max-h-[min(92svh,44rem)] rounded-t-3xl border-t shadow-2xl flex flex-col xl:hidden ${
                 isSpace ? 'bg-[#0a0a1a] border-white/10' : 'bg-white border-gray-200'
               }`}
               style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
@@ -202,7 +205,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
               >
                 {t('bottomNav.moreMenu')}
               </p>
-              <nav className="overflow-y-auto overscroll-contain px-3 pb-2 flex flex-col gap-0.5">
+              <nav className="overflow-y-auto overscroll-contain px-3 pb-2 flex flex-col gap-0.5 min-h-0">
                 {moreMenuItems.map((item) => (
                   <NavLink
                     key={item.path}

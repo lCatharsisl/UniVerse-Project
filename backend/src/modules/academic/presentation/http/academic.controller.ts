@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { GetFreeRoomsHandler } from '../../application/queries/get-free-rooms.handler';
 import { AcademicService } from '../../infrastructure/academic.service';
 import { AuthenticatedRequest } from '../../../../middleware/auth';
+import { requireStaff, requireStudent, requireUser } from '../../../../middleware/policy';
 
 export class AcademicController {
   static async getFreeRooms(req: Request, res: Response) {
@@ -64,43 +65,34 @@ export class AcademicController {
 
   static async updateMyAvailability(req: AuthenticatedRequest, res: Response) {
     try {
-      if (req.userRole !== 'staff') {
-        return res.status(403).json({ error: 'Only staff can manage availability' });
-      }
-
-      const data = await AcademicService.upsertStaffAvailability(req.userId!, req.body.slots || []);
+      const { userId } = requireStaff(req, 'Only staff can manage availability');
+      const data = await AcademicService.upsertStaffAvailability(userId, req.body.slots || []);
       return res.json(data);
     } catch (error: any) {
-      return res.status(400).json({ error: error.message || 'Failed to update availability' });
+      return res.status(error?.statusCode || 400).json({ error: error.message || 'Failed to update availability' });
     }
   }
 
   static async updateMyAvailabilityByDate(req: AuthenticatedRequest, res: Response) {
     try {
-      if (req.userRole !== 'staff') {
-        return res.status(403).json({ error: 'Only staff can manage availability' });
-      }
-
+      const { userId } = requireStaff(req, 'Only staff can manage availability');
       const date = String(req.body.date || '');
       if (!date) return res.status(400).json({ error: 'date is required' });
-      const data = await AcademicService.upsertStaffAvailabilityByDate(req.userId!, date, req.body.slots || []);
+      const data = await AcademicService.upsertStaffAvailabilityByDate(userId, date, req.body.slots || []);
       return res.json(data);
     } catch (error: any) {
-      return res.status(400).json({ error: error.message || 'Failed to update date availability' });
+      return res.status(error?.statusCode || 400).json({ error: error.message || 'Failed to update date availability' });
     }
   }
 
   static async createAppointment(req: AuthenticatedRequest, res: Response) {
     try {
-      if (req.userRole !== 'student') {
-        return res.status(403).json({ error: 'Only students can create appointments' });
-      }
-
-      const data = await AcademicService.createAppointment(req.userId!, req.body);
+      const { userId } = requireStudent(req, 'Only students can create appointments');
+      const data = await AcademicService.createAppointment(userId, req.body);
       return res.status(201).json(data);
     } catch (error: any) {
       const message = error?.message || 'Failed to create appointment';
-      const status = message.includes('Selected slot is not available') ? 409 : 400;
+      const status = error?.statusCode || (message.includes('Selected slot is not available') ? 409 : 400);
       return res.status(status).json({ error: message });
     }
   }
@@ -108,44 +100,46 @@ export class AcademicController {
   static async listAppointments(req: AuthenticatedRequest, res: Response) {
     try {
       const archive = String(req.query.archive || 'false') === 'true';
-      const data = await AcademicService.listAppointments(req.userId!, req.userRole || '', archive);
+      const userId = requireUser(req);
+      const data = await AcademicService.listAppointments(userId, req.userRole || '', archive);
       return res.json(data);
     } catch (error: any) {
-      return res.status(400).json({ error: error.message || 'Failed to fetch appointments' });
+      return res.status(error?.statusCode || 400).json({ error: error.message || 'Failed to fetch appointments' });
     }
   }
 
   static async updateAppointmentStatus(req: AuthenticatedRequest, res: Response) {
     try {
       const appointmentId = Number(req.params.id);
+      const userId = requireUser(req);
       const data = await AcademicService.updateAppointmentStatus(
         appointmentId,
-        req.userId!,
+        userId,
         req.userRole || '',
         req.body
       );
       return res.json(data);
     } catch (error: any) {
-      return res.status(400).json({ error: error.message || 'Failed to update appointment status' });
+      return res.status(error?.statusCode || 400).json({ error: error.message || 'Failed to update appointment status' });
     }
   }
 
   static async getNotifications(req: AuthenticatedRequest, res: Response) {
     try {
-      const data = await AcademicService.getNotifications(req.userId!);
+      const data = await AcademicService.getNotifications(requireUser(req));
       return res.json(data);
     } catch (error: any) {
-      return res.status(400).json({ error: error.message || 'Failed to fetch notifications' });
+      return res.status(error?.statusCode || 400).json({ error: error.message || 'Failed to fetch notifications' });
     }
   }
 
   static async markNotificationRead(req: AuthenticatedRequest, res: Response) {
     try {
       const notificationId = Number(req.params.id);
-      const data = await AcademicService.markNotificationRead(notificationId, req.userId!);
+      const data = await AcademicService.markNotificationRead(notificationId, requireUser(req));
       return res.json(data);
     } catch (error: any) {
-      return res.status(400).json({ error: error.message || 'Failed to update notification' });
+      return res.status(error?.statusCode || 400).json({ error: error.message || 'Failed to update notification' });
     }
   }
 }

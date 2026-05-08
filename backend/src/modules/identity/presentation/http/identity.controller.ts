@@ -5,7 +5,7 @@ import { LoginHandler } from '../../application/commands/login.handler';
 import { UpdateProfileHandler } from '../../application/commands/update-profile.handler';
 import { authenticateSession, AuthenticatedRequest } from '../../../../middleware/auth';
 import { IdentityService } from '../../infrastructure/identity.service';
-import { MicrosoftAuthService } from '../../infrastructure/microsoftAuth.service';
+import { AppError } from '../../../../shared/core/errors';
 
 export class IdentityController {
   static async register(req: Request, res: Response) {
@@ -38,41 +38,31 @@ export class IdentityController {
 
   static auth = authenticateSession;
 
-  static async getProviders(_req: Request, res: Response) {
-    return res.json(MicrosoftAuthService.getProviderStatus());
-  }
-
-  static async beginMicrosoftLogin(req: Request, res: Response) {
-    if (!MicrosoftAuthService.isEnabled()) {
-      return res.status(503).json({ error: 'Microsoft sign-in is not configured' });
-    }
-
-    const returnTo = typeof req.query.returnTo === 'string' ? req.query.returnTo : undefined;
-    const url = await MicrosoftAuthService.getAuthorizationUrl(returnTo);
-    return res.redirect(url);
-  }
-
-  static async handleMicrosoftCallback(req: Request, res: Response) {
-    const userAgent = req.headers['user-agent'] || '';
-    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
-      || req.socket.remoteAddress
-      || '';
-
-    const redirectUrl = await MicrosoftAuthService.handleCallback(
-      req.query as Record<string, unknown>,
-      userAgent,
-      ipAddress
-    );
-
-    return res.redirect(redirectUrl);
-  }
-
   static async getMe(req: AuthenticatedRequest, res: Response) {
     try {
       const user = await IdentityService.getCurrentUser(req.userId!);
       return res.json(user);
-    } catch (error: any) {
-      return res.status(500).json({ error: error.message });
+    } catch (error: unknown) {
+      if (error instanceof AppError) {
+        return res.status(error.statusCode).json({ error: error.message });
+      }
+      const pgCode =
+        error && typeof error === 'object' && 'code' in error
+          ? String((error as { code: unknown }).code)
+          : '';
+      if (pgCode === '42703' || pgCode === '42P01') {
+        console.error(
+          '[auth/me] Veritabanı şeması eksik (kolon/tablo). migrations/ ve backend `npm run` *migrate* scriptlerini çalıştırın.',
+          error
+        );
+        return res.status(503).json({
+          error:
+            'Veritabanı şeması güncel değil. Geliştirici: backend kökünde bekleyen SQL migration’larını uygulayın (ör. users uyarı kolonları, push_subscriptions).',
+        });
+      }
+      const msg = error instanceof Error ? error.message : 'Failed to load user';
+      console.error('[auth/me]', error);
+      return res.status(500).json({ error: msg });
     }
   }
 
@@ -91,13 +81,18 @@ export class IdentityController {
     const updateData = { ...req.body };
     const uid = req.userId!;
 
-    if (files) {
-      if (files['avatar']?.[0]) {
-        updateData.avatarUrl = await storeProfileImage(files['avatar'][0], 'avatar', uid);
+    try {
+      if (files) {
+        if (files['avatar']?.[0]) {
+          updateData.avatarUrl = await storeProfileImage(files['avatar'][0], 'avatar', uid);
+        }
+        if (files['cover']?.[0]) {
+          updateData.coverUrl = await storeProfileImage(files['cover'][0], 'cover', uid);
+        }
       }
-      if (files['cover']?.[0]) {
-        updateData.coverUrl = await storeProfileImage(files['cover'][0], 'cover', uid);
-      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Profil medyası yüklenemedi';
+      return res.status(503).json({ error: message });
     }
 
     const result = await UpdateProfileHandler.execute(uid, updateData);

@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { SocialController } from './social.controller';
 import { authenticateSession } from '../../../../middleware/auth';
 import { uploadSocialPost } from '../../../../middleware/upload';
+import { uploadLimiter } from '../../../../middleware/rateLimiter';
+import { scanUploadedFiles } from '../../../../middleware/scanUploadedFiles';
 
 const router = Router();
 
@@ -20,11 +22,24 @@ router.post('/comments', authenticateSession, SocialController.addComment);
 router.get('/comments/:itemType/:itemId', authenticateSession, SocialController.getComments);
 
 // Feed & Posts
-router.post('/posts', authenticateSession, uploadSocialPost.array('images', 1), SocialController.createPost);
+router.post(
+  '/posts',
+  authenticateSession,
+  uploadLimiter,
+  uploadSocialPost.array('images', 1),
+  scanUploadedFiles,
+  SocialController.createPost
+);
 router.get('/feed', authenticateSession, SocialController.getFeed);
 router.get('/discover', authenticateSession, SocialController.getDiscover);
 router.get('/posts', authenticateSession, SocialController.getFeed);
 router.get('/posts/:id', authenticateSession, SocialController.getPost);
+router.patch('/posts/:id', authenticateSession, SocialController.updatePostModeration);
+router.delete(
+  '/posts/:id/comments/:commentId',
+  authenticateSession,
+  SocialController.deleteAnyPostComment
+);
 router.delete('/posts/:id', authenticateSession, SocialController.deletePost);
 
 // Interactions

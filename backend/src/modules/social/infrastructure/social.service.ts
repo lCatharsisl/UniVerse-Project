@@ -2,6 +2,11 @@ import { query, queryOne } from '../../../config/db';
 import { AppError } from '../../../shared/core/errors';
 import { isAcademic } from './moderation.service';
 import { NotificationEmitterService } from '../../notifications/infrastructure/notificationEmitter.service';
+import {
+  withNormalizedPostImageUrl,
+  withNormalizedSocialFeedRow,
+  withNormalizedSocialFeedRows,
+} from '../../../integrations/normalizeStoredMediaUrl';
 
 export class SocialService {
   static async addComment(userId: number, itemId: number, itemType: string, content: string) {
@@ -28,7 +33,7 @@ export class SocialService {
        RETURNING *`,
       [userId, content, imageUrl || null]
     );
-    return result;
+    return withNormalizedPostImageUrl(result as Record<string, unknown>) as typeof result;
   }
 
   static async deletePost(postId: number, userId: number, userRole?: string) {
@@ -127,7 +132,7 @@ export class SocialService {
       `,
       [postId, viewerUserId]
     );
-    return row || null;
+    return row ? withNormalizedSocialFeedRow(row as Record<string, unknown>) as typeof row : null;
   }
 
   static async getFeedItems(currentUserId: number, type: 'feed' | 'discover' | 'user_posts' | 'user_likes' | 'user_reposts', targetUserId?: number, limit = 20, offset = 0) {
@@ -292,13 +297,8 @@ export class SocialService {
     }
 
     // Common Interaction subqueries
-    const finalOrderBy = type === 'discover'
-      ? `ORDER BY (
-          (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = q.post_id) * 3 +
-          (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = q.post_id) * 2 +
-          (SELECT COUNT(*) FROM post_reposts pr WHERE pr.post_id = q.post_id)
-        ) DESC, q.sorted_at DESC`
-      : `ORDER BY q.sorted_at DESC`;
+    /** Feed ve Discover: en güncel etkinlik üstte (repost’ta sorted_at = alıntı zamanı). */
+    const finalOrderBy = `ORDER BY q.sorted_at DESC`;
 
     const finalSql = `
       SELECT 
@@ -313,11 +313,11 @@ export class SocialService {
     `;
 
     const items = await query(finalSql, params);
-    const totalRow = await queryOne<{total: string}>(countSql, countParams);
-    
+    const totalRow = await queryOne<{ total: string }>(countSql, countParams);
+
     return {
-      items,
-      total: parseInt(totalRow?.total || '0', 10)
+      items: withNormalizedSocialFeedRows(items as Record<string, unknown>[]),
+      total: parseInt(totalRow?.total || '0', 10),
     };
   }
 
@@ -456,5 +456,37 @@ export class SocialService {
       [userId]
     );
     return rows;
+  }
+
+  /** `users.role = admin`: gönderi metni / görseli düzenle (moderasyon) */
+  static async adminUpdatePost(
+    postId: number,
+    body: { content?: string | null; clearMedia?: boolean }
+  ): Promise<Record<string, unknown> | null> {
+    const post = await queryOne<{ post_id: number }>('SELECT post_id FROM posts WHERE post_id = $1', [postId]);
+    if (!post) throw AppError.notFound('Post not found');
+
+    if (body.clearMedia === true) {
+      await query('UPDATE posts SET image_url = NULL WHERE post_id = $1', [postId]);
+    }
+    if (body.content !== undefined) {
+      const next = typeof body.content === 'string' ? body.content.trim() : '';
+      await query('UPDATE posts SET content = $1 WHERE post_id = $2', [next, postId]);
+    }
+
+    return queryOne<Record<string, unknown>>(
+      'SELECT post_id, user_id, content, image_url, created_at FROM posts WHERE post_id = $1',
+      [postId]
+    );
+  }
+
+  /** `users.role = admin`: herhangi bir yorum satırını kaldır */
+  static async adminDeletePostComment(commentId: number): Promise<{ post_id: number }> {
+    const row = await queryOne<{ post_id: number }>(
+      'DELETE FROM post_comments WHERE comment_id = $1 RETURNING post_id',
+      [commentId]
+    );
+    if (!row) throw AppError.notFound('Comment not found');
+    return row;
   }
 }

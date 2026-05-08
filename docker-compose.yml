@@ -13,10 +13,8 @@ services:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./supabase_setup.sql:/docker-entrypoint-initdb.d/01-schema.sql
-      - ./query_optimization.sql:/docker-entrypoint-initdb.d/02-optimization.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-universe}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -35,6 +33,58 @@ services:
       timeout: 3s
       retries: 5
 
+  # REST API
+  backend:
+    build:
+      context: ./backend
+    container_name: universe-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      SESSION_SECRET: ${SESSION_SECRET:-local-dev-session-secret-32-characters-min}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-universe}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      FRONTEND_URL: http://localhost:${FRONTEND_PORT:-5173}
+      CORS_ORIGINS: http://localhost:${FRONTEND_PORT:-5173},http://frontend:8080
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_data:/app/data
+      - backend_logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Static frontend served through nginx with API proxying to backend
+  frontend:
+    build:
+      context: ./frontend
+    container_name: universe-frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      backend:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   redis_data:
+  backend_uploads:
+  backend_data:
+  backend_logs:

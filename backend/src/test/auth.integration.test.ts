@@ -68,6 +68,22 @@ describe('Auth integration (safe cases)', () => {
     });
   });
 
+  it('POST /api/auth/login is rate limited after repeated failed attempts', async () => {
+    process.env.SESSION_SECRET = process.env.SESSION_SECRET ?? 'test-session-secret-32-characters-min';
+    process.env.NODE_ENV = 'test';
+
+    const { default: app } = await import('../app');
+
+    for (let i = 0; i < 5; i += 1) {
+      const response = await request(app).post('/api/auth/login').send({});
+      expect(response.status).toBe(400);
+    }
+
+    const limited = await request(app).post('/api/auth/login').send({});
+    expect(limited.status).toBe(429);
+    expect(limited.text).toContain('Too many authentication attempts');
+  });
+
   it('GET /api/auth/me returns current user with mocked auth', async () => {
     process.env.SESSION_SECRET = process.env.SESSION_SECRET ?? 'test-session-secret-32-characters-min';
     process.env.NODE_ENV = 'test';

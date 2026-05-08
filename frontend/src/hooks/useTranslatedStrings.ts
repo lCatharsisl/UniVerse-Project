@@ -1,24 +1,45 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { translateToEnglish } from '../utils/translate';
 
+function parseTexts(serialized: string): string[] {
+  try {
+    const parsed = JSON.parse(serialized) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 export function useTranslatedStrings(texts: string[]): string[] {
-  const [result, setResult] = useState<string[]>(texts);
+  const [translations, setTranslations] = useState<Map<string, string>>(new Map());
+  const serializedTexts = useMemo(() => JSON.stringify(texts), [texts]);
 
   useEffect(() => {
-    setResult(texts);
-
-    const toTranslate = texts.filter(
+    const list = parseTexts(serializedTexts);
+    const toTranslate = list.filter(
       (t) => t?.trim() && /[a-zA-ZğüşıöçĞÜŞİÖÇ]/.test(t)
     );
-    if (toTranslate.length === 0) return;
+    if (toTranslate.length === 0) {
+      setTranslations((prev) => (prev.size === 0 ? prev : new Map()));
+      return;
+    }
 
-    Promise.all(toTranslate.map(translateToEnglish))
+    let cancelled = false;
+    void Promise.all(toTranslate.map(translateToEnglish))
       .then((translated) => {
+        if (cancelled) return;
         const map = new Map(toTranslate.map((t, i) => [t, translated[i]]));
-        setResult(texts.map((t) => map.get(t.trim()) ?? t));
+        setTranslations(map);
       })
       .catch(() => {});
-  }, [JSON.stringify(texts)]);
 
-  return result;
+    return () => {
+      cancelled = true;
+    };
+  }, [serializedTexts]);
+
+  return useMemo(() => {
+    const list = parseTexts(serializedTexts);
+    return list.map((t) => translations.get(t.trim()) ?? t);
+  }, [serializedTexts, translations]);
 }

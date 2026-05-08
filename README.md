@@ -26,7 +26,9 @@ _(Alternatif olarak her klasöre girip tek tek `npm install` yapabilirsiniz.)_
 1. [`backend/.env.example`](backend/.env.example) dosyasını `backend/.env` olarak kopyalayın.
 2. Supabase projenizden `DATABASE_URL` (veya `DB_*` alanları) ve en az 32 karakterlik `SESSION_SECRET` değerlerini doldurun.
 
-Ayrıntılı alan listesi için `backend/.env.example` içindeki yorumlara bakın.
+Kök dizinde **`npm run sync:frontend-env`** çalıştırarak `frontend/.env` içine `backend/.env`’deki `BACKEND_PUBLIC_URL` (yoksa `http://localhost:${PORT}`) üzerinden `VITE_API_BASE_URL` yazılır; veritabanı anahtarı gibi sırlar taşınmaz.
+
+Ayrıntılı alan listesi için `backend/.env.example` içindeki yorumlara bakın. Production’da statik frontend ayrı host’taysa `frontend/.env.example` içindeki `VITE_API_BASE_URL` notlarına bakın; Render adımları için [docs/deploy-render.md](docs/deploy-render.md).
 
 ### 3. Sistemi Çalıştırın
 
@@ -35,6 +37,16 @@ Ana dizindeyken (root) şu komutu kullanarak hem Frontend'i hem de Backend'i ayn
 ```bash
 npm run dev
 ```
+
+**Aynı Wi‑Fi / yerel ağdan başka bilgisayar:** Önce `backend/.env` içinde konsolun yazdığı gibi `CORS_ORIGINS=...` (localhost + senin LAN IP adresin `:5173`) tanımlayın, sonra ana dizinden:
+
+```bash
+npm run dev:lan
+```
+
+Arkadaş tarayıcıda `http://SENİN_IP:5173` adresini açar; API çağrıları senin makinedeki Vite proxy üzerinden gider (arkadaşın PC’sinde `:3000` açması gerekmez). macOS Güvenlik Duvarı uyarı çıkarırsa Node’a gelen bağlantılara izin verin.
+
+Bu başlatıcı macOS üzerinde `node_modules` içindeki indirilen native binary'ler Gatekeeper quarantine yüzünden bloklanmışsa açılış öncesi ilgili quarantine attribute'unu temizlemeyi dener. Proje dosyaları AirDrop, WhatsApp, Drive zip'i gibi kaynaklardan geldiyse bu özellikle önemlidir.
 
 ### 4. CI Kontrollerini Localde Doğrulayın
 

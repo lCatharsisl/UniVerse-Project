@@ -1,15 +1,21 @@
-import { useEffect, useState } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../api/client';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiMapPin, FiClock, FiSearch, FiPackage, FiArrowLeft } from 'react-icons/fi';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { LostFoundItemImage } from '../components/lostFound/LostFoundItemImage';
+import AdminModerationMenu from '../components/AdminModerationMenu';
 import type { LostFoundVisualKind } from '../components/lostFound/LostFoundPlaceholder';
+import { usePagePullRefresh } from '../hooks/usePagePullRefresh';
+import { themedAlert } from '../utils/themedDialog';
 
 interface Item {
     lost_item_id?: number;
     found_item_id?: number;
+    user_id?: number;
     lost_item_name?: string;
     found_item_name?: string;
     location: string;
@@ -24,6 +30,7 @@ interface Item {
 
 const LostFoundFeed = () => {
     const { t } = useTranslation();
+    const { user } = useAuth();
     const [items, setItems] = useState<Item[]>([]);
     const [activeTab, setActiveTab] = useState<'lost' | 'found' | 'resolved'>('lost');
     const [loading, setLoading] = useState(true);
@@ -31,7 +38,7 @@ const LostFoundFeed = () => {
     const { dimension } = useTheme();
     const isSpace = dimension === 'space';
 
-    const fetchItems = async () => {
+    const fetchItems = useCallback(async () => {
         setLoading(true);
         try {
             if (activeTab === 'resolved') {
@@ -58,7 +65,12 @@ const LostFoundFeed = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [activeTab]);
+
+    usePagePullRefresh(
+      (path) => path === '/lost-found',
+      fetchItems,
+    );
 
     useEffect(() => {
         fetchItems();
@@ -127,11 +139,16 @@ const LostFoundFeed = () => {
                 ) : (
                     <div className="flex flex-col">
                         {filteredItems.map(item => (
-                            <Link
+                            <div
                                 key={`${item.__type || activeTab}-${getItemId(item)}`}
-                                to={`/item/${item.__type || activeTab}/${getItemId(item)}`}
-                                className={`p-3 md:p-4 border-b transition-colors flex gap-3 ${
+                                className={`flex gap-2 border-b p-3 transition-colors md:p-4 md:gap-3 ${
                                     isSpace ? 'border-white/5 hover:bg-white/5' : 'border-gray-50 hover:bg-gray-50'
+                                }`}
+                            >
+                            <Link
+                                to={`/item/${item.__type || activeTab}/${getItemId(item)}`}
+                                className={`flex min-w-0 flex-1 gap-3 ${
+                                    isSpace ? 'text-inherit' : 'text-inherit'
                                 }`}
                             >
                                 <div className={`w-16 h-16 md:w-24 md:h-24 rounded-xl overflow-hidden shrink-0 border flex items-center justify-center ${
@@ -168,6 +185,24 @@ const LostFoundFeed = () => {
                                     <FiArrowLeft className={`rotate-180 ${isSpace ? 'text-white/20' : 'text-gray-400'}`} size={12} />
                                 </div>
                             </Link>
+                            <AdminModerationMenu
+                                visible={Boolean(user?.role === 'admin')}
+                                onDelete={async () => {
+                                    const kind = (item.__type || activeTab) as 'lost' | 'found';
+                                    const rawId = getItemId(item);
+                                    if (rawId == null) return;
+                                    try {
+                                        const endpoint =
+                                            kind === 'lost' ? `/services/lost-items/${rawId}` : `/services/found-items/${rawId}`;
+                                        await api.delete(endpoint);
+                                        await fetchItems();
+                                    } catch {
+                                        await themedAlert(t('socialFeed.deleteFailed'));
+                                    }
+                                }}
+                                className="self-center"
+                            />
+                            </div>
                         ))}
                     </div>
                 )}

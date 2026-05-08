@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
+import { storePublicUpload } from '../../../../integrations/mediaObjectStorage';
 import { AuthenticatedRequest } from '../../../../middleware/auth';
+import { isAcademicRole, requireAcademic, requireAdmin, requireNotBanned, requireUser } from '../../../../middleware/policy';
 import { AppError } from '../../../../shared/core/errors';
 import { AddCommentHandler } from '../../application/commands/add-comment.handler';
 import { CreatePostHandler } from '../../application/commands/create-post.handler';
@@ -8,7 +10,7 @@ import { ToggleLikeHandler } from '../../application/commands/toggle-like.handle
 import { ToggleRepostHandler } from '../../application/commands/toggle-repost.handler';
 import { GetUserActivitiesHandler } from '../../application/queries/get-user-activities.handler';
 import { GetFeedHandler } from '../../application/queries/get-feed.handler';
-import { ModerationService, isAcademic } from '../../infrastructure/moderation.service';
+import { ModerationService } from '../../infrastructure/moderation.service';
 import { SocialService } from '../../infrastructure/social.service';
 
 type FeedPayload = { items: any[]; total: number };
@@ -17,25 +19,6 @@ const BANNED_MESSAGE = 'Social access is restricted for this account';
 const EMPTY_FEED: FeedPayload = { items: [], total: 0 };
 
 export class SocialController {
-  private static requireUserId(req: AuthenticatedRequest): number {
-    if (!req.userId) {
-      throw AppError.unauthorized();
-    }
-    return req.userId;
-  }
-
-  private static ensureNotBanned(req: AuthenticatedRequest): void {
-    if (req.isBanned) {
-      throw AppError.forbidden(BANNED_MESSAGE);
-    }
-  }
-
-  private static ensureAcademicAccess(req: AuthenticatedRequest): void {
-    if (!isAcademic(req.userRole || '')) {
-      throw AppError.forbidden('Academic access only');
-    }
-  }
-
   private static parseId(rawValue: unknown, label: string): number {
     const value = Number.parseInt(String(rawValue), 10);
     if (Number.isNaN(value)) {
@@ -68,7 +51,7 @@ export class SocialController {
       my_report_type: myReports[item.post_id] || null,
     }));
 
-    if (isAcademic(userRole || '')) {
+    if (isAcademicRole(userRole)) {
       const counts = await ModerationService.getPostReportCounts(postIds);
       enriched = enriched.map((item) => ({
         ...item,
@@ -86,7 +69,7 @@ export class SocialController {
   ): Promise<any> {
     const [myReports, counts] = await Promise.all([
       ModerationService.getMyReportsForPosts([post.post_id], userId),
-      isAcademic(userRole || '')
+      isAcademicRole(userRole)
         ? ModerationService.getPostReportCounts([post.post_id])
         : Promise.resolve<Record<number, number>>({}),
     ]);
@@ -95,7 +78,7 @@ export class SocialController {
       ...post,
       has_reported: !!myReports[post.post_id],
       my_report_type: myReports[post.post_id] || null,
-      ...(isAcademic(userRole || '') ? { reports_count: counts[post.post_id] ?? 0 } : {}),
+      ...(isAcademicRole(userRole) ? { reports_count: counts[post.post_id] ?? 0 } : {}),
     };
   }
 
@@ -139,7 +122,7 @@ export class SocialController {
   }
 
   static async addComment(req: AuthenticatedRequest, res: Response) {
-    const userId = SocialController.requireUserId(req);
+    const userId = requireUser(req);
     const { itemId, itemType, content } = req.body;
 
     const result = await AddCommentHandler.execute(userId, itemId, itemType, content);
@@ -162,17 +145,34 @@ export class SocialController {
   }
 
   static async createPost(req: AuthenticatedRequest, res: Response) {
-    SocialController.ensureNotBanned(req);
-    const userId = SocialController.requireUserId(req);
-    const files = (req.files as Express.Multer.File[]) || [];
-    const imageUrl = files.length > 0 ? `/uploads/${files[0].filename}` : undefined;
+    requireNotBanned(req, BANNED_MESSAGE);
+    const userId = requireUser(req);
+    try {
+      const files = (req.files as Express.Multer.File[]) || [];
+      let imageUrl: string | undefined;
+      if (files.length > 0) {
+        const file = files[0];
+        if (!file.buffer) {
+          return res.status(400).json({ error: 'Media upload corrupted (retry upload)' });
+        }
+        imageUrl = await storePublicUpload({
+          pathPrefix: `social/posts/${userId}`,
+          buffer: file.buffer,
+          originalFilename: file.originalname || 'post',
+          contentType: file.mimetype || 'application/octet-stream',
+        });
+      }
 
-    const result = await CreatePostHandler.execute(userId, req.body, imageUrl);
-    if (!result.success) {
-      return res.status(400).json({ error: result.error });
+      const result = await CreatePostHandler.execute(userId, req.body, imageUrl);
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      return res.status(201).json(result.data);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Medya yükleme başarısız';
+      return res.status(400).json({ error: message });
     }
-
-    return res.status(201).json(result.data);
   }
 
   static async getFeed(req: AuthenticatedRequest, res: Response) {
@@ -180,7 +180,7 @@ export class SocialController {
       return res.json(EMPTY_FEED);
     }
 
-    const userId = SocialController.requireUserId(req);
+    const userId = requireUser(req);
     const { limit, offset } = SocialController.getPagination(req.query);
     const result = await GetFeedHandler.execute(userId, { limit, offset });
 
@@ -201,7 +201,7 @@ export class SocialController {
     return SocialController.respond(
       res,
       async () => {
-        const userId = SocialController.requireUserId(req);
+        const userId = requireUser(req);
         const { limit, offset } = SocialController.getPagination(req.query);
         const data = await SocialService.getFeedItems(userId, 'discover', undefined, limit, offset);
         data.items = await SocialController.enrichFeedItems(data.items || [], userId, req.userRole);
@@ -215,8 +215,8 @@ export class SocialController {
     return SocialController.respond(
       res,
       async () => {
-        SocialController.ensureNotBanned(req);
-        const userId = SocialController.requireUserId(req);
+        requireNotBanned(req, BANNED_MESSAGE);
+        const userId = requireUser(req);
         const postId = SocialController.parseId(req.params.id, 'post id');
         const post = await SocialService.getPostForViewer(userId, postId);
 
@@ -231,7 +231,7 @@ export class SocialController {
   }
 
   static async deletePost(req: AuthenticatedRequest, res: Response) {
-    const userId = SocialController.requireUserId(req);
+    const userId = requireUser(req);
     const postId = SocialController.parseId(req.params.id, 'post id');
     const userRole = req.userRole || '';
     const result = await DeletePostHandler.execute(postId, userId, userRole);
@@ -244,8 +244,8 @@ export class SocialController {
   }
 
   static async toggleLike(req: AuthenticatedRequest, res: Response) {
-    SocialController.ensureNotBanned(req);
-    const userId = SocialController.requireUserId(req);
+    requireNotBanned(req, BANNED_MESSAGE);
+    const userId = requireUser(req);
     const postId = SocialController.parseId(req.params.id, 'post id');
     const result = await ToggleLikeHandler.execute(postId, userId);
 
@@ -257,8 +257,8 @@ export class SocialController {
   }
 
   static async toggleRepost(req: AuthenticatedRequest, res: Response) {
-    SocialController.ensureNotBanned(req);
-    const userId = SocialController.requireUserId(req);
+    requireNotBanned(req, BANNED_MESSAGE);
+    const userId = requireUser(req);
     const postId = SocialController.parseId(req.params.id, 'post id');
     const result = await ToggleRepostHandler.execute(postId, userId);
 
@@ -270,7 +270,7 @@ export class SocialController {
   }
 
   static async getUserActivities(req: AuthenticatedRequest, res: Response) {
-    const currentUserId = SocialController.requireUserId(req);
+    const currentUserId = requireUser(req);
     const targetUserId = SocialController.parseId(req.params.id, 'user id');
     const activityType = req.params.type;
 
@@ -295,8 +295,8 @@ export class SocialController {
     return SocialController.respond(
       res,
       async () => {
-        SocialController.ensureNotBanned(req);
-        const userId = SocialController.requireUserId(req);
+        requireNotBanned(req, BANNED_MESSAGE);
+        const userId = requireUser(req);
         const postId = SocialController.parseId(req.params.id, 'post id');
         const { content } = req.body;
 
@@ -330,8 +330,8 @@ export class SocialController {
     return SocialController.respond(
       res,
       async () => {
-        SocialController.ensureNotBanned(req);
-        const followerId = SocialController.requireUserId(req);
+        requireNotBanned(req, BANNED_MESSAGE);
+        const followerId = requireUser(req);
         const followingId = SocialController.parseId(req.params.id, 'user id');
         return SocialService.toggleFollow(followerId, followingId);
       },
@@ -343,7 +343,7 @@ export class SocialController {
     return SocialController.respond(
       res,
       async () => {
-        const currentUserId = SocialController.requireUserId(req);
+        const currentUserId = requireUser(req);
         const targetUserId = SocialController.parseId(req.params.id, 'user id');
         const [stats, isFollowing] = await Promise.all([
           SocialService.getFollowStats(targetUserId),
@@ -353,6 +353,49 @@ export class SocialController {
         return { ...stats, isFollowing };
       },
       { fallbackMessage: 'Failed to fetch follow stats' }
+    );
+  }
+
+  static async updatePostModeration(req: AuthenticatedRequest, res: Response) {
+    return SocialController.respond(
+      res,
+      async () => {
+        requireAdmin(req);
+        const postId = SocialController.parseId(req.params.id, 'post id');
+        const { clearMedia } = req.body ?? {};
+        let contentPatch: string | undefined;
+        if (Object.prototype.hasOwnProperty.call(req.body || {}, 'content')) {
+          const c = (req.body as { content?: unknown }).content;
+          if (c === null || c === undefined) {
+            contentPatch = '';
+          } else if (typeof c === 'string') {
+            contentPatch = c.trim();
+          } else {
+            throw AppError.badRequest('Invalid content');
+          }
+        }
+
+        const clearMediaFlag = Boolean(clearMedia);
+        const post = await SocialService.adminUpdatePost(postId, {
+          content: contentPatch,
+          clearMedia: clearMediaFlag || undefined,
+        });
+        return post ?? { ok: true };
+      },
+      { fallbackMessage: 'Failed to update post' }
+    );
+  }
+
+  static async deleteAnyPostComment(req: AuthenticatedRequest, res: Response) {
+    return SocialController.respond(
+      res,
+      async () => {
+        requireAdmin(req);
+        const commentId = SocialController.parseId(req.params.commentId, 'comment id');
+        const row = await SocialService.adminDeletePostComment(commentId);
+        return { message: 'Comment removed', ...row };
+      },
+      { fallbackMessage: 'Failed to delete comment', defaultStatusCode: 400 }
     );
   }
 
@@ -376,8 +419,8 @@ export class SocialController {
     return SocialController.respond(
       res,
       async () => {
-        SocialController.ensureNotBanned(req);
-        const userId = SocialController.requireUserId(req);
+        requireNotBanned(req, BANNED_MESSAGE);
+        const userId = requireUser(req);
         const postId = SocialController.parseId(req.params.id, 'post id');
         const reportType = req.body?.reportType ? String(req.body.reportType) : 'other';
         await ModerationService.reportPost(postId, userId, reportType);
@@ -406,8 +449,8 @@ export class SocialController {
     return SocialController.respond(
       res,
       async () => {
-        SocialController.ensureNotBanned(req);
-        const userId = SocialController.requireUserId(req);
+        requireNotBanned(req, BANNED_MESSAGE);
+        const userId = requireUser(req);
         const postId = SocialController.parseId(req.params.id, 'post id');
         await ModerationService.removeMyReport(postId, userId);
         return { message: 'Report removed' };
@@ -420,8 +463,8 @@ export class SocialController {
     return SocialController.respond(
       res,
       async () => {
-        SocialController.ensureNotBanned(req);
-        const userId = SocialController.requireUserId(req);
+        requireNotBanned(req, BANNED_MESSAGE);
+        const userId = requireUser(req);
         const targetUserId = SocialController.parseId(req.params.id, 'user id');
         const reportType = req.body?.reportType || 'other';
         await ModerationService.reportUser(targetUserId, userId, reportType);
@@ -435,7 +478,7 @@ export class SocialController {
     return SocialController.respond(
       res,
       async () => {
-        const reporterId = SocialController.requireUserId(req);
+        const reporterId = requireUser(req);
         const targetUserId = SocialController.parseId(req.params.id, 'user id');
         return ModerationService.getMyReportForUser(targetUserId, reporterId);
       },
@@ -447,8 +490,8 @@ export class SocialController {
     return SocialController.respond(
       res,
       async () => {
-        SocialController.ensureNotBanned(req);
-        const userId = SocialController.requireUserId(req);
+        requireNotBanned(req, BANNED_MESSAGE);
+        const userId = requireUser(req);
         const targetUserId = SocialController.parseId(req.params.id, 'user id');
         await ModerationService.removeMyUserReport(targetUserId, userId);
         return { message: 'Report removed' };
@@ -461,7 +504,7 @@ export class SocialController {
     return SocialController.respond(
       res,
       async () => {
-        SocialController.ensureAcademicAccess(req);
+        requireAcademic(req);
         const reportType = (req.query.reportType as string) || undefined;
         return ModerationService.getReportedPosts(50, reportType);
       },
@@ -473,7 +516,7 @@ export class SocialController {
     return SocialController.respond(
       res,
       async () => {
-        SocialController.ensureAcademicAccess(req);
+        requireAcademic(req);
         const reportType = (req.query.reportType as string) || undefined;
         const list = await ModerationService.getReportedUsers(50, reportType);
         const IdentityService = (await import('../../../identity/infrastructure/identity.service')).IdentityService;
@@ -497,7 +540,7 @@ export class SocialController {
     return SocialController.respond(
       res,
       async () => {
-        SocialController.ensureAcademicAccess(req);
+        requireAcademic(req);
         return ModerationService.getReportersForPost(SocialController.parseId(req.params.id, 'post id'));
       },
       { fallbackMessage: 'Failed to fetch reporters' }
@@ -508,7 +551,7 @@ export class SocialController {
     return SocialController.respond(
       res,
       async () => {
-        SocialController.ensureAcademicAccess(req);
+        requireAcademic(req);
         return ModerationService.getReportersForUser(SocialController.parseId(req.params.id, 'user id'));
       },
       { fallbackMessage: 'Failed to fetch reporters' }
@@ -518,7 +561,7 @@ export class SocialController {
   static async getPostReportCount(req: AuthenticatedRequest, res: Response) {
     const postId = SocialController.parseId(req.params.id, 'post id');
 
-    if (!isAcademic(req.userRole || '')) {
+    if (!isAcademicRole(req.userRole)) {
       return res.json({ count: 0 });
     }
 
@@ -530,8 +573,8 @@ export class SocialController {
     return SocialController.respond(
       res,
       async () => {
-        SocialController.ensureAcademicAccess(req);
-        const issuerId = SocialController.requireUserId(req);
+        requireAcademic(req);
+        const issuerId = requireUser(req);
         const targetUserId = SocialController.parseId(req.params.id, 'user id');
         const { tier } = req.body || {};
 
@@ -549,8 +592,8 @@ export class SocialController {
     return SocialController.respond(
       res,
       async () => {
-        SocialController.ensureAcademicAccess(req);
-        const issuerId = SocialController.requireUserId(req);
+        requireAcademic(req);
+        const issuerId = requireUser(req);
         const targetUserId = SocialController.parseId(req.params.id, 'user id');
         const { action, tier } = req.body || {};
 

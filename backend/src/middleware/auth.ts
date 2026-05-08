@@ -4,6 +4,7 @@ import { queryOne } from '../config/db';
 export interface AuthenticatedRequest extends Request {
   userId?: number;
   userRole?: string;
+  userEmail?: string;
   sessionId?: number;
   isBanned?: boolean;
 }
@@ -12,6 +13,7 @@ export interface SessionRow {
   user_id: number;
   session_id: number;
   role: string;
+  email: string;
 }
 
 export async function authenticateSession(
@@ -30,7 +32,7 @@ export async function authenticateSession(
     const sessionToken = authHeader.substring(7);
 
     let session = await queryOne<SessionRow>(
-      `SELECT us.user_id, us.session_id, u.role
+      `SELECT us.user_id, us.session_id, u.role, u.email
        FROM user_sessions us
        JOIN users u ON u.user_id = us.user_id
        WHERE us.session_token = $1
@@ -47,6 +49,7 @@ export async function authenticateSession(
     req.userId = session.user_id;
     req.userRole = session.role;
     req.sessionId = session.session_id;
+    req.userEmail = String(session.email || '').trim().toLowerCase();
 
     try {
       const banRow = await queryOne<{ is_banned: boolean }>(

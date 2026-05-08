@@ -1,4 +1,5 @@
 import { query } from '../../../config/db';
+import { normalizeStoredMediaUrl } from '../../../integrations/normalizeStoredMediaUrl';
 import { extractHashtags } from '../utils/hashtags';
 
 export type SearchType = 'top' | 'users' | 'posts' | 'communities';
@@ -548,8 +549,14 @@ function mapPostResults(rows: PostRow[]): { posts: SearchPostHit[]; highlights: 
       content: r.content || '',
       created_at: r.created_at || '',
       _score: r.s,
-      image_url: r.image_url,
-      author_avatar: r.author_avatar,
+      image_url:
+        r.image_url != null && String(r.image_url).trim() !== ''
+          ? normalizeStoredMediaUrl(r.image_url)
+          : r.image_url,
+      author_avatar:
+        r.author_avatar != null && String(r.author_avatar).trim() !== ''
+          ? normalizeStoredMediaUrl(r.author_avatar)
+          : r.author_avatar,
       author_display: r.author_display,
     });
     if (r.hl) highlights[String(r.post_id)] = [r.hl];

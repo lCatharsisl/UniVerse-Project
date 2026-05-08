@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { toImgSrc } from '../utils/resolveMediaUrl';
 
 type Props = {
@@ -21,17 +21,13 @@ export function FeedAvatarImage({
   imgClassName = 'h-full w-full object-cover',
   alt = '',
 }: Props) {
-  const [broken, setBroken] = useState(false);
   const url = toImgSrc(src);
-  const showImg = Boolean(url) && !broken;
-
-  useEffect(() => {
-    setBroken(false);
-  }, [url]);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const showImg = Boolean(url) && failedSrc !== url;
 
   const onError = useCallback(() => {
-    setBroken(true);
-  }, []);
+    setFailedSrc(url ?? '');
+  }, [url]);
 
   if (!showImg) {
     return (

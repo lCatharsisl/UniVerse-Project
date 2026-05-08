@@ -1,11 +1,13 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import api from '../api/client';
+import { teardownWebPush } from '../utils/webPush';
 
 interface User {
     userId: number;
     email: string;
     role: 'student' | 'staff' | 'admin' | 'community';
-    profile?: any;
+    profile?: Record<string, unknown>;
     profileImageUrl?: string;
     warningTier?: number;
     isBanned?: boolean;
@@ -49,7 +51,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     useEffect(() => {
-        checkAuth();
+        const timeoutId = window.setTimeout(() => {
+            void checkAuth();
+        }, 0);
+
+        return () => window.clearTimeout(timeoutId);
     }, []);
 
     const login = (token: string, userData: User) => {
@@ -58,9 +64,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const logout = () => {
-        localStorage.removeItem('sessionToken');
-        setUser(null);
-        window.location.href = '/login';
+        void (async () => {
+            const token = localStorage.getItem('sessionToken');
+            if (token) {
+                try {
+                    await Promise.race([
+                        api.post('/auth/logout'),
+                        new Promise<never>((_, reject) =>
+                            window.setTimeout(() => reject(new Error('logout-timeout')), 4000),
+                        ),
+                    ]);
+                } catch {
+                    /* still clear client + redirect */
+                }
+            }
+            try {
+                await Promise.race([
+                    teardownWebPush(),
+                    new Promise<void>((resolve) => window.setTimeout(resolve, 2500)),
+                ]);
+            } catch {
+                /* ignore */
+            }
+            localStorage.removeItem('sessionToken');
+            setUser(null);
+            window.location.href = '/login';
+        })();
     };
 
     return (

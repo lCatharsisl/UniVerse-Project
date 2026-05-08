@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { authenticateSession } from '../../../../middleware/auth';
 import { cvUpload } from '../../../../middleware/cvUpload';
-import { upload } from '../../../../middleware/upload';
+import { uploadProfileImages, uploadImageMemory } from '../../../../middleware/upload';
+import { uploadLimiter } from '../../../../middleware/rateLimiter';
+import { scanUploadedFiles } from '../../../../middleware/scanUploadedFiles';
 import { CommunityController } from './community.controller';
 
 const router = Router();
@@ -36,6 +38,12 @@ router.delete('/jobs/board/:jobPostId', CommunityController.deleteJobBoardPost);
 router.get('/jobs/board/applications/pending', CommunityController.getPendingJobApplications);
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Campus-wide events (MUST be before '/:communityId(\\d+)' and before '/events/:eventId')
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/events/today', CommunityController.getTodaysCampusEvents);
+router.delete('/events/:eventId', CommunityController.deleteCampusEventByAdmin);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Community profile + membership
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/:communityId(\\d+)', CommunityController.getCommunityProfile);
@@ -48,7 +56,9 @@ router.get('/:communityId(\\d+)/members', CommunityController.getCommunityMember
 router.patch('/:communityId(\\d+)/categories', CommunityController.updateCommunityCategories);
 router.patch(
   '/:communityId(\\d+)/media',
-  upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'cover', maxCount: 1 }]),
+  uploadLimiter,
+  uploadProfileImages.fields([{ name: 'avatar', maxCount: 1 }, { name: 'cover', maxCount: 1 }]),
+  scanUploadedFiles,
   CommunityController.updateCommunityMedia
 );
 
@@ -56,12 +66,22 @@ router.patch(
 // Events (announcement + application)
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/:communityId(\\d+)/events', CommunityController.getCommunityEvents);
+router.delete('/:communityId(\\d+)/events/:eventId(\\d+)', CommunityController.deleteCommunityEvent);
+router.post(
+  '/:communityId(\\d+)/events/:eventId(\\d+)/poster',
+  uploadLimiter,
+  uploadImageMemory.single('poster'),
+  scanUploadedFiles,
+  CommunityController.uploadCommunityEventPoster
+);
 router.post('/:communityId(\\d+)/events', CommunityController.createCommunityEvent);
 router.post('/events/:eventId/applications/init', CommunityController.initEventApplication);
 router.get('/events/applications/:eventApplicationId', CommunityController.getEventApplicationDetails);
 router.patch(
   '/events/applications/:eventApplicationId',
+  uploadLimiter,
   cvUpload.single('cv'),
+  scanUploadedFiles,
   CommunityController.submitEventApplication
 );
 router.patch('/events/applications/:eventApplicationId/cancel', CommunityController.cancelEventApplication);
@@ -79,7 +99,9 @@ router.post('/jobs/:jobPostId/applications/init', CommunityController.initJobApp
 router.get('/jobs/applications/:jobApplicationId', CommunityController.getJobApplicationDetails);
 router.patch(
   '/jobs/applications/:jobApplicationId',
+  uploadLimiter,
   cvUpload.single('cv'),
+  scanUploadedFiles,
   CommunityController.submitJobApplication
 );
 router.patch('/jobs/applications/:jobApplicationId/cancel', CommunityController.cancelJobApplication);
@@ -100,4 +122,3 @@ router.patch(
 
 // ─────────────────────────────────────────────────────────────────────────────
 export { router as communityRouter };
-

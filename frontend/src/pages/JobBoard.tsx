@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiBriefcase, FiSend } from 'react-icons/fi';
@@ -6,6 +7,7 @@ import api from '../api/client';
 import { useAuth, isAcademic } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { themedAlert, themedConfirm, themedPrompt } from '../utils/themedDialog';
+import AdminModerationMenu from '../components/AdminModerationMenu';
 
 type JobPost = {
   job_post_id: number;
@@ -28,6 +30,7 @@ const JobBoard = () => {
   const isSpace = dimension === 'space';
   const navigate = useNavigate();
   const canCreate = isAcademic(user?.role || '');
+  const isPlatformAdmin = user?.role === 'admin';
 
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState<JobPost[]>([]);
@@ -242,7 +245,7 @@ const JobBoard = () => {
             jobs.map((job) => (
               <div key={job.job_post_id} className={`rounded-3xl border p-5 ${isSpace ? 'bg-[#0d0d1a] border-white/10' : 'bg-white border-uv-border'}`}>
                 <div className="flex items-start justify-between gap-4">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     {job.company_name ? (
                       <div className={`text-xs font-black uppercase tracking-widest ${isSpace ? 'text-white/50' : 'text-uv-gray'}`}>
                         {job.company_name}
@@ -250,9 +253,27 @@ const JobBoard = () => {
                     ) : null}
                     <h3 className={`text-lg font-black mt-1 ${isSpace ? 'text-white' : 'text-uv-black'}`}>{job.title}</h3>
                   </div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-primary/10 text-primary text-xs font-black uppercase">
-                    <FiBriefcase />
-                    {job.post_type === 'job' ? t('jobBoard.job') : t('jobBoard.internship')}
+                  <div className="flex shrink-0 items-start gap-2">
+                    <AdminModerationMenu
+                      visible={
+                        Boolean(isPlatformAdmin) &&
+                        job.created_by_user_id != null &&
+                        job.created_by_user_id !== user?.userId
+                      }
+                      onDelete={async () => {
+                        try {
+                          await api.delete(`/community/jobs/board/${job.job_post_id}`);
+                          await themedAlert(t('jobBoard.deleted'));
+                          await load();
+                        } catch (e: any) {
+                          await themedAlert(e?.response?.data?.error || 'Failed to delete listing');
+                        }
+                      }}
+                    />
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-primary/10 text-primary text-xs font-black uppercase">
+                      <FiBriefcase />
+                      {job.post_type === 'job' ? t('jobBoard.job') : t('jobBoard.internship')}
+                    </div>
                   </div>
                 </div>
                 {job.description ? (
@@ -350,4 +371,3 @@ const JobBoard = () => {
 };
 
 export default JobBoard;
-

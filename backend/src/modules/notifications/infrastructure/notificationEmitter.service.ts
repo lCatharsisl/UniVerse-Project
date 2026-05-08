@@ -1,4 +1,5 @@
 import { query, queryOne } from '../../../config/db';
+import { WebPushDispatchService } from './webPush.dispatch.service';
 
 export type CreateNotificationInput = {
   recipientUserId: number;
@@ -30,22 +31,23 @@ export class NotificationEmitterService {
     return row?.enabled ?? true;
   }
 
-  static async create(input: CreateNotificationInput): Promise<void> {
+  static async create(input: CreateNotificationInput): Promise<number | null> {
     const recipientUserId = input.recipientUserId;
     const actorUserId = input.actorUserId ?? null;
 
-    if (!recipientUserId || !Number.isInteger(recipientUserId)) return;
-    if (actorUserId && actorUserId === recipientUserId) return;
+    if (!recipientUserId || !Number.isInteger(recipientUserId)) return null;
+    if (actorUserId && actorUserId === recipientUserId) return null;
 
     const enabled = await this.isEnabledForUser(recipientUserId, input.kind);
-    if (!enabled) return;
+    if (!enabled) return null;
 
-    await query(
+    const row = await queryOne<{ notification_id: number }>(
       `
       INSERT INTO public.notifications
         (recipient_user_id, actor_user_id, community_id, source_module, kind, title, message, entity_type, entity_id, payload, is_read)
       VALUES
         ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, false)
+      RETURNING notification_id
       `,
       [
         recipientUserId,
@@ -60,6 +62,7 @@ export class NotificationEmitterService {
         JSON.stringify(input.payload || {}),
       ]
     );
+    return row?.notification_id ?? null;
   }
 
   static async createForRecipientsBulk(opts: {
@@ -115,12 +118,28 @@ export class NotificationEmitterService {
         JSON.stringify(opts.payload || {}),
       ]
     );
+
+    void WebPushDispatchService.afterBulkRecipients(filtered, {
+      title: opts.title,
+      message: opts.message,
+      kind: opts.kind,
+      sourceModule: opts.sourceModule,
+    }).catch(() => {});
   }
 
   /** Like create, but never throws — avoids breaking likes/messages if DB migration is missing. */
   static async createSafe(input: CreateNotificationInput): Promise<void> {
     try {
-      await this.create(input);
+      const id = await this.create(input);
+      if (id != null) {
+        void WebPushDispatchService.afterSingleNotification(input.recipientUserId, id, {
+          title: input.title,
+          message: input.message,
+          kind: input.kind,
+          sourceModule: input.sourceModule,
+          actorUserId: input.actorUserId ?? null,
+        }).catch(() => {});
+      }
     } catch (e: any) {
       console.error('[NotificationEmitter] create failed:', input.kind, e?.message || e);
     }

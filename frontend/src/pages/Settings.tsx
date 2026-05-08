@@ -1,8 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useDisplaySettings } from '../context/DisplaySettingsContext';
+import type { TextScale } from '../context/DisplaySettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/client';
 import Cropper from 'react-easy-crop';
@@ -77,6 +80,7 @@ const Settings = () => {
   const { user, logout, checkAuth } = useAuth();
   const navigate = useNavigate();
   const { dimension, toggleDimension } = useTheme();
+  const { textScale, setTextScale } = useDisplaySettings();
   const isSpace = dimension === 'space';
 
   const [activeTab, setActiveTab] = useState<Tab>('profile');
@@ -531,10 +535,12 @@ const Settings = () => {
                     )}
                   </div>
 
-                  <button onClick={handleSaveProfile} disabled={saving} className="w-full uv-button py-3 font-black text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-                    <FiSave size={16} />
-                    {saving ? t('settings.saving') : t('settings.saveProfile')}
-                  </button>
+                  <div className={`sticky bottom-0 mt-4 border-t bg-[inherit] pt-4 ${isSpace ? 'border-white/10' : 'border-gray-200'}`}>
+                    <button onClick={handleSaveProfile} disabled={saving} className="w-full uv-button py-3 font-black text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+                      <FiSave size={16} />
+                      {saving ? t('settings.saving') : t('settings.saveProfile')}
+                    </button>
+                  </div>
                 </>
               )}
             </>
@@ -665,10 +671,12 @@ const Settings = () => {
                     )}
                   </div>
 
-                  <button onClick={handleSavePrivacy} disabled={saving} className="w-full uv-button py-3 font-black text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-                    <FiSave size={16} />
-                    {saving ? t('settings.saving') : t('settings.savePrivacy')}
-                  </button>
+              <div className={`sticky bottom-0 mt-4 border-t bg-[inherit] pt-4 ${isSpace ? 'border-white/10' : 'border-gray-200'}`}>
+                <button onClick={handleSavePrivacy} disabled={saving} className="w-full uv-button py-3 font-black text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+                  <FiSave size={16} />
+                  {saving ? t('settings.saving') : t('settings.savePrivacy')}
+                </button>
+              </div>
 
                   {/* Blocked Users */}
                   {blockedUsers.length > 0 && (
@@ -741,10 +749,12 @@ const Settings = () => {
                 </div>
               )}
 
-              <button onClick={saveNotifPrefs} disabled={saving} className="w-full uv-button py-3 font-black text-sm flex items-center justify-center gap-2 disabled:opacity-60">
-                <FiSave size={16} />
-                {saving ? t('settings.saving') : t('settings.saveNotificationPreferences')}
-              </button>
+              <div className={`sticky bottom-0 mt-4 border-t bg-[inherit] pt-4 ${isSpace ? 'border-white/10' : 'border-gray-200'}`}>
+                <button onClick={saveNotifPrefs} disabled={saving} className="w-full uv-button py-3 font-black text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+                  <FiSave size={16} />
+                  {saving ? t('settings.saving') : t('settings.saveNotificationPreferences')}
+                </button>
+              </div>
             </div>
           )}
 
@@ -769,6 +779,40 @@ const Settings = () => {
                     {dimension === opt.value && <FiCheck size={14} className="text-primary" />}
                   </button>
                 ))}
+              </div>
+
+              <div className={`mt-5 rounded-2xl border p-4 space-y-3 ${isSpace ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50/80'}`}>
+                <div>
+                  <h4 className={`text-xs font-black uppercase tracking-widest ${muted}`}>{t('settings.textSize')}</h4>
+                  <p className={`mt-1 text-xs ${muted}`}>{t('settings.textSizeDesc')}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {([
+                    { value: 'compact', label: t('settings.textScaleCompact'), preview: 'A-' },
+                    { value: 'default', label: t('settings.textScaleDefault'), preview: 'A' },
+                    { value: 'large', label: t('settings.textScaleLarge'), preview: 'A+' },
+                    { value: 'xlarge', label: t('settings.textScaleXLarge'), preview: 'A++' },
+                    { value: 'xxlarge', label: t('settings.textScaleXXLarge'), preview: 'A+++' },
+                    { value: 'xxxlarge', label: t('settings.textScaleXXXLarge'), preview: 'A++++' },
+                  ] as { value: TextScale; label: string; preview: string }[]).map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setTextScale(option.value)}
+                      className={`rounded-2xl border px-3 py-3 text-left transition-all ${
+                        textScale === option.value
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : isSpace
+                            ? 'border-white/10 bg-white/5 text-white/70 hover:border-white/20'
+                            : 'border-gray-200 bg-white text-slate-600 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="text-lg font-black leading-none">{option.preview}</div>
+                      <div className="mt-2 text-[11px] font-black uppercase tracking-widest">{option.label}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}

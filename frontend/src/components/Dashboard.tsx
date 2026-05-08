@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { statisticsService } from '../api/services/statisticsService';
 import { Loading } from './Loading';
 import '../styles/components.css';
@@ -17,7 +17,7 @@ export const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -29,11 +29,15 @@ export const Dashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadStats();
-  }, []);
+    const timeoutId = window.setTimeout(() => {
+      void loadStats();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadStats]);
 
   if (loading) return <Loading message="Loading dashboard..." />;
   if (error) return <div className="error-container">{error}</div>;
