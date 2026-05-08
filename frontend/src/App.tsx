@@ -2,10 +2,11 @@ import React, { Suspense, lazy } from 'react';
 import MainLayout from './components/MainLayout';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { DisplaySettingsProvider } from './context/DisplaySettingsContext';
 import { ThemeProvider } from './context/ThemeContext';
 import ThemedDialogHost from './components/ThemedDialogHost';
-import { NotificationsProvider } from './context/NotificationsContext';
-import { MessagingUnreadProvider } from './context/MessagingUnreadContext';
+import PwaSystemOverlay from './components/PwaSystemOverlay';
+import { PwaProvider } from './context/PwaContext';
 
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
@@ -111,16 +112,17 @@ function AppRoutes() {
 function App() {
   return (
     <Router>
-      <ThemeProvider>
-        <AuthProvider>
-          <NotificationsProvider>
-            <MessagingUnreadProvider>
+      <DisplaySettingsProvider>
+        <ThemeProvider>
+          <PwaProvider>
+            <AuthProvider>
               <AppRoutes />
               <ThemedDialogHost />
-            </MessagingUnreadProvider>
-          </NotificationsProvider>
-        </AuthProvider>
-      </ThemeProvider>
+              <PwaSystemOverlay />
+            </AuthProvider>
+          </PwaProvider>
+        </ThemeProvider>
+      </DisplaySettingsProvider>
     </Router>
   );
 }

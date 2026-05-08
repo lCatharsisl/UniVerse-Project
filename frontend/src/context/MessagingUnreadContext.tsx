@@ -1,6 +1,8 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import api from '../api/client';
 import { useAuth } from './AuthContext';
+import { runWhenIdle } from '../utils/runWhenIdle';
 
 type MessagingUnreadContextType = {
   messagesUnreadCount: number;
@@ -21,7 +23,7 @@ export function MessagingUnreadProvider({ children }: { children: ReactNode }) {
     }
     try {
       const now = Date.now();
-      if (now - lastRefreshAtRef.current < 10000) return;
+      if (now - lastRefreshAtRef.current < 15000) return;
       const res = await api.get('/messages/unread-count', { timeout: 10000 });
       const totalUnread = Number(res.data?.count ?? 0);
       setMessagesUnreadCount(Number.isFinite(totalUnread) ? totalUnread : 0);
@@ -32,32 +34,31 @@ export function MessagingUnreadProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   useEffect(() => {
-    refreshMessagesUnreadCount().catch(() => {});
-  }, [user?.userId, refreshMessagesUnreadCount]);
+    const cancel = runWhenIdle(() => void refreshMessagesUnreadCount(), { timeoutMs: 2800 });
 
-  useEffect(() => {
-    if (!user) return;
-    const id = window.setInterval(() => {
-      refreshMessagesUnreadCount().catch(() => {});
-    }, 30000);
-    return () => window.clearInterval(id);
-  }, [user?.userId, refreshMessagesUnreadCount]);
+    const id = user
+      ? window.setInterval(() => {
+          if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+          refreshMessagesUnreadCount().catch(() => {});
+        }, 45000)
+      : undefined;
 
-  useEffect(() => {
-    if (!user) return;
-    const onFocus = () => {
-      refreshMessagesUnreadCount().catch(() => {});
-    };
+    const onFocus = () => { refreshMessagesUnreadCount().catch(() => {}); };
     const onVis = () => {
       if (document.visibilityState === 'visible') refreshMessagesUnreadCount().catch(() => {});
     };
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVis);
+    if (user) {
+      window.addEventListener('focus', onFocus);
+      document.addEventListener('visibilitychange', onVis);
+    }
+
     return () => {
+      cancel();
+      if (id !== undefined) window.clearInterval(id);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, [user?.userId, refreshMessagesUnreadCount]);
+  }, [user, refreshMessagesUnreadCount]);
 
   const value = useMemo(
     () => ({ messagesUnreadCount, refreshMessagesUnreadCount }),

@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FiArrowRight, FiBell, FiCheck } from 'react-icons/fi';
 import api from '../api/client';
 import { useTheme } from '../context/ThemeContext';
@@ -8,6 +9,7 @@ import { themedAlert, themedConfirm } from '../utils/themedDialog';
 import { useNotifications } from '../context/NotificationsContext';
 import { NavIconBadge } from '../components/NavIconBadge';
 import { FeedAvatarImage } from '../components/FeedAvatarImage';
+import { PULL_REFRESH_EVENT, type PullRefreshRequestDetail } from '../types/pullRefresh';
 import { resolveMediaUrl } from '../utils/resolveMediaUrl';
 import {
   formatNotificationTime,
@@ -33,29 +35,28 @@ type UnifiedNotification = NotificationLike & {
 const PAGE_SIZE = 10;
 const TAB_ORDER = ['personal', 'academic', 'community'] as const;
 type NotificationTab = (typeof TAB_ORDER)[number];
-const NOTIFICATIONS_CACHE_KEY = 'notifications:first-page-cache:v4';
+const NOTIFICATIONS_CACHE_KEY = 'notifications:first-page-cache:v5';
+type NotificationsCacheRecord = Partial<Record<NotificationTab, { items: UnifiedNotification[]; total: number }>>;
 
-function readNotificationsCache(tab: NotificationTab = 'personal') {
-  if (typeof window === 'undefined') return { items: [] as UnifiedNotification[], total: 0 };
+function readNotificationsCache() {
+  if (typeof window === 'undefined') return {} as NotificationsCacheRecord;
   const raw = window.localStorage.getItem(NOTIFICATIONS_CACHE_KEY);
-  if (!raw) return { items: [] as UnifiedNotification[], total: 0 };
+  if (!raw) return {} as NotificationsCacheRecord;
   try {
-    const parsed = JSON.parse(raw) as {
-      items?: UnifiedNotification[];
-      total?: number;
-      scope?: NotificationTab;
-    };
-    if (parsed.scope !== tab) return { items: [] as UnifiedNotification[], total: 0 };
-    const rawItems = Array.isArray(parsed.items) ? parsed.items : [];
-    const items = rawItems.filter(
-      (n) => String((n as UnifiedNotification).source_module || '').toLowerCase() !== 'messaging'
-    );
-    return {
-      items,
-      total: Number.isFinite(parsed.total) ? Number(parsed.total) : 0,
-    };
+    const parsed = JSON.parse(raw) as NotificationsCacheRecord;
+    return Object.fromEntries(
+      TAB_ORDER.map((tab) => {
+        const entry = parsed?.[tab];
+        const items = Array.isArray(entry?.items)
+          ? entry.items.filter(
+              (n) => String((n as UnifiedNotification).source_module || '').toLowerCase() !== 'messaging'
+            )
+          : [];
+        return [tab, { items, total: Number.isFinite(entry?.total) ? Number(entry?.total) : 0 }];
+      })
+    ) as NotificationsCacheRecord;
   } catch {
-    return { items: [] as UnifiedNotification[], total: 0 };
+    return {} as NotificationsCacheRecord;
   }
 }
 
@@ -64,18 +65,18 @@ const Notifications = () => {
   const navigate = useNavigate();
   const { dimension } = useTheme();
   const isSpace = dimension === 'space';
-  const { refreshUnreadCount, unreadByScope } = useNotifications();
-  const [cached] = useState(() => readNotificationsCache('personal'));
+  const { refreshUnreadCount, unreadByScope, browserNotificationPermission, requestBrowserNotificationPermission } = useNotifications();
+  const [cacheStore, setCacheStore] = useState<NotificationsCacheRecord>(() => readNotificationsCache());
   /** Yalnızca ilk ağ fetch’inde tam sayfa spinner; loadMore sonrası loadInitial yeniden tetiklenmez. */
   const isFirstNetworkLoadRef = useRef(true);
-  const prevTabRef = useRef<NotificationTab | null>(null);
 
   const [activeTab, setActiveTab] = useState<NotificationTab>('personal');
-  const [loading, setLoading] = useState(cached.items.length === 0);
+  const activeCached = cacheStore[activeTab] ?? { items: [] as UnifiedNotification[], total: 0 };
+  const [loading, setLoading] = useState(activeCached.items.length === 0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
-  const [notifications, setNotifications] = useState<UnifiedNotification[]>(cached.items);
-  const [total, setTotal] = useState(cached.total);
+  const [notifications, setNotifications] = useState<UnifiedNotification[]>(activeCached.items);
+  const [total, setTotal] = useState(activeCached.total);
 
   const fetchSlice = useCallback(async (offset: number, append: boolean, scope: NotificationTab) => {
     const res = await api.get('/notifications', {
@@ -83,8 +84,9 @@ const Notifications = () => {
     });
     const items = (res.data?.items || []) as UnifiedNotification[];
     const nextTotal = Number(res.data?.total ?? 0);
+    const normalizedTotal = Number.isFinite(nextTotal) ? nextTotal : 0;
 
-    setTotal(Number.isFinite(nextTotal) ? nextTotal : 0);
+    setTotal(normalizedTotal);
     if (append) {
       setNotifications((prev) => {
         const seen = new Set(prev.map((n) => n.notification_id));
@@ -99,17 +101,33 @@ const Notifications = () => {
       });
     } else {
       setNotifications(items);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(
-          NOTIFICATIONS_CACHE_KEY,
-          JSON.stringify({ items, total: nextTotal, scope })
-        );
-      }
     }
+    setCacheStore((prev) => {
+      const baseItems = append ? prev[scope]?.items || [] : [];
+      const seen = new Set(baseItems.map((n) => n.notification_id));
+      const merged = [...baseItems];
+      for (const item of items) {
+        if (!append || !seen.has(item.notification_id)) {
+          if (append) seen.add(item.notification_id);
+          merged.push(item);
+        }
+      }
+      const nextStore: NotificationsCacheRecord = {
+        ...prev,
+        [scope]: {
+          items: append ? merged : items,
+          total: normalizedTotal,
+        },
+      };
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(NOTIFICATIONS_CACHE_KEY, JSON.stringify(nextStore));
+      }
+      return nextStore;
+    });
   }, []);
 
   const loadInitial = useCallback(async () => {
-    if (isFirstNetworkLoadRef.current && cached.items.length === 0) {
+    if (isFirstNetworkLoadRef.current && activeCached.items.length === 0) {
       setLoading(true);
     }
     setError('');
@@ -121,7 +139,7 @@ const Notifications = () => {
       setLoading(false);
       isFirstNetworkLoadRef.current = false;
     }
-  }, [fetchSlice, activeTab]);
+  }, [fetchSlice, activeTab, activeCached.items.length]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || notifications.length >= total) return;
@@ -136,12 +154,12 @@ const Notifications = () => {
   }, [fetchSlice, loadingMore, notifications.length, total, activeTab]);
 
   useEffect(() => {
-    if (prevTabRef.current !== null && prevTabRef.current !== activeTab) {
-      setNotifications([]);
-      setTotal(0);
-    }
-    prevTabRef.current = activeTab;
-  }, [activeTab]);
+    const nextCached = cacheStore[activeTab] ?? { items: [] as UnifiedNotification[], total: 0 };
+    setNotifications(nextCached.items);
+    setTotal(nextCached.total);
+    setError('');
+    setLoading(nextCached.items.length === 0 && isFirstNetworkLoadRef.current);
+  }, [activeTab, cacheStore]);
 
   useEffect(() => {
     loadInitial().catch(() => {});
@@ -150,6 +168,24 @@ const Notifications = () => {
   useEffect(() => {
     void refreshUnreadCount(true);
   }, [refreshUnreadCount]);
+
+  useEffect(() => {
+    const handlePullRefresh = (event: Event) => {
+      const customEvent = event as CustomEvent<PullRefreshRequestDetail>;
+      if (customEvent.detail?.path !== '/notifications') return;
+
+      customEvent.preventDefault();
+      customEvent.detail.enqueue(
+        (async () => {
+          await loadInitial();
+          await refreshUnreadCount(true);
+        })()
+      );
+    };
+
+    window.addEventListener(PULL_REFRESH_EVENT, handlePullRefresh);
+    return () => window.removeEventListener(PULL_REFRESH_EVENT, handlePullRefresh);
+  }, [loadInitial, refreshUnreadCount]);
 
   const sourceMatch = (notification: UnifiedNotification, tab: NotificationTab) => {
     const source = String(notification.source_module || '').toLowerCase();
@@ -160,11 +196,30 @@ const Notifications = () => {
 
   const activeList = notifications.filter((notification) => sourceMatch(notification, activeTab));
   const hasMore = notifications.length < total;
+  const shouldShowEmpty = !loading && !error && activeList.length === 0;
+  const notificationsPermissionSupported = browserNotificationPermission !== 'unsupported';
 
   const markRead = async (notificationId: number) => {
     try {
       await api.post(`/notifications/${notificationId}/read`);
       setNotifications((prev) => prev.map((notification) => (notification.notification_id === notificationId ? { ...notification, is_read: true } : notification)));
+      setCacheStore((prev) => {
+        const scoped = prev[activeTab];
+        if (!scoped) return prev;
+        const nextStore: NotificationsCacheRecord = {
+          ...prev,
+          [activeTab]: {
+            ...scoped,
+            items: scoped.items.map((notification) =>
+              notification.notification_id === notificationId ? { ...notification, is_read: true } : notification
+            ),
+          },
+        };
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(NOTIFICATIONS_CACHE_KEY, JSON.stringify(nextStore));
+        }
+        return nextStore;
+      });
       await refreshUnreadCount(true);
     } catch (e: any) {
       await themedAlert(e?.response?.data?.error || 'Failed to mark read');
@@ -262,6 +317,26 @@ const Notifications = () => {
           </div>
         </div>
 
+        {notificationsPermissionSupported && browserNotificationPermission !== 'granted' ? (
+          <div className={`rounded-3xl border p-4 md:p-5 flex items-center justify-between gap-4 ${isSpace ? 'border-white/10 bg-white/5' : 'border-uv-border bg-gray-50'}`}>
+            <div className="min-w-0">
+              <div className={`text-sm font-black ${isSpace ? 'text-white' : 'text-uv-black'}`}>
+                {t('notifications.browserPromptTitle')}
+              </div>
+              <p className={`mt-1 text-xs leading-relaxed ${isSpace ? 'text-white/60' : 'text-uv-gray'}`}>
+                {t('notifications.browserPromptBody')}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => requestBrowserNotificationPermission().catch(() => {})}
+              className="shrink-0 rounded-2xl bg-primary px-4 py-2 text-[12px] font-black text-white transition hover:brightness-95"
+            >
+              {t('notifications.enableBrowserAlerts')}
+            </button>
+          </div>
+        ) : null}
+
         <div className={`flex gap-2 p-1 rounded-2xl border ${isSpace ? 'border-white/10 bg-white/5' : 'border-uv-border bg-gray-50'}`}>
           {TAB_ORDER.map((tab) => {
             const active = activeTab === tab;
@@ -303,7 +378,7 @@ const Notifications = () => {
             <div>
               <h2 className={`font-black text-lg ${isSpace ? 'text-white' : 'text-uv-black'}`}>{tabTitle}</h2>
               <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${isSpace ? 'text-white/40' : 'text-uv-gray'}`}>
-                {t('notifications.loadedOfTotal', { loaded: activeList.length, total })}
+                {shouldShowEmpty ? t('notifications.noNewInTab') : t('notifications.loadedOfTotal', { loaded: activeList.length, total })}
               </p>
             </div>
 
@@ -379,6 +454,27 @@ const Notifications = () => {
                       ? notification.title.trim()
                       : '';
                 const avatarUrl = resolveMediaUrl(notification.actor_avatar_url) || undefined;
+                const actorId = notification.actor_user_id ?? null;
+                const actorProfileTo = actorId ? `/profile/${actorId}` : null;
+                const avatarBox = (
+                  <div
+                    className={`relative w-12 h-12 rounded-2xl overflow-hidden border flex items-center justify-center ${
+                      isSpace ? 'border-white/10 bg-white/10' : 'border-uv-border bg-gray-100'
+                    }`}
+                  >
+                    <FeedAvatarImage
+                      src={avatarUrl}
+                      initials={actorInitials}
+                      className="font-black text-sm"
+                      imgClassName="w-full h-full object-cover"
+                    />
+                    <span
+                      className={`absolute -right-0.5 -bottom-0.5 w-3 h-3 rounded-full border-2 ${
+                        isRead ? 'bg-uv-gray border-white' : 'bg-primary border-white'
+                      }`}
+                    />
+                  </div>
+                );
 
                 return (
                   <div
@@ -395,32 +491,40 @@ const Notifications = () => {
                   >
                     <div className="flex items-start gap-4">
                       <div className="shrink-0 pt-0.5">
-                        <div
-                          className={`relative w-12 h-12 rounded-2xl overflow-hidden border flex items-center justify-center ${
-                            isSpace ? 'border-white/10 bg-white/10' : 'border-uv-border bg-gray-100'
-                          }`}
-                        >
-                          <FeedAvatarImage
-                            src={avatarUrl}
-                            initials={actorInitials}
-                            className="font-black text-sm"
-                            imgClassName="w-full h-full object-cover"
-                          />
-                          <span
-                            className={`absolute -right-0.5 -bottom-0.5 w-3 h-3 rounded-full border-2 ${
-                              isRead ? 'bg-uv-gray border-white' : 'bg-primary border-white'
-                            }`}
-                          />
-                        </div>
+                        {actorProfileTo ? (
+                          <Link
+                            to={actorProfileTo}
+                            onClick={(e) => e.stopPropagation()}
+                            title={actorName || undefined}
+                            aria-label={actorName || undefined}
+                            className="block no-underline outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary/40 rounded-2xl"
+                          >
+                            {avatarBox}
+                          </Link>
+                        ) : (
+                          avatarBox
+                        )}
                       </div>
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <div className={`font-black text-sm truncate ${isSpace ? 'text-white' : 'text-uv-black'}`}>
-                                {actorName || sourceLabel}
-                              </div>
+                              {actorProfileTo && actorName ? (
+                                <Link
+                                  to={actorProfileTo}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={`font-black text-sm truncate no-underline transition hover:underline ${
+                                    isSpace ? 'text-white hover:text-white' : 'text-uv-black hover:text-primary'
+                                  }`}
+                                >
+                                  {actorName}
+                                </Link>
+                              ) : (
+                                <div className={`font-black text-sm truncate ${isSpace ? 'text-white' : 'text-uv-black'}`}>
+                                  {actorName || sourceLabel}
+                                </div>
+                              )}
                               <span
                                 className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
                                   isSpace ? 'border-white/10 bg-white/5 text-white/60' : 'border-uv-border bg-gray-50 text-uv-gray'

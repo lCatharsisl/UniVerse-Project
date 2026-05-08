@@ -2,15 +2,14 @@ import { Router } from 'express';
 import { IdentityController } from './identity.controller';
 import { uploadProfileImages } from '../../../../middleware/upload';
 import { authenticateSession } from '../../../../middleware/auth';
+import { authLimiter, uploadLimiter } from '../../../../middleware/rateLimiter';
+import { scanUploadedFiles } from '../../../../middleware/scanUploadedFiles';
 
 const router = Router();
 
 // ─── Public Routes ────────────────────────────────────────────────────────────
-router.get('/providers', IdentityController.getProviders);
-router.post('/register', IdentityController.register);
-router.post('/login', IdentityController.login);
-router.get('/microsoft/start', IdentityController.beginMicrosoftLogin);
-router.get('/microsoft/callback', IdentityController.handleMicrosoftCallback);
+router.post('/register', authLimiter, IdentityController.register);
+router.post('/login', authLimiter, IdentityController.login);
 router.post('/logout', authenticateSession, IdentityController.logout);
 
 // ─── Current User ─────────────────────────────────────────────────────────────
@@ -20,7 +19,9 @@ router.get('/me', authenticateSession, IdentityController.getMe);
 router.patch(
   '/profile',
   authenticateSession,
+  uploadLimiter,
   uploadProfileImages.fields([{ name: 'avatar', maxCount: 1 }, { name: 'cover', maxCount: 1 }]),
+  scanUploadedFiles,
   IdentityController.updateProfile
 );
 // getPublicProfile now requires auth so requesterId is available for blocking/privacy checks

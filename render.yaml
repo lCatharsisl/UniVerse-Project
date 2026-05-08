@@ -1,0 +1,54 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Postgres: Supabase kullanın; DATABASE_URL’i Dashboard’da bağlayın.
+# İlk API deployundan sonra çıkan URL’yi statik site build env’inde VITE_API_BASE_URL olarak ayarlayın.
+
+services:
+  - type: web
+    name: universe-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20.19.0"
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true
+      # Supabase: Settings → Database → Connection string (URI)
+      - key: DATABASE_URL
+        sync: false
+      # Statik frontend kök URL (CORS); örn. https://universe-web.onrender.com
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      # Swagger / dış görünür API kökü; genelde Render’ın verdiği servis URL’si
+      - key: BACKEND_PUBLIC_URL
+        sync: false
+      # İsteğe bağlı Storage
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        sync: false
+
+  - type: web
+    name: universe-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: NODE_VERSION
+        value: "20.19.0"
+      # Üretim: API’nin kamuya açık kökü, /api eki olmadan veya olun — kod normalize eder.
+      # Örnek: https://universe-api.onrender.com
+      - key: VITE_API_BASE_URL
+        sync: false
+      # Gerekirse (Supabase CDN farklıysa): VITE_UPLOADS_BASE_URL da sync:false eklenebilir

@@ -1,624 +1,595 @@
 {
-  "hash": "ebf11381bb8c90c1439451b1b48ede6507a7fe5ab87804aacefd7d4508f09445",
-  "fetchedAt": "2026-04-23T21:44:38.092Z",
-  "sourceUrl": "https://www.yasar.edu.tr/yemek-liste.pdf",
+  "hash": "f740694f28499f3f320f73a8bbb23c6650ac3626ef72ab98793ce7bf42598af1",
+  "fetchedAt": "2026-05-04T02:07:42.803Z",
+  "sourceUrl": "file:///Users/efebirik/Downloads/UniVerse-Project 2/backend/data/yemek-liste.pdf",
   "parsed": {
     "notices": [
-      "Set menü: 179 TL. Ayrıntılı fiyatlar listelenmiştir.",
       "Alerjen bilgisi: Yemekhanede tüm yemekler alerjen içerebilir."
     ],
-    "pricing": [
-      "MENÜ İÇERİSİNDE 4 ÇEŞİT SEÇENEĞİMİZ BULUNMAKTADIR 179TL (SET MENÜ SEÇENEKLERİ; ÇORBA, ANA YEMEK, YARDIMCI YEMEK, SALATA, ZEYTİNYAĞLI, YOĞURT, AYRAN, MEYVE VE TATLI’DAN OLUŞMAKTADIR.)  EKSTRA ÜRÜN SEÇENEK VE FİYATLAR;  VEGAN TÜKETİCİLERİMİZ İÇİN, YEMEK SEÇENEĞİMİZ DE BULUNMAKTADIR. ÇORBA FİYATI; ",
-      "50,0 TL",
-      " ANA YEMEK FİYATI; ",
-      "100,0 TL",
-      " BÜYÜK SALATA (ANA YEMEK YERİNE GEÇMEKTEDİR) FİYATI; ",
-      "100,0 TL",
-      " YARDIMCI YEMEK FİYATI; ",
-      "61,0 TL",
-      " SALATA ve TATLI FİYATI; ",
-      "61,0 TL",
-      " MEYVE; ",
-      "61,0 TL",
-      " AYRAN FİYATI; 23 TL YOĞURT FİYATI; 41 TL SU FİYATI; ",
-      "11,50 TL"
-    ],
-    "allergenWarning": "YEMEKHANEMİZDE HAZIRLANAN VE SERVİS EDİLEN TÜM YEMEKLER VE /VEY A BESİNLER ALERJEN İÇEREBİLİRLER. YEMEKHANEMİZDE ALERJİK TÜKETİCİLERE UYGUN YEMEK ÜRETİMİ YAPILM AMAKTADIR.RİSK ALTINDA OLDUĞUNU DÜŞÜNDÜĞÜNÜZ BAŞKA BESİNLER VA RSA SMC YEMEK YETKİLİLERİNE BİLDİRİNİZ",
+    "pricing": [],
+    "allergenWarning": "YEMEKHANEMİZDE HAZIRLANAN VE SERVİS EDİLEN TÜM YEMEKLER VE /VEYA BESİNLER ALERJEN İÇEREBİLİRLER. YEMEKHANEMİZDE ALERJİK TÜKETİCİLERE UYGUN YEMEK ÜRETİMİ YAPILMAMAKTADIR.RİSK ALTINDA OLDUĞUNU DÜŞÜNDÜĞÜNÜZ BAŞKA BESİNLER VARSA SMC YEMEK YETKİLİLERİNE BİLDİRİNİZ",
     "sections": [
       {
         "type": "lunch",
         "title": "Yaşar Üniversitesi ÖĞLE YEMEK MENÜSÜ",
-        "periodLabel": "NİSAN Ayı",
+        "periodLabel": "MAYIS Ayı",
         "days": [
           {
-            "date": "2026-04-01",
-            "weekday": "ÇARŞAMBA",
-            "soup": "MAHLUTA ÇORBASI (159 kcal)",
-            "main": "ORMAN KEBABI (465 kcal)",
-            "side": "ISPANAK GRATEN (178 kcal)",
-            "salad": "ŞEH. PİRİNÇ PİLAVI (250 kcal)",
-            "yogurt": "KAVURMA MAKARNA (250 kcal)",
-            "dessert": "COLESLOW (196 kcal)",
-            "fruit": "YOĞURT/AYRAN (120-116 kcal)"
-          },
-          {
-            "date": "2026-04-02",
-            "weekday": "PERŞEMBE",
-            "soup": "DOMATES ÇORBASI (152 kcal)",
-            "main": "KENTUCKY USULU TAVUK (325 kcal)",
-            "side": "ZEY. BEZELYE (177 kcal)",
-            "salad": "PENNE ARABİATA (276 kcal)",
-            "yogurt": "ANKARA PİLAVI (240 kcal)",
-            "dessert": "TAHİNLİ HUMUS (210 kcal)",
-            "fruit": "YOĞURT/AYRAN (120-116 kcal)"
-          },
-          {
-            "date": "2026-04-03",
+            "date": "2026-05-01",
             "weekday": "CUMA",
             "soup": "EZOGELİN ÇORBASI (182 kcal)",
-            "main": "TERBİYELİ KÖFTE (310 kcal)",
-            "side": "TAZE FASULYE (167 kcal)",
-            "salad": "SADE PRİNÇ PİLAVI (250 kcal)",
-            "yogurt": "DOM.SOSLU SPAGETHİ (255 kcal)",
-            "dessert": "ZYT. BROKOLİ (166 kcal)",
-            "fruit": "MEVSİM MEYVESİ (2ÇEŞİT) MEVSİM MEYVESİ (2ÇEŞİT) YOĞURT/AYRAN (120-116 kcal)"
+            "main": "ORMAN KEBABI (512 kcal)",
+            "side": "ŞEHRİYELİ PİRİNÇ PİLAVI (167 kcal)",
+            "salad": "YOĞURT/AYRAN (222 kcal)",
+            "yogurt": "MEVSİM SALATA (260 kcal)",
+            "dessert": "PEYNİR TATLISI (135 kcal)",
+            "fruit": "MEVSİM MEYVESİ (2ÇEŞİT) (120-116 kcal)"
           },
           {
-            "date": "2026-04-04",
+            "date": "2026-05-02",
             "weekday": "CUMA",
             "soup": "YAYLA ÇORBASI (164 kcal)",
-            "main": "ETLİ NOHUT YEMEĞİ (230 kcal)",
-            "side": "ŞEHRİYELİ PİLAV (220 kcal)",
+            "main": "PATLICAN MUSAKKA (279 kcal)",
+            "side": "BULGUR PİLAVI (177 kcal)",
             "salad": "YOĞURT/AYRAN (120-116 kcal)",
             "yogurt": "MEVSİM SALATA (120 kcal)",
-            "dessert": "ISLAK KEK (278 kcal)",
-            "fruit": "MEVSİM SALATA (120 kcal)"
+            "dessert": "FIRIN SÜTLAÇ (210 kcal)",
+            "fruit": "MEVSİM MEYVESİ (2ÇEŞİT) MEVSİM MEYVESİ (2ÇEŞİT) 120 210 278 (181 kcal)"
           },
           {
-            "date": "2026-04-05",
+            "date": "2026-05-03",
             "weekday": "PAZAR",
-            "soup": "MERCİMEK ÇORBA (168 kcal)",
-            "main": "PİLİÇ NUGGET + PATATES KIZART. (324 kcal)",
-            "side": "SOSLU MAKARNA (220 kcal)",
+            "soup": "ŞEHRİYE ÇORBASI (168 kcal)",
+            "main": "ŞİNİTZEL+PATATES KIZARTMASI İLE (324 kcal)",
+            "side": "SPAGETTİ MAKARNA +DOMATES SOS İLE (220 kcal)",
             "salad": "YOĞURT/AYRAN (120-116 kcal)",
             "yogurt": "MEVSİM SALATA (120 kcal)",
-            "dessert": "ÇİLEKLİ PUDİNG (290 kcal)",
-            "fruit": "MEVSİM SALATA (120 kcal)"
+            "dessert": "SUPANGLE (290 kcal)"
           },
           {
-            "date": "2026-04-06",
+            "date": "2026-05-04",
             "weekday": "PAZAR",
-            "soup": "TARHANA ÇORBA (162 kcal)",
-            "main": "ETLİ ELBASAN TAVA (465 kcal)",
-            "side": "ENGİNAR YEMEĞİ (250 kcal)",
-            "salad": "DOMATESLİ EGE PİLAVI (220 kcal)",
-            "yogurt": "CEVİZLİ ERİŞTE (230 kcal)",
-            "dessert": "PEMBE SULTAN (187 kcal)",
+            "soup": "MERCİMEK ÇORBASI (162 kcal)",
+            "main": "ETLİ KURU FASULYE (465 kcal)",
+            "side": "ZEYTİNYAĞLI ISPANAK (250 kcal)",
+            "salad": "ARPA ŞEHRİYELİ PİRİNÇ PİLAVI (220 kcal)",
+            "yogurt": "KAVURMA MAKARNA (230 kcal)",
+            "dessert": "HAVUÇ TARATOR (187 kcal)",
             "fruit": "YOĞURT/AYRAN (120-116 kcal)"
           },
           {
-            "date": "2026-04-07",
+            "date": "2026-05-05",
             "weekday": "SALI",
-            "soup": "MANTAR ÇORBASI (188 kcal)",
-            "main": "TAVUK MİDYE+FIRIN PATATES (318 kcal)",
-            "side": "PIRASA YEMEĞİ (276 kcal)",
-            "salad": "MEYHANE PİLAVI (247 kcal)",
-            "yogurt": "FIRIN MAKARNA (250 kcal)",
+            "soup": "BROKOLİ ÇORBASI (188 kcal)",
+            "main": "ET İSKENDER (318 kcal)",
+            "side": "ZEYTİNYAĞLI TAZE FASULYE (276 kcal)",
+            "salad": "GARNİTÜRLÜ PİLAVI (247 kcal)",
+            "yogurt": "SOSLU MAKARNA (250 kcal)",
             "dessert": "ZY. BARBUNYA (289 kcal)",
             "fruit": "YOĞURT/AYRAN (120-116 kcal)"
           },
           {
-            "date": "2026-04-08",
+            "date": "2026-05-06",
             "weekday": "ÇARŞAMBA",
-            "soup": "KÖZPATLICAN ÇORBASI (182 kcal)",
-            "main": "ROSTO KÖFTE+PAT. PÜRE (512 kcal)",
-            "side": "EKŞİLİ BAMYA YEMEĞİ (167 kcal)",
-            "salad": "ZERDEÇALLI MAKARNA (220 kcal)",
-            "yogurt": "ARPA ŞEHRİYELİ PİRİNÇ PİLAVI (314 kcal)",
-            "dessert": "HAVUÇ TARATOR (310 kcal)",
+            "soup": "ANTEP ÇORBASI (182 kcal)",
+            "main": "HASANPAŞA KÖFTE (512 kcal)",
+            "side": "ZEYTİNYAĞLI ENGİNAR (167 kcal)",
+            "salad": "MÜCEDDERE PİLAVI (220 kcal)",
+            "yogurt": "FISTIKLI ERİŞTE (314 kcal)",
+            "dessert": "PATATES SALATASI (310 kcal)",
             "fruit": "YOĞURT/AYRAN (120-116 kcal)"
           },
           {
-            "date": "2026-04-09",
+            "date": "2026-05-07",
             "weekday": "PERŞEMBE",
-            "soup": "ARPA ŞEHRİYE ÇORBASI (164 kcal)",
-            "main": "TAS KEBABI (279 kcal)",
-            "side": "NOHUT YEMEĞİ (177 kcal)",
+            "soup": "MANTAR ÇORBASI (164 kcal)",
+            "main": "KARNIYARIK (279 kcal)",
+            "side": "PORTAKALLI KEREVİZ YEMEĞİ (177 kcal)",
             "salad": "PİRİNÇ PİLAVI (220 kcal)",
-            "yogurt": "PEYNİRLİ GÜL BÖREĞİ (210 kcal)",
-            "dessert": "KARIŞIK TURŞU (165 kcal)",
+            "yogurt": "KALEM BÖREK (210 kcal)",
+            "dessert": "KURU CACIK (165 kcal)",
             "fruit": "YOĞURT/AYRAN (120-116 kcal)"
           },
           {
-            "date": "2026-04-10",
+            "date": "2026-05-08",
             "weekday": "CUMA",
-            "soup": "UŞAK TARHANA ÇORBASI (159 kcal)",
-            "main": "ETLİ KEŞKEK (320 kcal)",
-            "side": "EGE OT KAVURMASI (165 kcal)",
-            "salad": "KALEM BÖREK (222 kcal)",
-            "yogurt": "EGE PİLAVI (230 kcal)",
-            "dessert": "FISTIKLI GİRİT EZME (140 kcal)",
+            "soup": "ALACA ÇORBASI (159 kcal)",
+            "main": "KAYSERİ YAĞLAMASI (320 kcal)",
+            "side": "Z.Y. FIRIN SEBZE (165 kcal)",
+            "salad": "ARPA ŞEHRİYELİ PİRİNÇ PİLAVI (222 kcal)",
+            "yogurt": "FIRIN MAKARNA (230 kcal)",
+            "dessert": "PEMBE SULTAN (140 kcal)",
             "fruit": "YOĞURT/AYRAN (120-116 kcal)"
           },
           {
-            "date": "2026-04-11",
+            "date": "2026-05-09",
             "weekday": "CUMA",
-            "soup": "ÇEŞMİ NİGAR ÇORBASI (186 kcal)",
-            "main": "ETLİ KURU FASULYE (230 kcal)",
-            "side": "ŞEHRİYELİ PİRİNÇ PİLAVI (220 kcal)",
+            "soup": "SEBZE ÇORBASI (186 kcal)",
+            "main": "KARIŞIK PİZZA+PAT.KIZ (230 kcal)",
+            "side": "YAZ KIZARTMASI (220 kcal)",
             "salad": "YOĞURT/AYRAN (120-116 kcal)",
             "yogurt": "MEVSİM SALATA (120 kcal)",
-            "dessert": "KIBRIS TATLISI (296 kcal)",
+            "dessert": "SÜTLÜ İRMİK TATLISI (296 kcal)",
             "fruit": "MEVSİM MEYVESİ (2 ÇEŞİT) MEVSİM MEYVESİ (2 ÇEŞİT) MEVSİM SALATA (120 kcal)"
           },
           {
-            "date": "2026-04-12",
+            "date": "2026-05-10",
             "weekday": "PAZAR",
-            "soup": "ALACA ÇORBASI (177 kcal)",
-            "main": "TAVUK DÖNER (240 kcal)",
-            "side": "SADE PİLAV (289 kcal)",
+            "soup": "DOMATES ÇORBASI (177 kcal)",
+            "main": "CIZBIZ KÖFTE+SOSLU EKMEK (240 kcal)",
+            "side": "SOSLU MAKARNA (289 kcal)",
             "salad": "YOĞURT/AYRAN (120-116 kcal)",
             "yogurt": "MEVSİM SALATA (120 kcal)",
-            "dessert": "DAMLA SAKIZLI MUHALLEBİ (210 kcal)",
+            "dessert": "HAVUÇLU KEK (210 kcal)",
             "fruit": "MEVSİM SALATA (120 kcal)"
           },
           {
-            "date": "2026-04-13",
+            "date": "2026-05-11",
             "weekday": "PAZAR",
-            "soup": "MERCİMEK ÇORBASI (180 kcal)",
-            "main": "ORMAN KEBABI (302 kcal)",
-            "side": "PORTAKALLI KEREVİZ YEMEĞİ (183 kcal)",
-            "salad": "NOHUTLU PİRİNÇ PİLAVI (220 kcal)",
-            "yogurt": "SEBZELİ KUSKUS (235 kcal)",
+            "soup": "KÖZ BİBER ÇORBASI (180 kcal)",
+            "main": "HAMBURGER +PATATES KIZARTMASI İLE (302 kcal)",
+            "side": "SOSLU KARIŞIK KIZARTMA (183 kcal)",
+            "salad": "DOMATESLİ BULGUR PİLAVI (220 kcal)",
+            "yogurt": "SPAGETTİ MAKARNA (235 kcal)",
             "dessert": "KURU CACIK (196 kcal)",
             "fruit": "YOĞURT/AYRAN (120-116 kcal)"
           },
           {
-            "date": "2026-04-14",
+            "date": "2026-05-12",
             "weekday": "SALI",
-            "soup": "TARHANA ÇORBASI (164 kcal)",
-            "main": "KARNIYARIK (325 kcal)",
-            "side": "ZEYT İNYAĞLI BEZELYE YEMEĞİ (178 kcal)",
-            "salad": "PENNE ARABIATTA (265 kcal)",
-            "yogurt": "SADE PİRİNÇ PİLAVI (305 kcal)",
-            "dessert": "RUS SALATASI (154 kcal)",
-            "fruit": "YOĞURT/AYRAN (120-116 kcal)"
-          },
-          {
-            "date": "2026-04-15",
-            "weekday": "ÇARŞAMBA",
-            "soup": "BUĞDAY ÇORBASI (185 kcal)",
-            "main": "HAMBURGER+PATATES KIZ. (327 kcal)",
-            "side": "BARBUN YA YEMEĞİ (211 kcal)",
-            "salad": "KALEM BÖREK (220 kcal)",
-            "yogurt": "SAFRANLI PİLAV (230 kcal)",
-            "dessert": "ANTALYA PİYAZI (166 kcal)",
-            "fruit": "YOĞURT/AYRAN (120-116 kcal)"
-          },
-          {
-            "date": "2026-04-16",
-            "weekday": "PERŞEMBE",
-            "soup": "EZOGELİN ÇORBASI (156 kcal)",
-            "main": "TAVUK ŞİNİTZEL+HARDALLI PATATES (323 kcal)",
-            "side": "FIRINDA KARIŞIK SEBZE YEMEĞİ (165 kcal)",
-            "salad": "NOHUTLU PİLAV (275 kcal)",
-            "yogurt": "PENNE ALFREDO (314 kcal)",
-            "dessert": "ACILI EZME (175 kcal)",
-            "fruit": "YOĞURT/AYRAN (120-116 kcal)"
-          },
-          {
-            "date": "2026-04-17",
-            "weekday": "CUMA",
-            "soup": "MAHLUTA ÇORBASI (165 kcal)",
-            "main": "DANA STROGANOFF+PAT.PÜRE (301 kcal)",
+            "soup": "SÜZME MERCİMEK ÇORBASI (164 kcal)",
+            "main": "PİLİÇ KALAMAR+PAT.KIZARMASI (325 kcal)",
             "side": "ZEYTİNYAĞLI ENGİNAR (178 kcal)",
-            "salad": "ŞEHRİYELİ PİRİNÇ PİLAVI (240 kcal)",
-            "yogurt": "PEYNİRLİ CEVİZLİ ERİŞTE (230 kcal)",
-            "dessert": "KURU CACIK (196 kcal)",
+            "salad": "MISIRLI PİRİNÇ PİLAVI (265 kcal)",
+            "yogurt": "SEBZELİ ERİŞTE (305 kcal)",
+            "dessert": "HUMUS (154 kcal)",
             "fruit": "YOĞURT/AYRAN (120-116 kcal)"
           },
           {
-            "date": "2026-04-18",
+            "date": "2026-05-13",
+            "weekday": "ÇARŞAMBA",
+            "soup": "TARHANA ÇORBASI (185 kcal)",
+            "main": "SOSLU MANTI (327 kcal)",
+            "side": "ZEYTİNYAĞLI ISPANAK (211 kcal)",
+            "salad": "SEBZELİ BULGUR PİLAVI (220 kcal)",
+            "yogurt": "PENNE ARABİATTA (230 kcal)",
+            "dessert": "MERCİMEK KÖFTE (166 kcal)",
+            "fruit": "YOĞURT/AYRAN (120-116 kcal)"
+          },
+          {
+            "date": "2026-05-14",
+            "weekday": "PERŞEMBE",
+            "soup": "ÇEŞMİ NİGAR ÇORBASI (156 kcal)",
+            "main": "PİLİÇ DÖNER+PATATES KIZARTMASI (323 kcal)",
+            "side": "KARNABAHAR GRATEN (165 kcal)",
+            "salad": "ARPA ŞEHRİYE PİLAVI (275 kcal)",
+            "yogurt": "FIRIN MAKARNA (314 kcal)",
+            "dessert": "MOR SULTAN (175 kcal)",
+            "fruit": "YOĞURT/AYRAN (120-116 kcal)"
+          },
+          {
+            "date": "2026-05-15",
             "weekday": "CUMA",
-            "soup": "SEBZE ÇORBASI (177 kcal)",
-            "main": "İZMİR KÖFTE (280 kcal)",
-            "side": "SOSLU SPAGHETTİ (289 kcal)",
+            "soup": "YOĞURT ÇORBASI (165 kcal)",
+            "main": "ÇÖKERTME KEBABI (301 kcal)",
+            "side": "EKŞİLİ BAMYA YEMEĞİ (178 kcal)",
+            "salad": "ŞEHRİYELİ PİRİNÇ PİLAVI (240 kcal)",
+            "yogurt": "GÜL BÖREĞİ (230 kcal)",
+            "dessert": "ACILI EZME (196 kcal)",
+            "fruit": "YOĞURT/AYRAN (120-116 kcal)"
+          },
+          {
+            "date": "2026-05-16",
+            "weekday": "CUMA",
+            "soup": "YEŞİL MERCİMEK ÇORBASI (177 kcal)",
+            "main": "SEBZELİ MİSKET KÖFTE (380 kcal)",
+            "side": "MISIRLI PİRİNÇ PİLAVI (289 kcal)",
             "salad": "YOĞURT/AYRAN (120-116 kcal)",
             "yogurt": "MEVSİM SALATA (120 kcal)",
-            "dessert": "TAHİNLİ KEMALPAŞA (392 kcal)",
+            "dessert": "HAŞHAŞLI REVANİ (392 kcal)",
             "fruit": "MEVSİM MEYVESİ (2 ÇEŞİT) MEVSİM MEYVESİ (2 ÇEŞİT) MEVSİM SALATA (120 kcal)"
           },
           {
-            "date": "2026-04-19",
+            "date": "2026-05-17",
             "weekday": "PAZAR",
-            "soup": "DÜĞÜN ÇORBASI (164 kcal)",
-            "main": "HİNDİ KAVURMA (312 kcal)",
-            "side": "MEYHANE PİLAVI (215 kcal)",
+            "soup": "KÖZ DOMATES ÇORBASI (164 kcal)",
+            "main": "MENGEN MUSAKKA (312 kcal)",
+            "side": "PEYNİRLİ BÖREK (215 kcal)",
             "salad": "YOĞURT/AYRAN (120-116 kcal)",
             "yogurt": "MEVSİM SALATA (120 kcal)",
-            "dessert": "BROWNİ (260 kcal)",
+            "dessert": "SÜTLAÇ (260 kcal)",
             "fruit": "MEVSİM SALATA (120 kcal)"
           },
           {
-            "date": "2026-04-20",
+            "date": "2026-05-18",
             "weekday": "PAZAR",
-            "soup": "ŞEHRİYE ÇORBASI (158 kcal)",
-            "main": "ET DÖNER /PATATES KIZARTMASI İLE (327 kcal)",
+            "soup": "MERCİMEK ÇORBASI (158 kcal)",
+            "main": "ORMAN KEBABI (327 kcal)",
             "side": "SALÇALI NOHUT YEMEĞİ (188 kcal)",
             "salad": "ŞEHRİYELİ PİRİNÇ PİLAVI (240 kcal)",
-            "yogurt": "DEMLEME MAKARNA (300 kcal)",
-            "dessert": "BÖRÜLCE SALATASI (195 kcal)",
+            "yogurt": "SPAGETTİ+ SOS (300 kcal)",
+            "dessert": "KURU CACIK (195 kcal)",
             "fruit": "YOĞURT/AYRAN (120-116 kcal)"
           },
           {
-            "date": "2026-04-21",
+            "date": "2026-05-19",
             "weekday": "SALI",
-            "soup": "MERCİMEK ÇORBASI (177 kcal)",
-            "main": "PERİ PERİ TAVUK (346 kcal)",
-            "side": "TAZE FASULYE YEMEĞİ (195 kcal)",
-            "salad": "PATLICANLI BULGUR PİLAVI (220 kcal)",
-            "yogurt": "SPAGHETTİ+SOS (250 kcal)",
-            "dessert": "İTALYAN SALATASI (190 kcal)",
-            "fruit": "YOĞURT/AYRAN (120-116 kcal)"
-          },
-          {
-            "date": "2026-04-22",
-            "weekday": "ÇARŞAMBA",
-            "soup": "BROKOLİ ÇORBASI (182 kcal)",
-            "main": "ÇÖKERTME KEBABI (308 kcal)",
-            "side": "KEREVİZ YEMEĞİ (200 kcal)",
-            "salad": "ARPA ŞEHRİYELİ PİRİNÇ PİLAVI (275 kcal)",
-            "yogurt": "KELEBEK MAKARNA (250 kcal)",
-            "dessert": "BİBER DOLMASI (165 kcal)",
-            "fruit": "YOĞURT/AYRAN (120-116 kcal)"
-          },
-          {
-            "date": "2026-04-23",
-            "weekday": "PERŞEMBE",
-            "soup": "TARHANA ÇORBASI (164 kcal)",
-            "main": "PİZZA FOCACCIO+PATATES KIZARTMAS (292 kcal)",
-            "side": "SEBZE GRATEN (202 kcal)",
-            "salad": "SADE PİRİNÇ PİLAVI (220 kcal)",
-            "yogurt": "CEVİZLİ ERİŞTE (215 kcal)",
-            "dessert": "PANCAR TARATOR (204 kcal)",
-            "fruit": "YOĞURT/AYRAN (120-116 kcal)"
-          },
-          {
-            "date": "2026-04-24",
-            "weekday": "CUMA",
             "soup": "MANTAR ÇORBASI (177 kcal)",
-            "main": "BOHÇA KÖFTE (313 kcal)",
-            "side": "ISPANAK YEMEĞİ (167 kcal)",
-            "salad": "ANKARA PİLAVI (220 kcal)",
-            "yogurt": "FIRIN MAKARNA (250 kcal)",
-            "dessert": "ATOM (155 kcal)",
+            "main": "KÖRİ SOSLU HİNDİ KAVURMA (346 kcal)",
+            "side": "GARNİTÜRLÜ PİLAV (195 kcal)",
+            "salad": "YOĞURT/AYRAN (220 kcal)",
+            "yogurt": "MEVSİM SALATA (250 kcal)",
+            "dessert": "KAKAOLU PUDİNG (190 kcal)",
+            "fruit": "MEVSİM MEYVESİ (2 ÇEŞİT) (120-116 kcal)"
+          },
+          {
+            "date": "2026-05-20",
+            "weekday": "ÇARŞAMBA",
+            "soup": "KESME HAMUR ÇORBASI (182 kcal)",
+            "main": "ARNAVUT CİĞERİ (308 kcal)",
+            "side": "BİBER DOLMASI (200 kcal)",
+            "salad": "BANDIRMA PİLAVI (275 kcal)",
+            "yogurt": "PATLICANLI BÖREK (250 kcal)",
+            "dessert": "FASÜLYE PİLAKİ (165 kcal)",
             "fruit": "YOĞURT/AYRAN (120-116 kcal)"
           },
           {
-            "date": "2026-04-25",
+            "date": "2026-05-21",
+            "weekday": "PERŞEMBE",
+            "soup": "MİNESTRONE ÇORBASI (164 kcal)",
+            "main": "IZGARA TAVUK PİRZOLA (292 kcal)",
+            "side": "BAMYA YEMEĞİ (202 kcal)",
+            "salad": "SEBZELİ BULGUR PİLAVI (220 kcal)",
+            "yogurt": "PEYNİRLİ BÖREK (215 kcal)",
+            "dessert": "FIRIN MÜCVER (204 kcal)",
+            "fruit": "YOĞURT/AYRAN (120-116 kcal)"
+          },
+          {
+            "date": "2026-05-22",
             "weekday": "CUMA",
-            "soup": "MERCİMEK ÇORBASI (150 kcal)",
-            "main": "ETLİ KURU FASULYE (255 kcal)",
-            "side": "ŞEH.PİRİNÇ PİLAVI (250 kcal)",
+            "soup": "EZOGELİN ÇORBASI (177 kcal)",
+            "main": "MANTARLI TAVUK SOTE (313 kcal)",
+            "side": "KABAK GRATEN (167 kcal)",
+            "salad": "NOHUTLU PİRİNÇ PİLAVI (220 kcal)",
+            "yogurt": "KUSKUS MAKARNA (250 kcal)",
+            "dessert": "ŞAKŞUKA (155 kcal)",
+            "fruit": "YOĞURT/AYRAN (120-116 kcal)"
+          },
+          {
+            "date": "2026-05-23",
+            "weekday": "CUMA",
+            "soup": "DOMATES ÇORBASI (150 kcal)",
+            "main": "EKŞİLİ KÖFTE (255 kcal)",
+            "side": "ERİŞTE KAVURMA (250 kcal)",
             "salad": "YOĞURT/AYRAN (120-116 kcal)",
             "yogurt": "MEVSİM SALATA (120 kcal)",
-            "dessert": "REVANİ (260 kcal)",
-            "fruit": "MEVSİM MEYVESİ (2 ÇEŞİT) MEVSİM MEYVESİ (2 ÇEŞİT) MEVSİM SALATA (120 kcal)"
+            "dessert": "KALBURABASTI (260 kcal)",
+            "fruit": "MEVSİM MEYVESİ (2 ÇEŞİT) MEVSİM MEYVESİ (2 ÇEŞİT) MEVSİM SALATA 120 (120 kcal)"
           },
           {
-            "date": "2026-04-26",
+            "date": "2026-05-24",
             "weekday": "PAZAR",
-            "soup": "ŞEHRİYE ÇORBASI (180 kcal)",
+            "soup": "MERCİMEK ÇORBASI (180 kcal)",
             "main": "ŞİNİTZEL+ELMA DİLİM PATATES (245 kcal)",
             "side": "SOSLU MAKARNA (220 kcal)",
             "salad": "YOĞURT/AYRAN (120-116 kcal)",
             "yogurt": "MEVSİM SALATA (120 kcal)",
-            "dessert": "SÜTLAÇ (290 kcal)",
+            "dessert": "ISLAK KEK (290 kcal)",
             "fruit": "MEVSİM SALATA (120 kcal)"
           },
           {
-            "date": "2026-04-27",
+            "date": "2026-05-25",
             "weekday": "PAZAR",
-            "soup": "DOMATESLİ ŞEHRİYE ÇORBASI (182 kcal)",
-            "main": "ANTEP YUVALAMA (295 kcal)",
-            "side": "ENGİNAR YEMEĞİ (164 kcal)",
+            "soup": "YAYLA ÇORBASI (182 kcal)",
+            "main": "ETLİ NOHUT (295 kcal)",
+            "side": "SOSLU KARIŞIK KIZARTMA (164 kcal)",
             "salad": "ŞEH. PİRİNÇ PİLAVI (210 kcal)",
-            "yogurt": "SEBZELİ KUSKUS (230 kcal)",
+            "yogurt": "PATATESLİ GÜL BÖREĞİ (230 kcal)",
             "dessert": "HAVUÇ TARATOR (180 kcal)",
             "fruit": "YOĞURT/AYRAN (120-116 kcal)"
           },
           {
-            "date": "2026-04-28",
+            "date": "2026-05-26",
             "weekday": "SALI",
-            "soup": "SEBZE ÇORBASI (158 kcal)",
-            "main": "HİNDİ TANDIR (284 kcal)",
-            "side": "ZEYTİNYAĞLI BEZEL YE YEMEĞİ (207 kcal)",
-            "salad": "KESTANELİ İÇ PİLAVI (220 kcal)",
-            "yogurt": "SPAGHETTİ SOS (250 kcal)",
-            "dessert": "PİYAZ (190 kcal)",
-            "fruit": "YOĞURT/AYRAN (120-116 kcal)"
+            "soup": "SEBZELİ KABAK ÇORBASI (158 kcal)",
+            "main": "CORDON BLUE TAVUK+PAT.PÜRE (284 kcal)",
+            "side": "SOSLU SPAGETTİ (207 kcal)",
+            "salad": "YOĞURT/AYRAN (220 kcal)",
+            "yogurt": "MEVSİM SALATA (250 kcal)",
+            "dessert": "PEYNİR TATLISI (190 kcal)",
+            "fruit": "MEVSİM MEYVESİ (2 ÇEŞİT) (120-116 kcal)"
           },
           {
-            "date": "2026-04-29",
+            "date": "2026-05-27",
             "weekday": "ÇARŞAMBA",
             "soup": "EZOGELİN ÇORBASI (150 kcal)",
-            "main": "HASANPAŞA KÖFTE (342 kcal)",
-            "side": "KEREVİZLİ PIRASA YEMEĞİ (167 kcal)",
-            "salad": "MERCİMEKLİ BULGUR PİLAVI (275 kcal)",
-            "yogurt": "PATATESLİ GÜL BÖREĞİ (315 kcal)",
-            "dessert": "KURU CACIK (154 kcal)",
-            "fruit": "YOĞURT/AYRAN (120-116 kcal)"
+            "main": "ÖDEMİŞ KÖFTE (342 kcal)",
+            "side": "MERCİMEKLİ BULGUR PİLAVI (167 kcal)",
+            "salad": "YOĞURT/AYRAN (275 kcal)",
+            "yogurt": "MEVSİM SALATA (315 kcal)",
+            "dessert": "ISLAK KEK (154 kcal)",
+            "fruit": "MEVSİM MEYVESİ (2 ÇEŞİT) (120-116 kcal)"
           },
           {
-            "date": "2026-04-30",
+            "date": "2026-05-28",
             "weekday": "PERŞEMBE",
-            "soup": "BEYRAN ÇORBASI (180 kcal)",
-            "main": "KİLİS TAVA (279 kcal)",
-            "side": "ETSİZ ŞİVEYDIZ (198 kcal)",
-            "salad": "CEVİZLİ KAVURMA ERİŞTE (220 kcal)",
-            "yogurt": "FİRİK BULGUR PİLAVI (230 kcal)",
-            "dessert": "KURU PATLICAN DOLMASI (196 kcal)",
-            "fruit": "YOĞURT/AYRAN (120-116 kcal)"
+            "soup": "ÇEŞMİ NİGAR (180 kcal)",
+            "main": "ETLİ PATATES YEMEĞİ (279 kcal)",
+            "side": "PİRİNÇ PİLAVI (198 kcal)",
+            "salad": "YOĞURT/AYRAN (220 kcal)",
+            "yogurt": "MEVSİM SALATA (230 kcal)",
+            "dessert": "ÇİLEKLİ PUDİNG (196 kcal)",
+            "fruit": "MEVSİM MEYVESİ (2 ÇEŞİT) (120-116 kcal)"
+          },
+          {
+            "date": "2026-05-29",
+            "weekday": "CUMA",
+            "soup": "DOMATES ÇORBASI (158 kcal)",
+            "main": "İNEGÖL KÖFTE+PAT.KIZ. (284 kcal)",
+            "side": "SOSLU SPAGETTİ (207 kcal)",
+            "salad": "YOĞURT/AYRAN (220 kcal)",
+            "yogurt": "MEVSİM SALATA (250 kcal)",
+            "dessert": "MOZAİK PASTA (190 kcal)",
+            "fruit": "MEVSİM MEYVESİ (2 ÇEŞİT) (120-116 kcal)"
+          },
+          {
+            "date": "2026-05-30",
+            "weekday": "CUMA",
+            "soup": "ARPAŞEHRİYE ÇORBASI (177 kcal)",
+            "main": "ETLİ MEVSİM TÜRLÜ (280 kcal)",
+            "side": "PENNE ARABİATTA (289 kcal)",
+            "salad": "YOĞURT/AYRAN (120-116 kcal)",
+            "yogurt": "MEVSİM SALATA (120 kcal)",
+            "dessert": "KALBURABASTI (392 kcal)",
+            "fruit": "MEVSİM MEYVESİ (2 ÇEŞİT) MEVSİM MEYVESİ (2 ÇEŞİT) MEVSİM SALATA (120 kcal)"
+          },
+          {
+            "date": "2026-05-31",
+            "weekday": "PAZAR",
+            "soup": "YAYLA ÇORBASI (150 kcal)",
+            "main": "TAS KEBABI+PAT.PÜRE (255 kcal)",
+            "side": "BULGUR PİLAVI (250 kcal)",
+            "salad": "YOĞURT/AYRAN (120-116 kcal)",
+            "yogurt": "MEVSİM SALATA (120 kcal)",
+            "dessert": "BEYAZ ÇİKOLATALI FRAMBUAZLI KEK (260 kcal)",
+            "fruit": "CEVİZLİ KADAYIF (260 kcal)"
           }
         ]
       },
       {
         "type": "dinner",
         "title": "Yaşar Üniversitesi AKŞAM YEMEK MENÜSÜ",
-        "periodLabel": "NİSAN Ayı",
+        "periodLabel": "MAYIS Ayı",
         "days": [
           {
-            "date": "2026-04-01",
-            "weekday": "ÇARŞAMBA",
-            "soup": "MANTAR ÇORBASI (188 kcal)",
-            "main": "ÖDEMİŞ KÖFTESİ (250 kcal)",
-            "side": "MEYHANE PİLAVI (222 kcal)",
-            "salad": "ATOM (125 kcal)",
-            "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
-            "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "ŞEKERPARE (230 kcal)"
-          },
-          {
-            "date": "2026-04-02",
-            "weekday": "PERŞEMBE",
-            "soup": "EZOGELİN ÇORBA (180 kcal)",
-            "main": "KIYMALI DOLMA (230 kcal)",
-            "side": "FIRIN MAKARNA (210 kcal)",
-            "salad": "PATATES SALATASI (130 kcal)",
-            "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
-            "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "SUPANGLE (230 kcal)"
-          },
-          {
-            "date": "2026-04-03",
+            "date": "2026-05-01",
             "weekday": "CUMA",
             "soup": "KÖZ BİBER ÇORBASI (185 kcal)",
-            "main": "ÇITIR TAVUK (250 kcal)",
-            "side": "SOSLU SPAGETTİ (210 kcal)",
-            "salad": "HAYDARİ (140 kcal)",
+            "main": "ETLİ NOHUT (250 kcal)",
+            "side": "SADE PİRİNÇ PİLAVI (210 kcal)",
+            "salad": "PEMBE SULTAN (140 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "FIRIN SÜTLAÇ (220 kcal)"
-          },
-          {
-            "date": "2026-04-04",
-            "weekday": "CUMA",
-            "soup": "MAHLUTA ÇORBASI (190 kcal)",
-            "main": "KASAP KÖFTE,GARNİTÜR İLE (250 kcal)",
-            "side": "MEYHANE PİLAVI (250 kcal)",
-            "salad": "YOĞURT / AYRAN (120-116 kcal)",
-            "yogurt": "MEVSİM SALATA (120 kcal)",
-            "dessert": "ISLAK KEK (230 kcal)",
             "fruit": "MEVSİM MEYVESİ (2 ÇEŞİT)"
           },
           {
-            "date": "2026-04-05",
+            "date": "2026-05-02",
+            "weekday": "CUMA",
+            "soup": "MAHLUTA ÇORBASI (190 kcal)",
+            "main": "CIZBIZ KÖFTE,GARNİTÜR İLE (250 kcal)",
+            "side": "ERİŞTE KAVURMA (250 kcal)",
+            "salad": "YOĞURT / AYRAN (120-116 kcal)",
+            "yogurt": "MEVSİM SALATA (120 kcal)",
+            "dessert": "FIRIN SÜTLAÇ SUPANGİLE (200 kcal)"
+          },
+          {
+            "date": "2026-05-03",
             "weekday": "PAZAR",
             "soup": "TUTMAÇ ÇORBASI (185 kcal)",
-            "main": "ET DÖNER (305 kcal)",
+            "main": "ETLİ TÜRLÜ (305 kcal)",
             "side": "ŞEH. PİRİNÇ PİLAVI (250 kcal)",
             "salad": "YOĞURT / AYRAN (120-116 kcal)",
             "yogurt": "MEVSİM SALATA (120 kcal)",
-            "dessert": "ÇİLEKLİ PUDİNG (200 kcal)"
+            "dessert": "PEYNİR TATLISI (220 kcal)"
           },
           {
-            "date": "2026-04-06",
+            "date": "2026-05-04",
             "weekday": "PAZAR",
             "soup": "MERCİMEK ÇORBASI (168 kcal)",
-            "main": "PİLİÇ ÇÖKERTME (325 kcal)",
-            "side": "SOSLU MAKARNA (220 kcal)",
-            "salad": "HAVUÇ TARATOR (310 kcal)",
+            "main": "ORMAN KEBABI (325 kcal)",
+            "side": "SADE PİRİNÇ PİLAVI (220 kcal)",
+            "salad": "PİYAZ (310 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
             "fruit": "KALBURABASTI (205 kcal)"
           },
           {
-            "date": "2026-04-07",
+            "date": "2026-05-05",
             "weekday": "SALI",
             "soup": "ANADOLU ÇORBASI (180 kcal)",
-            "main": "TOKAT KEBABI (325 kcal)",
-            "side": "BULGUR PİLAVI (250 kcal)",
+            "main": "KIYMALI YEŞİL MERCİMEK (325 kcal)",
+            "side": "ERİŞTE KAVURMA (250 kcal)",
             "salad": "CACIK (130 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "TRİLEÇE (203 kcal)"
+            "fruit": "ÇİLEKLİ PUDİNG (203 kcal)"
           },
           {
-            "date": "2026-04-08",
-            "weekday": "",
+            "date": "2026-05-06",
+            "weekday": "ÇARŞAMBA",
             "soup": "ŞEHRİYE ÇORBASI (180 kcal)",
-            "main": "TAVUK SARMA (305 kcal)",
-            "side": "CEVİZLİ ERİTE (205 kcal)",
+            "main": "PİLİÇ SOTE (305 kcal)",
+            "side": "PİRİNÇ PİLAVI (205 kcal)",
             "salad": "HARDAL SOSLU PATATES (180 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "KADAYIFLI MUHALLEBİ (250 kcal)"
+            "fruit": "KIBRIS TATLISI (250 kcal)"
           },
           {
-            "date": "2026-04-09",
+            "date": "2026-05-07",
             "weekday": "PERŞEMBE",
             "soup": "DÜĞÜN ÇORBASI (175 kcal)",
-            "main": "PÜRELİ ŞİNİTSEL (275 kcal)",
-            "side": "SOSLU MAKARNA (250 kcal)",
-            "salad": "HUMUS (175 kcal)",
+            "main": "KÖRİ SOSLU HİNDİ (275 kcal)",
+            "side": "ANKARA PİLAVI (250 kcal)",
+            "salad": "KARIŞIK TURŞU (175 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "BADEMLİ KEŞKÜL (250 kcal)"
+            "fruit": "KEMALPAŞA TATLISI (250 kcal)"
           },
           {
-            "date": "2026-04-10",
+            "date": "2026-05-08",
             "weekday": "CUMA",
             "soup": "TARHANA ÇORBASI (150 kcal)",
-            "main": "BOHÇAKÖFTE (425 kcal)",
-            "side": "SAFRANL PİLAV (250 kcal)",
-            "salad": "RUS SALATASI (205 kcal)",
+            "main": "MENGEN MUSAKKA (425 kcal)",
+            "side": "ŞEHRİYELİ BULGUR PİLAVI (250 kcal)",
+            "salad": "PEMBE SULTAN (205 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "SÜTLÜ İRMİK TATLISI (205 kcal)"
+            "fruit": "FIRIN SÜTLAÇ (205 kcal)"
           },
           {
-            "date": "2026-04-11",
+            "date": "2026-05-09",
             "weekday": "CUMA",
             "soup": "YAYLA ÇORBASI (169 kcal)",
-            "main": "PİZZA+PAT KIZARTMASI (250 kcal)",
-            "side": "SOSLU SPAGETTİ (120 kcal)",
+            "main": "ETLİ BİBER DOLMA (250 kcal)",
+            "side": "PEYNİRLİ KALEM BÖREK (120 kcal)",
             "salad": "YOĞURT / AYRAN (120-116 kcal)",
             "yogurt": "MEVSİM SALATA (120 kcal)",
-            "dessert": "PEYNİR TATLISI (250 kcal)",
+            "dessert": "SÜTLÜ İRMİK TATLISI (296 kcal)",
             "fruit": "MEVSİM MEYVESİ (2 ÇEŞİT)"
           },
           {
-            "date": "2026-04-12",
+            "date": "2026-05-10",
             "weekday": "PAZAR",
             "soup": "MAHLUTA ÇORBA (188 kcal)",
-            "main": "MENGEN MUSAKKA (314 kcal)",
+            "main": "PİLİÇ SOTE (314 kcal)",
             "side": "ŞEH. PİRİNÇ PİLAVI (256 kcal)",
             "salad": "YOĞURT / AYRAN (120-116 kcal)",
             "yogurt": "MEVSİM SALATA (120 kcal)",
-            "dessert": "MUHALLEBİ (250 kcal)"
+            "dessert": "HAVUÇLU KEK (250 kcal)"
           },
           {
-            "date": "2026-04-13",
+            "date": "2026-05-11",
             "weekday": "PAZAR",
-            "soup": "ŞEHRİYE ÇORBASI (150 kcal)",
+            "soup": "EZOGELİN ÇORBASI (150 kcal)",
             "main": "EKŞİLİ KÖFTE (280 kcal)",
             "side": "SOSLU MAKARNA (250 kcal)",
             "salad": "ZYT BROKOLİ (166 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "CHEESECAKE (205 kcal)"
+            "fruit": "MUZLU PUDİNG (205 kcal)"
           },
           {
-            "date": "2026-04-14",
+            "date": "2026-05-12",
             "weekday": "SALI",
-            "soup": "EZOGELİN ÇORBASI (185 kcal)",
-            "main": "HÜNKAR BEĞENDİ (270 kcal)",
+            "soup": "DOMATES ÇORBASI (185 kcal)",
+            "main": "ALİ NAZİK (270 kcal)",
             "side": "ANKARA PİLAVI (250 kcal)",
             "salad": "PEMBE SULTAN (180 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "PROFİTEROL (205 kcal)"
+            "fruit": "KALBURABASTI (205 kcal)"
           },
           {
-            "date": "2026-04-15",
+            "date": "2026-05-13",
             "weekday": "ÇARŞAMBA",
             "soup": "KESME ÇORBASI (180 kcal)",
-            "main": "SUSAMLI TAVUK (280 kcal)",
-            "side": "SOSLUSPAGETTİ (250 kcal)",
-            "salad": "COLESLAW (180 kcal)",
+            "main": "KABAK SANDAL SEFASI (280 kcal)",
+            "side": "SOSLU SPAGETTİ (250 kcal)",
+            "salad": "BRÜKSEL LAHANASI (180 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "REVANİ (205 kcal)"
+            "fruit": "ZERDE TATLISI (205 kcal)"
           },
           {
-            "date": "2026-04-16",
+            "date": "2026-05-14",
             "weekday": "PERŞEMBE",
             "soup": "DOMATES ÇORBASI (175 kcal)",
-            "main": "SAHAN KÖFTE (275 kcal)",
+            "main": "ETLİ KURU FASULYE (275 kcal)",
             "side": "PİRİNÇ PİLAVI (250 kcal)",
-            "salad": "HAYDARİ (175 kcal)",
+            "salad": "KURU CACIK (175 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "BAKLAVA (275 kcal)"
+            "fruit": "KREM ŞOKOLA (275 kcal)"
           },
           {
-            "date": "2026-04-17",
+            "date": "2026-05-15",
             "weekday": "CUMA",
-            "soup": "MANTAR ÇORBASI (150 kcal)",
-            "main": "DEMİ GLAS SOSLU HİNDİ (310 kcal)",
-            "side": "İÇ PİLAV (185 kcal)",
-            "salad": "KISIR (138 kcal)",
+            "soup": "İZMİR ÇORBASI (150 kcal)",
+            "main": "PİLİÇ EMENSE (310 kcal)",
+            "side": "DOMATESLİ PİLAV (185 kcal)",
+            "salad": "HUMUS (138 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "MOZAİK PASTA (205 kcal)"
+            "fruit": "BROWNİ (205 kcal)"
           },
           {
-            "date": "2026-04-18",
+            "date": "2026-05-16",
             "weekday": "CUMA",
-            "soup": "İZMİR ÇORBASI (175 kcal)",
-            "main": "PİLİÇ EMENSE (410 kcal)",
+            "soup": "MERCİMEK ÇORBASI (175 kcal)",
+            "main": "ETLİ NOHUT (410 kcal)",
             "side": "MEYHANE PİLAVI (265 kcal)",
             "salad": "YOĞURT / AYRAN (120-116 kcal)",
             "yogurt": "MEVSİM SALATA (120 kcal)",
-            "dessert": "TAHİNLİ KEMALPAŞA TATLISI (240 kcal)",
+            "dessert": "HAŞHAŞLI REVANİ (240 kcal)",
             "fruit": "MEVSİM MEYVESİ (2 ÇEŞİT)"
           },
           {
-            "date": "2026-04-19",
+            "date": "2026-05-17",
             "weekday": "PAZAR",
-            "soup": "MERCİMEK ÇORBASI (177 kcal)",
+            "soup": "DOMATES ÇORBASI (177 kcal)",
             "main": "PÜRELİ PARMAK KÖFTE (475 kcal)",
             "side": "PENNE MAKARNA (255 kcal)",
             "salad": "YOĞURT / AYRAN (120-116 kcal)",
             "yogurt": "MEVSİM SALATA (120 kcal)",
-            "dessert": "BROWNİ (250 kcal)"
+            "dessert": "SÜTLAÇ (250 kcal)"
           },
           {
-            "date": "2026-04-20",
+            "date": "2026-05-18",
             "weekday": "PAZAR",
             "soup": "EZOGELİN ÇORBASI (180 kcal)",
-            "main": "PİLİÇ KÜLBASTI (270 kcal)",
-            "side": "BULGUR PİLAVI (265 kcal)",
-            "salad": "HAYDARİ (145 kcal)",
+            "main": "SOSLU MANTI (270 kcal)",
+            "side": "BARBUNYA PİLAKİ (265 kcal)",
+            "salad": "KISIR (145 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "REDVELVET (210 kcal)"
+            "fruit": "FRAMBUAZLI CHEESECAKE (210 kcal)"
           },
           {
-            "date": "2026-04-21",
+            "date": "2026-05-19",
             "weekday": "SALI",
             "soup": "NANELİ YOĞURT ÇORBASI (185 kcal)",
-            "main": "İZMİR KÖFTE (285 kcal)",
+            "main": "ROSTO KÖFTE (285 kcal)",
             "side": "ŞEHRİYELİ PİRİNÇ PİLAVI (250 kcal)",
             "salad": "PEMBE SULTAN (180 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "FIRIN SÜTLAÇ (200 kcal)"
+            "fruit": "KAKOLU PUDİNG (200 kcal)"
           },
           {
-            "date": "2026-04-22",
+            "date": "2026-05-20",
             "weekday": "ÇARŞAMBA",
-            "soup": "MERCİMEK ÇORBASI (180 kcal)",
-            "main": "PÜRELİ ET SOTE (310 kcal)",
+            "soup": "SEBZE ÇORBASI (180 kcal)",
+            "main": "TAS KEBABI (310 kcal)",
             "side": "ŞEHRİYELİ PİRİNÇ PİLAVI (250 kcal)",
             "salad": "ZYT. BROKOLİ (166 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "TULUMBA TATLISI (210 kcal)"
+            "fruit": "PEYNİR TATLISI (210 kcal)"
           },
           {
-            "date": "2026-04-23",
+            "date": "2026-05-21",
             "weekday": "PERŞEMBE",
-            "soup": "KÖ ZBİBERÇORBASI (185 kcal)",
-            "main": "IZGARA KÖFTE + PATATES (265 kcal)",
+            "soup": "MERCİMEK ÇORBASI (185 kcal)",
+            "main": "İZMİR KÖFTE (265 kcal)",
             "side": "MEYHANE PİLAVI (250 kcal)",
             "salad": "PİYAZ (185 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "ŞEKERPARE (210 kcal)"
+            "fruit": "FIRIN SÜTLAÇ (210 kcal)"
           },
           {
-            "date": "2026-04-24",
+            "date": "2026-05-22",
             "weekday": "CUMA",
             "soup": "TARHANA ÇORBASI (180 kcal)",
             "main": "PÜRELİ ŞİNİZTSEL (310 kcal)",
@@ -626,31 +597,31 @@
             "salad": "RUS SALATASI (205 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "TRİLEÇE (215 kcal)"
+            "fruit": "ÇİKOLATALI PASTA (215 kcal)"
           },
           {
-            "date": "2026-04-25",
+            "date": "2026-05-23",
             "weekday": "CUMA",
             "soup": "BUĞDAY ÇORBASI (185 kcal)",
             "main": "CIZBIZ KÖFTE-GARNİTÜRLÜ (325 kcal)",
             "side": "PENNE ARABİATTA (255 kcal)",
             "salad": "YOĞURT / AYRAN (120-116 kcal)",
             "yogurt": "MEVSİM SALATA (120 kcal)",
-            "dessert": "REVANİ (280 kcal)",
+            "dessert": "KALBURABASTI (260 kcal)",
             "fruit": "MEVSİM MEYVESİ (2 ÇEŞİT)"
           },
           {
-            "date": "2026-04-26",
+            "date": "2026-05-24",
             "weekday": "PAZAR",
             "soup": "MERCİMEK ÇORBASI (177 kcal)",
-            "main": "MANTARLI TAVUK SOTE (315 kcal)",
+            "main": "MENGEN MUSAKKA (315 kcal)",
             "side": "PİRİNÇ PİLAVI (250 kcal)",
             "salad": "YOĞURT / AYRAN (120-116 kcal)",
             "yogurt": "MEVSİM SALATA (120 kcal)",
-            "dessert": "BADEMLİ MUHALLEBİ (250 kcal)"
+            "dessert": "ISLAK KEK (290 kcal)"
           },
           {
-            "date": "2026-04-27",
+            "date": "2026-05-25",
             "weekday": "PAZAR",
             "soup": "TARHANA ÇORBA (175 kcal)",
             "main": "ÇANAK KÖFTE (285 kcal)",
@@ -658,108 +629,114 @@
             "salad": "VİŞNELİ TABULLE (205 kcal)",
             "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
             "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "BADEMLİ KEŞKÜL (210 kcal)"
+            "fruit": "BAKLAVA (210 kcal)"
           },
           {
-            "date": "2026-04-28",
+            "date": "2026-05-26",
             "weekday": "SALI",
             "soup": "ŞEHRİYE ÇORBASI (180 kcal)",
             "main": "MANTARLI TAS KEBABI (310 kcal)",
             "side": "ANKARA PİLAVI (240 kcal)",
-            "salad": "BARBUNYA PİLAKİ (230 kcal)",
-            "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
-            "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "MARVEL KEK (230 kcal)"
+            "salad": "YOĞURT / AYRAN (120-116 kcal)",
+            "yogurt": "MEVSİM SALATA (120 kcal)",
+            "dessert": "PEYNİR TATLISI (190 kcal)",
+            "fruit": "MEVSİM MEYVESİ (2 ÇEŞİT)"
           },
           {
-            "date": "2026-04-29",
+            "date": "2026-05-27",
             "weekday": "ÇARŞAMBA",
             "soup": "MANTAR ÇORBASI (190 kcal)",
-            "main": "KARIŞIK IZGARA (340 kcal)",
+            "main": "KARIŞIK MUSAKKA (340 kcal)",
             "side": "MEYHANE PİLAVI (250 kcal)",
-            "salad": "PİYAZ (185 kcal)",
-            "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
-            "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "DAMLA SAKIZLI MUHALLEBİ (250 kcal)"
+            "salad": "YOĞURT / AYRAN (120-116 kcal)",
+            "yogurt": "MEVSİM SALATA (120 kcal)",
+            "dessert": "ISLAK KEK (154 kcal)"
           },
           {
-            "date": "2026-04-30",
+            "date": "2026-05-28",
             "weekday": "PERŞEMBE",
             "soup": "KESME ÇORBA (180 kcal)",
-            "main": "KENTAKY CHICKEN (315 kcal)",
+            "main": "PİLİÇ NUGGET (315 kcal)",
             "side": "SPAGETTİ PAMADOR (250 kcal)",
-            "salad": "RUS SALATASI (210 kcal)",
-            "yogurt": "YOĞURT / AYRAN (120-116 kcal)",
-            "dessert": "MEVSİM SALATA (120 kcal)",
-            "fruit": "KARAGÖZ TATLISI (250 kcal)"
+            "salad": "YOĞURT / AYRAN (120-116 kcal)",
+            "yogurt": "MEVSİM SALATA (120 kcal)",
+            "dessert": "HAŞHAŞLI REVANİ (196 kcal)"
+          },
+          {
+            "date": "2026-05-29",
+            "weekday": "CUMA",
+            "soup": "MERCİMEK ÇORBASI (185 kcal)",
+            "main": "ET DÖNER+ PATATES KIZARTMA (385 kcal)",
+            "side": "BULGUR PİLAVI (250 kcal)",
+            "salad": "YOĞURT / AYRAN (120-116 kcal)",
+            "yogurt": "MEVSİM SALATA (120 kcal)",
+            "dessert": "ÇİLEKLİ PUDİNG (205 kcal)"
+          },
+          {
+            "date": "2026-05-30",
+            "weekday": "CUMA",
+            "soup": "ARPAŞEHRİYE ÇORBASI (175 kcal)",
+            "main": "MİSKET KÖFTE+ PATATES (345 kcal)",
+            "side": "PENNE ARABİATTA (250 kcal)",
+            "salad": "YOĞURT / AYRAN (120-116 kcal)",
+            "yogurt": "MEVSİM SALATA (120 kcal)",
+            "dessert": "KALBURABASTI (260 kcal)"
+          },
+          {
+            "date": "2026-05-31",
+            "weekday": "PAZAR",
+            "soup": "YAYLA ÇORBASI (170 kcal)",
+            "main": "PİLİÇ DÖNER + PATATES KZIARTMA (310 kcal)",
+            "side": "SOSLU SPAGETTİ (250 kcal)",
+            "salad": "YOĞURT / AYRAN (120-116 kcal)",
+            "yogurt": "MEVSİM SALATA (120 kcal)",
+            "dessert": "KEMALPAŞA TATLISI (250 kcal)"
           }
         ]
       },
       {
         "type": "breakfast",
         "title": "Yaşar Üniversitesi YURT KAHVALTI MENÜSÜ",
-        "periodLabel": "NİSAN Ayı",
+        "periodLabel": "MAYIS Ayı",
         "days": [
           {
-            "date": "2026-04-01",
-            "weekday": "ÇARŞAMBA",
-            "soup": "MİSKET PEYNİR 160 210 (210 kcal)",
-            "main": "KREM PEYNİR (160 kcal)",
-            "side": "SALATALIK (22 kcal)",
-            "salad": "SİYAH ZEYTİN SİYAH ZEYTİN YEŞİL ZEYTİN 45 40 (40 kcal)",
-            "yogurt": "BAL (130 kcal)",
-            "dessert": "TEREYAĞ (75 kcal)",
-            "fruit": "HAŞLANMIŞ YUMURTA HAŞLANMIŞ YUMURTA POĞAÇA 220 150 (150 kcal)"
+            "date": "2026-05-01",
+            "weekday": "CUMA",
+            "soup": "MİSKET PEYNİR (210 kcal)",
+            "main": "KREM PEYNİR (150 kcal)",
+            "side": "DOMATES (22 kcal)",
+            "salad": "SALATALIK (22 kcal)",
+            "yogurt": "SİYAH ZEYTİN (45 kcal)",
+            "dessert": "YEŞİL ZEYTİN (40 kcal)",
+            "fruit": "KAKAOLU FINDIK KREMASI (60 kcal)"
           },
           {
-            "date": "2026-04-02",
-            "weekday": "PERŞEMBE",
+            "date": "2026-05-02",
+            "weekday": "CUMA",
             "soup": "ÇEÇİL PEYNİRİ (210 kcal)",
-            "main": "KREM PEYNİR BEYAZ PEYNİR DOMATES 210 22 (22 kcal)",
-            "side": "SALATALIK (22 kcal)",
-            "salad": "YEŞİL ZEYTİN (40 kcal)",
-            "yogurt": "TAHİN PEKMEZ KAKAOLU FINDIK KREMASI ÇİLEK REÇELİ 55 110 (110 kcal)",
-            "dessert": "TEREYAĞI (75 kcal)",
-            "fruit": "KIYMALI GÜL BÖREĞİ (350 kcal)"
+            "main": "TULUM PEYNİRİ (180 kcal)",
+            "side": "DOMATES (22 kcal)",
+            "salad": "SALATALIK (22 kcal)",
+            "yogurt": "SİYAH ZEYTİN (45 kcal)",
+            "dessert": "YEŞİL ZEYTİN (40 kcal)",
+            "fruit": "ÇİLEK REÇELİ (90 kcal)"
           },
           {
-            "date": "2026-04-03",
-            "weekday": "CUMA",
-            "soup": "KAŞAR PEYNİRİ (150 kcal)",
-            "main": "DOMATES (22 kcal)",
-            "side": "SALATALIK SALATALIK SİYAH ZEYTİN 22 45 (45 kcal)",
-            "salad": "YEŞİL ZEYTİN (40 kcal)",
-            "yogurt": "TAHİN PEKMEZ (50 kcal)",
-            "dessert": "TEREYAĞ TEREYAĞ HAŞLANMIŞ YUMURTA 75 230 (230 kcal)",
-            "fruit": "ZEBRA KEK (280 kcal)"
-          },
-          {
-            "date": "2026-04-04",
-            "weekday": "CUMA",
-            "soup": "ÖRGÜ PEYNİR LABNE PEYNİR KREM PEYNİR 160 150 (150 kcal)",
-            "main": "DOMATES (22 kcal)",
-            "side": "SİYAH ZEYTİN (45 kcal)",
-            "salad": "YEŞİL ZEYTİN YEŞİL ZEYTİN KAKAOLU FINDIK EZMESİ 40 60 (60 kcal)",
-            "yogurt": "KAKAOLU FINDIK KREMASI (70 kcal)",
-            "dessert": "OMLET (280 kcal)",
-            "fruit": "SU BÖREĞİ SİMİT ÇAY (230 kcal)"
-          },
-          {
-            "date": "2026-04-05",
+            "date": "2026-05-03",
             "weekday": "PAZAR",
-            "soup": "TULUM PEYNİRİ (180 kcal)",
-            "main": "DOMATES DOMATES SALATALIK 210 22 (22 kcal)",
-            "side": "SİYAH ZEYTİN (45 kcal)",
-            "salad": "ÇİLEK REÇELİ (90 kcal)",
-            "yogurt": "VİŞNE REÇELİ BAL TEREYAĞ 70 75 (75 kcal)",
-            "dessert": "BAHARATLI YUMURTA (110 kcal)",
-            "fruit": "ÇAY ÇAY ÇAY ÇAY ŞEFTALİ SUYU 100 (100 kcal)"
+            "soup": "KAŞAR PEYNİRİ (150 kcal)",
+            "main": "KREM PEYNİR (160 kcal)",
+            "side": "DOMATES (22 kcal)",
+            "salad": "SALATALIK (22 kcal)",
+            "yogurt": "SİYAH ZEYTİN (45 kcal)",
+            "dessert": "YEŞİL ZEYTİN (40 kcal)",
+            "fruit": "BAL (130 kcal)"
           },
           {
-            "date": "2026-04-06",
+            "date": "2026-05-04",
             "weekday": "PAZAR",
             "soup": "ÜÇGEN PEYNİR (210 kcal)",
-            "main": "LOR PEYNİRİ (200 kcal)",
+            "main": "KAŞAR PEYNİRİ (200 kcal)",
             "side": "DOMATES (22 kcal)",
             "salad": "SALATALIK (22 kcal)",
             "yogurt": "SİYAH ZEYTİN (45 kcal)",
@@ -767,7 +744,7 @@
             "fruit": "TAHİN PEKMEZ (90 kcal)"
           },
           {
-            "date": "2026-04-07",
+            "date": "2026-05-05",
             "weekday": "SALI",
             "soup": "ÇEÇİL PEYNİRİ (150 kcal)",
             "main": "LABNE PEYNİRİ (180 kcal)",
@@ -778,8 +755,8 @@
             "fruit": "KAKAOLU FINDIK EZMESİ (130 kcal)"
           },
           {
-            "date": "2026-04-08",
-            "weekday": "",
+            "date": "2026-05-06",
+            "weekday": "ÇARŞAMBA",
             "soup": "BEYAZ PEYNİR (160 kcal)",
             "main": "ÖRGÜ PEYNİRİ (210 kcal)",
             "side": "DOMATES (210 kcal)",
@@ -789,7 +766,7 @@
             "fruit": "BAL (55 kcal)"
           },
           {
-            "date": "2026-04-09",
+            "date": "2026-05-07",
             "weekday": "PERŞEMBE",
             "soup": "LABNE PEYNİRİ (180 kcal)",
             "main": "KAŞAR PEYNİRİ (200 kcal)",
@@ -800,10 +777,10 @@
             "fruit": "KAKAOLU FINDIK KREMASI (60 kcal)"
           },
           {
-            "date": "2026-04-10",
+            "date": "2026-05-08",
             "weekday": "CUMA",
             "soup": "ÇEÇİL PEYNİRİ (150 kcal)",
-            "main": "ÖRGÜ PEYNİR (210 kcal)",
+            "main": "TULUM PEYNİR (210 kcal)",
             "side": "DOMATES (22 kcal)",
             "salad": "SALATALIK (22 kcal)",
             "yogurt": "SİYAH ZEYTİN (45 kcal)",
@@ -811,10 +788,10 @@
             "fruit": "VİŞNE REÇETELİ (130 kcal)"
           },
           {
-            "date": "2026-04-11",
+            "date": "2026-05-09",
             "weekday": "CUMA",
-            "soup": "LOR PEYNİRİ (200 kcal)",
-            "main": "EZİNE PEYNİR (160 kcal)",
+            "soup": "KAŞARPEYNİRİ (200 kcal)",
+            "main": "BEYAZ PEYNİR (160 kcal)",
             "side": "DOMATES (22 kcal)",
             "salad": "SALATALIK (22 kcal)",
             "yogurt": "SİYAH ZEYTİN (45 kcal)",
@@ -822,7 +799,7 @@
             "fruit": "TAHİN HELVA (90 kcal)"
           },
           {
-            "date": "2026-04-12",
+            "date": "2026-05-10",
             "weekday": "PAZAR",
             "soup": "ÜÇGEN PEYNİR (150 kcal)",
             "main": "TULUM PEYNİRİ (180 kcal)",
@@ -833,7 +810,7 @@
             "fruit": "KAKAOLU FINDIK KREMASI (110 kcal)"
           },
           {
-            "date": "2026-04-13",
+            "date": "2026-05-11",
             "weekday": "PAZAR",
             "soup": "BEYAZ PEYNİR (180 kcal)",
             "main": "ÇEÇİL PEYNİRİ (210 kcal)",
@@ -844,7 +821,7 @@
             "fruit": "VİŞNE REÇELİ (130 kcal)"
           },
           {
-            "date": "2026-04-14",
+            "date": "2026-05-12",
             "weekday": "SALI",
             "soup": "ÖRGÜ PEYNİR (170 kcal)",
             "main": "LABNE PEYNİRİ (200 kcal)",
@@ -852,10 +829,10 @@
             "salad": "SALATALIK (22 kcal)",
             "yogurt": "SİYAH ZEYTİN (45 kcal)",
             "dessert": "YEŞİL ZEYTİN (40 kcal)",
-            "fruit": "ÇİİLEK REÇELİ (90 kcal)"
+            "fruit": "ÇİLEK REÇELİ (90 kcal)"
           },
           {
-            "date": "2026-04-15",
+            "date": "2026-05-13",
             "weekday": "ÇARŞAMBA",
             "soup": "KAŞAR PEYNİR (150 kcal)",
             "main": "ÇEÇİL PEYNİRİ (180 kcal)",
@@ -866,7 +843,7 @@
             "fruit": "TAHİN PEKMEZ (55 kcal)"
           },
           {
-            "date": "2026-04-16",
+            "date": "2026-05-14",
             "weekday": "PERŞEMBE",
             "soup": "TULUM PEYNİR (210 kcal)",
             "main": "LABNE PEYNİRİ (150 kcal)",
@@ -877,7 +854,7 @@
             "fruit": "ÇİLEK REÇELİ (60 kcal)"
           },
           {
-            "date": "2026-04-17",
+            "date": "2026-05-15",
             "weekday": "CUMA",
             "soup": "BEYAZ PEYNİR (200 kcal)",
             "main": "KREM PEYNİR (180 kcal)",
@@ -885,10 +862,10 @@
             "salad": "SALATALIK (22 kcal)",
             "yogurt": "SİYAH ZEYTİN (45 kcal)",
             "dessert": "YEŞİL ZEYTİN (40 kcal)",
-            "fruit": "VİŞNE REÇELİ (130 kcal)"
+            "fruit": "MISIR GEVREĞİ (130 kcal)"
           },
           {
-            "date": "2026-04-18",
+            "date": "2026-05-16",
             "weekday": "CUMA",
             "soup": "TULUM PEYNİRİ (210 kcal)",
             "main": "ÜÇGEN PEYNİR (180 kcal)",
@@ -899,7 +876,7 @@
             "fruit": "ACUKA (90 kcal)"
           },
           {
-            "date": "2026-04-19",
+            "date": "2026-05-17",
             "weekday": "PAZAR",
             "soup": "KAŞAR PEYNİRİ (150 kcal)",
             "main": "LABNE PEYNİR (160 kcal)",
@@ -910,7 +887,7 @@
             "fruit": "TAHİN PEKMEZ (110 kcal)"
           },
           {
-            "date": "2026-04-20",
+            "date": "2026-05-18",
             "weekday": "PAZAR",
             "soup": "ÇEÇİL PEYNİRİ (170 kcal)",
             "main": "ÜÇGEN PEYNİR (180 kcal)",
@@ -921,7 +898,7 @@
             "fruit": "ACUKA (130 kcal)"
           },
           {
-            "date": "2026-04-21",
+            "date": "2026-05-19",
             "weekday": "SALI",
             "soup": "TULUM PEYNİR (150 kcal)",
             "main": "LABNE PEYNİRİ (180 kcal)",
@@ -932,7 +909,7 @@
             "fruit": "ÇİLEK REÇELİ (90 kcal)"
           },
           {
-            "date": "2026-04-22",
+            "date": "2026-05-20",
             "weekday": "ÇARŞAMBA",
             "soup": "BEYAZ PEYNİR (210 kcal)",
             "main": "ÖRGÜ PEYNİRİ (200 kcal)",
@@ -943,7 +920,7 @@
             "fruit": "KAKAOLU FINDIK EZMESİ (55 kcal)"
           },
           {
-            "date": "2026-04-23",
+            "date": "2026-05-21",
             "weekday": "PERŞEMBE",
             "soup": "ÇEÇİL PEYNİRİ (160 kcal)",
             "main": "KREM PEYNİR (180 kcal)",
@@ -954,7 +931,7 @@
             "fruit": "VİŞNE REÇELİ (55 kcal)"
           },
           {
-            "date": "2026-04-24",
+            "date": "2026-05-22",
             "weekday": "CUMA",
             "soup": "LABNE PEYNİRİ (150 kcal)",
             "main": "KAŞAR PEYNİRİ (210 kcal)",
@@ -965,7 +942,7 @@
             "fruit": "BAL (130 kcal)"
           },
           {
-            "date": "2026-04-25",
+            "date": "2026-05-23",
             "weekday": "CUMA",
             "soup": "LOR PEYNİRİ (180 kcal)",
             "main": "TULUM PEYNİR (200 kcal)",
@@ -976,7 +953,7 @@
             "fruit": "ACUKA (90 kcal)"
           },
           {
-            "date": "2026-04-26",
+            "date": "2026-05-24",
             "weekday": "PAZAR",
             "soup": "BEYAZ PEYNİR (150 kcal)",
             "main": "LABNE PEYNİRİ (180 kcal)",
@@ -987,52 +964,85 @@
             "fruit": "VİŞNE REÇELİ (110 kcal)"
           },
           {
-            "date": "2026-04-27",
+            "date": "2026-05-25",
             "weekday": "PAZAR",
             "soup": "KAŞAR PEYNİRİ (210 kcal)",
             "main": "TULUM PEYNİR (200 kcal)",
-            "side": "DOMATES (22 kcal)",
+            "side": "DOMATES DOMATES (22 kcal)",
             "salad": "SALATALIK (22 kcal)",
             "yogurt": "SİYAH ZEYTİN (45 kcal)",
-            "dessert": "YEŞİL ZEYTİN (40 kcal)",
-            "fruit": "KAKAOLU FINDIK EZMESİ (130 kcal)"
+            "dessert": "YEŞİL ZEYTİN 40 (40 kcal)",
+            "fruit": "ÇİLEK REÇELİ (90 kcal)"
           },
           {
-            "date": "2026-04-28",
+            "date": "2026-05-26",
             "weekday": "SALI",
             "soup": "ÇEÇİL PEYNİRİ (150 kcal)",
             "main": "BEYAZ PEYNİR (180 kcal)",
             "side": "DOMATES (22 kcal)",
             "salad": "SALATALIK (22 kcal)",
-            "yogurt": "SİYAH ZEYTİN (45 kcal)",
+            "yogurt": "SİYAH ZEYTİN 45 (45 kcal)",
             "dessert": "YEŞİL ZEYTİN (40 kcal)",
-            "fruit": "ÇİLEK REÇELİ (90 kcal)"
+            "fruit": "BAL (130 kcal)"
           },
           {
-            "date": "2026-04-29",
+            "date": "2026-05-27",
             "weekday": "ÇARŞAMBA",
             "soup": "TULUM PEYNİRİ (160 kcal)",
             "main": "LABNE PEYNİRİ (210 kcal)",
             "side": "DOMATES (22 kcal)",
-            "salad": "SALATALIK (22 kcal)",
+            "salad": "SALATALIK 22 (22 kcal)",
             "yogurt": "SİYAH ZEYTİN (45 kcal)",
             "dessert": "YEŞİL ZEYTİN (40 kcal)",
-            "fruit": "VİŞNE REÇELİ (55 kcal)"
+            "fruit": "BAL BAL (55 kcal)"
           },
           {
-            "date": "2026-04-30",
+            "date": "2026-05-28",
             "weekday": "PERŞEMBE",
             "soup": "ÖRGÜ PEYNİR (180 kcal)",
             "main": "ÜÇGEN PEYNİR (200 kcal)",
-            "side": "DOMATES (22 kcal)",
+            "side": "DOMATES 22 (22 kcal)",
             "salad": "SALATALIK (22 kcal)",
             "yogurt": "SİYAH ZEYTİN (45 kcal)",
-            "dessert": "YEŞİL ZEYTİN (40 kcal)",
-            "fruit": "VİŞNE REÇELİ (55 kcal)"
+            "dessert": "KAKAOLU FINDIK KREMASI KAKAOLU FINDIK EZMESİ (130 kcal)",
+            "fruit": "TAHİN HELVASI (110 kcal)"
+          },
+          {
+            "date": "2026-05-29",
+            "weekday": "CUMA",
+            "soup": "BEYAZ PEYNİR (210 kcal)",
+            "main": "KREM PEYNİR (150 kcal)",
+            "side": "DOMATES (22 kcal)",
+            "salad": "SALATALIK (22 kcal)",
+            "yogurt": "YEŞİL ZEYTİN YEŞİL ZEYTİN (40 kcal)",
+            "dessert": "ÇİLEK REÇELİ (90 kcal)",
+            "fruit": "BAL (70 kcal)"
+          },
+          {
+            "date": "2026-05-30",
+            "weekday": "CUMA",
+            "soup": "ÇEÇİL PEYNİRİ (210 kcal)",
+            "main": "TULUM PEYNİRİ (180 kcal)",
+            "side": "DOMATES (22 kcal)",
+            "salad": "SİYAH ZEYTİN SİYAH ZEYTİN (45 kcal)",
+            "yogurt": "YEŞİL ZEYTİN (40 kcal)",
+            "dessert": "VİŞNE REÇELİ (55 kcal)",
+            "fruit": "KAKAOLU FINDIK KREMASI 110 (110 kcal)"
+          },
+          {
+            "date": "2026-05-31",
+            "weekday": "PAZAR",
+            "soup": "KAŞAR PEYNİRİ (150 kcal)",
+            "main": "ÜÇGEN PEYNİR (160 kcal)",
+            "side": "SALATALIK SALATALIK (22 kcal)",
+            "salad": "SİYAH ZEYTİN (45 kcal)",
+            "yogurt": "YEŞİL ZEYTİN (40 kcal)",
+            "dessert": "VİŞNE REÇELİ 55 (60 kcal)",
+            "fruit": "TAHİN PEKMEZ (50 kcal)"
           }
         ]
       }
     ],
-    "periodLabel": "NİSAN Ayı"
+    "periodLabel": "MAYIS Ayı"
   }
 }

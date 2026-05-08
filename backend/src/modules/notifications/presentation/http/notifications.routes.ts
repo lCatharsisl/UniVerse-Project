@@ -10,6 +10,33 @@ router.use(authenticateSession);
 /** Static paths must be registered before `GET /` so they are not swallowed. */
 router.get('/unread-count', NotificationsController.unreadCount);
 
+router.get('/push/public-key', NotificationsController.pushPublicKey);
+
+router.post(
+  '/push/subscribe',
+  validateRequest(
+    z.object({
+      subscription: z.object({
+        endpoint: z.string().min(1),
+        keys: z.object({
+          p256dh: z.string().min(1),
+          auth: z.string().min(1),
+        }),
+        expirationTime: z.union([z.number(), z.null()]).optional(),
+      }),
+    })
+  ),
+  NotificationsController.pushSubscribe
+);
+
+router.delete(
+  '/push/subscribe',
+  validateRequest(z.object({ endpoint: z.string().min(1) })),
+  NotificationsController.pushUnsubscribe
+);
+
+router.delete('/push/subscriptions', NotificationsController.pushUnsubscribeAll);
+
 router.get('/preferences', NotificationsController.getPreferences);
 
 router.put(

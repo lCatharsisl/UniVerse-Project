@@ -11,6 +11,7 @@ import { ResolveItemHandler } from '../../application/commands/resolve-item.hand
 import { AddCommentHandler } from '../../application/commands/add-comment.handler';
 import { GetCommentsHandler } from '../../application/queries/get-comments.handler';
 import { GetItemImagesHandler } from '../../application/queries/get-item-images.handler';
+import { storePublicUpload } from '../../../../integrations/mediaObjectStorage';
 import { AuthenticatedRequest } from '../../../../middleware/auth';
 
 export class ServicesController {
@@ -28,20 +29,50 @@ export class ServicesController {
 
   static async createLostItem(req: AuthenticatedRequest, res: Response) {
     const userId = req.userId!;
-    const files = (req.files as Express.Multer.File[]) || [];
-    const imageUrls = files.map(file => `/uploads/${file.filename}`);
-    const result = await AddLostItemHandler.execute(userId, req.body, imageUrls);
-    if (!result.success) return res.status(400).json({ error: result.error });
-    return res.status(201).json({ message: 'Lost item created', item: result.data });
+    try {
+      const files = (req.files as Express.Multer.File[]) || [];
+      const imageUrls = await Promise.all(
+        files.map(async (file) => {
+          if (!file.buffer) throw new Error('Image upload corrupted');
+          return storePublicUpload({
+            pathPrefix: `lost-found/lost/${userId}`,
+            buffer: file.buffer,
+            originalFilename: file.originalname || 'image.jpg',
+            contentType: file.mimetype || 'image/jpeg',
+          });
+        })
+      );
+      const result = await AddLostItemHandler.execute(userId, req.body, imageUrls);
+      if (!result.success) return res.status(400).json({ error: result.error });
+      return res.status(201).json({ message: 'Lost item created', item: result.data });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Kayıplı eşya yüklemesi başarısız';
+      return res.status(400).json({ error: message });
+    }
   }
 
   static async createFoundItem(req: AuthenticatedRequest, res: Response) {
     const userId = req.userId!;
-    const files = (req.files as Express.Multer.File[]) || [];
-    const imageUrls = files.map(file => `/uploads/${file.filename}`);
-    const result = await AddFoundItemHandler.execute(userId, req.body, imageUrls);
-    if (!result.success) return res.status(400).json({ error: result.error });
-    return res.status(201).json({ message: 'Found item created', item: result.data });
+    try {
+      const files = (req.files as Express.Multer.File[]) || [];
+      const imageUrls = await Promise.all(
+        files.map(async (file) => {
+          if (!file.buffer) throw new Error('Image upload corrupted');
+          return storePublicUpload({
+            pathPrefix: `lost-found/found/${userId}`,
+            buffer: file.buffer,
+            originalFilename: file.originalname || 'image.jpg',
+            contentType: file.mimetype || 'image/jpeg',
+          });
+        })
+      );
+      const result = await AddFoundItemHandler.execute(userId, req.body, imageUrls);
+      if (!result.success) return res.status(400).json({ error: result.error });
+      return res.status(201).json({ message: 'Found item created', item: result.data });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Bulunan eşya yüklemesi başarısız';
+      return res.status(400).json({ error: message });
+    }
   }
 
   static async updateLostItem(req: AuthenticatedRequest, res: Response) {
@@ -62,16 +93,18 @@ export class ServicesController {
 
   static async deleteLostItem(req: AuthenticatedRequest, res: Response) {
     const userId = req.userId!;
+    const userRole = req.userRole;
     const { id } = req.params;
-    const result = await DeleteLostItemHandler.execute(parseInt(id), userId);
+    const result = await DeleteLostItemHandler.execute(parseInt(id), userId, userRole);
     if (!result.success) return res.status(400).json({ error: result.error });
     return res.json({ message: 'Lost item deleted successfully' });
   }
 
   static async deleteFoundItem(req: AuthenticatedRequest, res: Response) {
     const userId = req.userId!;
+    const userRole = req.userRole;
     const { id } = req.params;
-    const result = await DeleteFoundItemHandler.execute(parseInt(id), userId);
+    const result = await DeleteFoundItemHandler.execute(parseInt(id), userId, userRole);
     if (!result.success) return res.status(400).json({ error: result.error });
     return res.json({ message: 'Found item deleted successfully' });
   }

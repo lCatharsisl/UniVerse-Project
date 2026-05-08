@@ -1,3 +1,4 @@
+import { normalizeStoredMediaUrl } from '../../../integrations/normalizeStoredMediaUrl';
 import { query, queryOne } from '../../../config/db';
 import { AppError } from '../../../shared/core/errors';
 
@@ -55,7 +56,13 @@ export class ModerationService {
        LIMIT ${filterByType ? '$3' : '$2'}`,
       filterByType ? [REPORT_THRESHOLD, reportType, limit] : [REPORT_THRESHOLD, limit]
     );
-    return rows;
+    return rows.map((r) => ({
+      ...r,
+      image_url:
+        r.image_url == null || String(r.image_url).trim() === ''
+          ? r.image_url
+          : normalizeStoredMediaUrl(r.image_url),
+    }));
   }
 
   static async getReportedUsers(limit = 50, reportType?: string | null): Promise<any[]> {

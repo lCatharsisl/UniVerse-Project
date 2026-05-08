@@ -88,7 +88,10 @@ function extractFoodTokens(chunk: string): string[] {
     tokens.push(name + calorie);
   }
   const trailerMatch = cleaned.match(
-    /(?:^|[^\d])(MEVSİM MEYVESİ\s*\([^)]+\))\s*(?=\d{1,2}\s+MART|\d{1,2}[.]\d{1,2}[.\s]\d{4}|$)/i
+    new RegExp(
+      `(?:^|[^\\d])(MEVSİM MEYVESİ\\s*\\([^)]+\\))\\s*(?=\\d{1,2}\\s+(?:${MONTHS.join('|')})|\\d{1,2}[.]\\d{1,2}[.\\s]\\d{4}|$)`,
+      'i'
+    )
   );
   if (trailerMatch && !tokens.some((t) => /MEVSİM MEYVESİ/i.test(t))) {
     tokens.push(trailerMatch[1].replace(/\s+/g, ' ').trim());
@@ -103,6 +106,11 @@ export function parseMenuText(raw: string): ParsedMenu {
   const sections: MenuSection[] = [];
 
   let text = raw.replace(/\s+/g, ' ').trim();
+  /**
+   * 2026 PDF’lerde tarihler "1 Mayıs 2026 Cuma" biçiminde; ay adı Türkçe i/ı ile geliyor.
+   * JS’te /MAYIS/i "Mayıs" ile eşleşmez. Tüm metni tr-TR büyük harfe çevirip mevcut regex’leri koruyoruz.
+   */
+  text = text.toLocaleUpperCase('tr-TR');
 
   /**
    * PDF bazen "YAŞAR ÜNİVERSİTESi" (küçük i) yazıyor; Türkçe \w da sorunlu.

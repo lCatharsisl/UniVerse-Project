@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, useNavigate } from 'react-router-dom';
@@ -10,13 +11,13 @@ import {
   FiBox, 
   FiMap, 
   FiUser, 
-  FiPlus,
   FiLogOut,
   FiAlertTriangle,
   FiSettings,
   FiCalendar,
   FiBriefcase,
-  FiCompass
+  FiCompass,
+  FiGlobe,
 } from 'react-icons/fi';
 import { useAuth, isAcademic } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -25,17 +26,23 @@ import { useMessagingUnread } from '../context/MessagingUnreadContext';
 import { NavIconBadge } from './NavIconBadge';
 import { getAuthUserAvatarUrl, getAuthUserInitials } from '../utils/authUserDisplay';
 
-interface SidebarProps {
-  onPostClick: () => void;
+function readProfileName(profile: Record<string, unknown> | undefined, key: 'student_name' | 'staff_name') {
+  const value = profile?.[key];
+  return typeof value === 'string' && value.trim() ? value : null;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
+const Sidebar: React.FC = () => {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
   const { unreadCount } = useNotifications();
   const { messagesUnreadCount } = useMessagingUnread();
   const { dimension } = useTheme();
   const isSpace = dimension === 'space';
+  const sidebarDisplayName =
+    readProfileName(user?.profile, 'student_name') ||
+    readProfileName(user?.profile, 'staff_name') ||
+    user?.email?.split('@')[0] ||
+    'User';
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -55,11 +62,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
     { icon: <FiHome />, label: t('sidebar.hub'), path: '/feed' },
     { icon: <FiSearch />, label: t('bottomNav.search'), path: '/search' },
     { icon: <FiBox />, label: t('sidebar.lostFound'), path: '/lost-found' },
-    { icon: <FiSearch />, label: t('sidebar.discover'), path: '/discover' },
+    { icon: <FiGlobe />, label: t('sidebar.discover'), path: '/discover' },
     { icon: <FiCompass />, label: t('sidebar.communityFair'), path: '/explore' },
     {
       icon: (
-        <span className="relative inline-flex items-center justify-center min-w-[1.75rem] overflow-visible py-0.5 pr-1">
+        <span className="relative inline-flex items-center justify-center min-w-[2rem] overflow-visible py-0.5 pr-1">
           <FiBell />
           <NavIconBadge count={unreadCount} tone="alerts" />
         </span>
@@ -69,7 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
     },
     {
       icon: (
-        <span className="relative inline-flex items-center justify-center min-w-[1.75rem] overflow-visible py-0.5 pr-1">
+        <span className="relative inline-flex items-center justify-center min-w-[2rem] overflow-visible py-0.5 pr-1">
           <FiMessageSquare />
           <NavIconBadge count={messagesUnreadCount} tone="messages" />
         </span>
@@ -90,23 +97,23 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
   const sidebarInitials = getAuthUserInitials(user);
 
   return (
-    <div className="flex flex-col h-screen h-svh sticky top-0 p-4">
+    <div className="flex h-screen h-svh sticky top-0 flex-col py-3 pl-2 pr-4 xl:py-2.5 xl:pl-3.5 xl:pr-4">
       {/* Brand Logo */}
       <div 
-        className="mb-6 flex items-center gap-3 cursor-pointer group shrink-0"
+        className="mb-3 flex items-center gap-3.5 cursor-pointer group shrink-0 xl:mb-2.5"
         onClick={() => navigate('/feed')}
       >
-        <div className="w-14 h-14 flex items-center justify-center group-hover:scale-105 transition-transform overflow-hidden p-1 shrink-0">
+        <div className="w-14 h-14 2xl:w-16 2xl:h-16 flex items-center justify-center group-hover:scale-105 transition-transform overflow-hidden p-1 shrink-0">
           <img src="/logo.svg" alt="UniVerse Logo" className="w-full h-full object-contain" />
         </div>
-        <div className="hidden xl:block">
-          <h1 className={`text-2xl font-black tracking-tighter leading-none mb-1 ${isSpace ? 'text-white' : 'text-uv-black'}`}>UniVerse</h1>
-          <p className="text-[11px] font-bold text-primary uppercase tracking-widest leading-none">{t('sidebar.yourCampusDigital')}</p>
+        <div className="hidden xl:block min-w-0">
+          <h1 className={`text-2xl font-black tracking-tighter leading-none mb-1 2xl:text-[1.65rem] ${isSpace ? 'text-white' : 'text-uv-black'}`}>UniVerse</h1>
+          <p className="text-xs font-bold text-primary uppercase tracking-widest leading-tight">{t('sidebar.yourCampusDigital')}</p>
         </div>
       </div>
 
       {/* Nav Menu */}
-      <nav className="flex flex-col gap-1 mb-6 flex-1 overflow-y-auto min-h-0 pr-2 md:pr-3">
+      <nav className="flex flex-col gap-1 mb-3 flex-1 min-h-0 justify-start pr-2 md:pr-3 xl:mb-2.5">
         {menuItems.map((item) => (
           <NavLink
             key={item.label}
@@ -119,43 +126,34 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
               return `sidebar-link shrink-0 ${active ? active : inactiveStyle}`;
             }}
           >
-            <span className="text-xl xl:text-2xl">{item.icon}</span>
-            <span className="hidden xl:inline font-bold text-sm xl:text-base">{item.label}</span>
+            <span className="inline-flex shrink-0 text-[1.35rem] leading-none xl:text-[1.45rem] 2xl:text-[1.6rem]">{item.icon}</span>
+            <span className="hidden xl:inline font-bold text-base leading-snug">{item.label}</span>
           </NavLink>
         ))}
       </nav>
-
-      {/* Action Button */}
-      <button 
-        onClick={onPostClick}
-        className="uv-button mb-6 flex items-center justify-center gap-2 shrink-0"
-      >
-        <FiPlus size={24} />
-        <span className="hidden xl:inline">{t('sidebar.broadcast')}</span>
-      </button>
 
       {/* User Card */}
       <div className="mt-auto relative" ref={menuRef}>
         <div 
           onClick={() => setShowUserMenu(!showUserMenu)}
-          className={`flex items-center gap-3 p-3 rounded-tl-2xl rounded-br-2xl border transition-all cursor-pointer group overflow-hidden ${
+          className={`flex items-center gap-3.5 p-3 rounded-tl-2xl rounded-br-2xl border transition-all cursor-pointer group overflow-hidden ${
             showUserMenu
               ? isSpace ? 'bg-white/10 border-white/20 shadow-sm' : 'bg-gray-100 border-uv-border shadow-sm'
               : isSpace ? 'hover:bg-white/10 border-transparent hover:border-white/20' : 'hover:bg-gray-50 border-transparent hover:border-uv-border'
           }`}
         >
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shrink-0 border overflow-hidden ${isSpace ? 'bg-primary/20 text-primary border-primary/30' : 'bg-primary/10 text-primary border-primary/20'}`}>
+          <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold shrink-0 border overflow-hidden ${isSpace ? 'bg-primary/20 text-primary border-primary/30' : 'bg-primary/10 text-primary border-primary/20'}`}>
             {sidebarAvatarUrl ? (
               <img src={sidebarAvatarUrl} alt="" className="w-full h-full object-cover" />
             ) : (
-              <span className="text-xs">{sidebarInitials}</span>
+              <span className="text-sm">{sidebarInitials}</span>
             )}
           </div>
           <div className="hidden xl:flex flex-col flex-1 min-w-0">
-            <span className={`font-black text-sm truncate leading-tight ${isSpace ? 'text-white' : 'text-uv-black'}`}>
-                {user?.profile?.student_name || user?.profile?.staff_name || user?.email.split('@')[0]}
+            <span className={`font-black text-base truncate leading-tight ${isSpace ? 'text-white' : 'text-uv-black'}`}>
+                {sidebarDisplayName}
             </span>
-            <span className={`text-[10px] font-bold uppercase tracking-tight ${isSpace ? 'text-[#e1e1e6]/80' : 'text-uv-gray'}`}>
+            <span className={`text-[11px] font-bold uppercase tracking-tight ${isSpace ? 'text-[#e1e1e6]/80' : 'text-uv-gray'}`}>
                 {user?.role}
             </span>
           </div>
@@ -175,7 +173,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onPostClick }) => {
                     <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isSpace ? 'text-[#e1e1e6]/60' : 'text-uv-gray'}`}>{t('sidebar.account')}</p>
                     <p className={`text-xs font-bold truncate ${isSpace ? 'text-white' : 'text-uv-black'}`}>{user?.email}</p>
                 </div>
-                <button 
+                <button
+                    type="button"
                     onClick={() => {
                       setShowUserMenu(false);
                       logout();

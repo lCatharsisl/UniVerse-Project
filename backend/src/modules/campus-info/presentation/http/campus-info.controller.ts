@@ -15,7 +15,19 @@ export class CampusInfoController {
     try {
       let data = MenuService.getTodaysMenu();
       if (!data) {
-        await MenuService.fetchAndParseMenu();
+        try {
+          await MenuService.fetchAndParseMenu();
+        } catch {
+          /* ağ/403 */
+        }
+        data = MenuService.getTodaysMenu();
+      }
+      if (!data && MenuService.getFullMenu()) {
+        try {
+          await MenuService.fetchAndParseMenu(true);
+        } catch {
+          /* yine dene */
+        }
         data = MenuService.getTodaysMenu();
       }
       if (!data) return res.status(404).json({ error: 'Menu not available' });
@@ -35,6 +47,14 @@ export class CampusInfoController {
           await MenuService.fetchAndParseMenu();
         } catch {
           // boş
+        }
+        cache = MenuService.getFullMenu();
+      }
+      if (cache && MenuService.shouldRefreshMenuForCoverage()) {
+        try {
+          await MenuService.fetchAndParseMenu(true);
+        } catch {
+          // mevcut cache ile devam
         }
         cache = MenuService.getFullMenu();
       }
@@ -71,14 +91,18 @@ export class CampusInfoController {
     try {
       let data = MenuService.getMenuByDate(date);
       /**
-       * Önce: sadece cache boşsa fetch ediliyordu → eski ayın cache’i varken yeni aya ait gün
-       * sorgulandığında 404. Tarih bulunamayınca her zaman PDF’i taze çekmeyi dene.
+       * Placeholder dönüşü de truthy olduğu için eskiden PDF hiç yenilenmiyordu.
+       * Tarih cache’te yoksa veya placeholder ise zorunlu tazele ve tekrar oku.
        */
-      if (!data) {
+      if (!data || data.isPlaceholder) {
         try {
-          await MenuService.fetchAndParseMenu();
+          await MenuService.fetchAndParseMenu(true);
         } catch {
-          // Ağ/403: eski cache ile tekrar dene
+          try {
+            await MenuService.fetchAndParseMenu();
+          } catch {
+            // ağ/403: eski cache ile tekrar dene
+          }
         }
         data = MenuService.getMenuByDate(date);
       }

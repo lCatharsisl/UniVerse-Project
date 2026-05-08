@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../api/client';
@@ -91,17 +92,18 @@ const CreateItem = () => {
             images.forEach((img) => data.append('images', img));
 
             if (isEditing) {
-                // For editing, we might need a specific PATCH endpoint. 
-                // Assuming services support patch/put.
                 const endpoint = type === 'lost' ? `/services/lost-items/${editId}` : `/services/found-items/${editId}`;
-                await api.patch(endpoint, data, {
-                    headers: { 'Content-Type': 'multipart/form-data' },
+                // Backend: PUT (multer yok — yalnızca metin alanları; görseller yeni kayıtta)
+                await api.put(endpoint, {
+                    lostItemName: type === 'lost' ? formData.itemName : undefined,
+                    foundItemName: type === 'found' ? formData.itemName : undefined,
+                    location: formData.location,
+                    description: formData.description,
                 });
             } else {
                 const endpoint = type === 'lost' ? '/services/lost-items' : '/services/found-items';
-                await api.post(endpoint, data, {
-                    headers: { 'Content-Type': 'multipart/form-data' },
-                });
+                // FormData: Content-Type’a dokunma — boundary eksik başlığı sunucuya bozuk gövde yollar (Multer → 500)
+                await api.post(endpoint, data);
             }
 
             navigate('/lost-found');

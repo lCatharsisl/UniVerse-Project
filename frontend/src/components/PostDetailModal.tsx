@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX, FiHeart, FiRepeat, FiMessageCircle, FiSend, FiUsers } from 'react-icons/fi';
